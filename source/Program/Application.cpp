@@ -5,6 +5,26 @@ using namespace Program;
 Application::Application(const std::vector<std::string_view>&)
     : mWindow(CreateWindow())
 {
+    auto devices = mRenderingInstance.QueryPhysicalDevices();
+
+    Rendering::Resources::PhysicalDevice* selectedDevice = nullptr;
+
+    for (auto& device : devices)
+    {
+        if (device.Type == Rendering::Resources::PhysicalDeviceType::Discrete)
+        {
+            selectedDevice = &device;
+
+            break;
+        }
+    }
+
+    if (selectedDevice == nullptr)
+    {
+        throw std::runtime_error("failed to select device");
+    }
+
+    mRenderingInstance.SelectPhysicalDevice(*selectedDevice);
 }
 
 Application::~Application()
