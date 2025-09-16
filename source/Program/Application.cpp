@@ -14,8 +14,10 @@ Application::Application(const std::vector<std::string_view>&)
         if (device.Type == Rendering::Resources::PhysicalDeviceType::Discrete)
         {
             selectedDevice = &device;
-
-            break;
+        }
+        else if (device.Type == Rendering::Resources::PhysicalDeviceType::Integrated && !selectedDevice)
+        {
+            selectedDevice = &device;
         }
     }
 

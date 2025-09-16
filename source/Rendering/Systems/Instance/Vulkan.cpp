@@ -1,4 +1,4 @@
-#if !defined(PLATFORM_APPLE) && !defined(PLATFORM_WINDOWS) && defined(PLATFORM_UNIX)
+#if !defined(PLATFORM_APPLE) && (defined(PLATFORM_WINDOWS) || defined(PLATFORM_UNIX))
 
 #include <Rendering/Systems/Instance.hpp>
 #include <Windowing/Systems/Window.hpp>
@@ -146,12 +146,19 @@ std::vector<PhysicalDevice> Instance::QueryPhysicalDevices() const
 
 void Instance::SelectPhysicalDevice(PhysicalDevice& device)
 {
-    if (device.Index >= mBackend->Devices.size())
+    if (mBackend->SelectedDevice != nullptr)
+    {
+        throw std::runtime_error("Rendering::Systems::Instance:\nPhysical device already selected");
+    }
+    else if (device.Index >= mBackend->Devices.size())
     {
         throw std::runtime_error("Rendering::Systems::Instance:\nDesignated physical device does not exist");
     }
 
     mBackend->SelectedDevice = &mBackend->Devices[device.Index];
+
+    mBackend->Devices.clear();
+    mBackend->Devices.shrink_to_fit();
 }
 
 #endif
