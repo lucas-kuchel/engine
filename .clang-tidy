@@ -1,0 +1,15 @@
+Checks: >
+  clang-analyzer-*, 
+  bugprone-*, 
+  performance-*, 
+  readability-*,
+  modernize-*,
+  cppcoreguidelines-*,
+  -clang-analyzer-optin.cplusplus.VirtualCall
+
+WarningsAsErrors: ''
+HeaderFilterRegex: '.*'
+FormatStyle: file
+
+Checks: >
+  -cppcoreguidelines-avoid-const-||-ref-data-members
