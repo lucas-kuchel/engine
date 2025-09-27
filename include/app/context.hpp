@@ -16,7 +16,7 @@ namespace app {
     class Context {
     public:
         Context();
-        ~Context() = default;
+        ~Context();
 
         Context(const Context&) = delete;
         Context(Context&&) noexcept = default;
@@ -41,21 +41,15 @@ namespace app {
         // @throws std::runtime_error if the context is invalid
         ContextBackend queryBackend() const;
 
+        // @brief Enumerates all extensions required for a Vulkan instance
+        // @param Pointer to extension count
+        // @return C-style array of extension names
+        // @throws std::runtime_error if the context is invalid
+        const char** enumerateRequiredInstanceExtensions(std::uint32_t* count);
+
     private:
-        class Implementation {
-        public:
-            Implementation() = default;
-            virtual ~Implementation() = default;
-
-            virtual void pollEvents() = 0;
-            virtual void awaitEvents() = 0;
-            virtual void awaitEventsTimeout(double timeout) = 0;
-
-            virtual ContextBackend queryBackend() const = 0;
-        };
+        class Implementation;
 
         std::unique_ptr<Implementation> implementation_;
-
-        friend class GLFWContextImplementation;
     };
 }
