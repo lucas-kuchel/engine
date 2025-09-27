@@ -8,4 +8,11 @@ namespace data {
         std::uint32_t width;
         std::uint32_t height;
     };
+
+    // @brief Represents a 3-dimensional area
+    struct Extent3D {
+        std::uint32_t width;
+        std::uint32_t height;
+        std::uint32_t depth;
+    };
 }

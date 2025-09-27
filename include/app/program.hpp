@@ -3,6 +3,12 @@
 #include <app/context.hpp>
 #include <app/window.hpp>
 
+#include <renderer/device.hpp>
+#include <renderer/instance.hpp>
+#include <renderer/queue.hpp>
+#include <renderer/surface.hpp>
+#include <renderer/swapchain.hpp>
+
 namespace app {
     // @brief Represents the whole program
     // @note Not safe to move or copy
@@ -33,6 +39,14 @@ namespace app {
     private:
         Context context_;
         Window window_;
+
+        renderer::Instance instance_;
+        renderer::Surface surface_;
+        renderer::Device device_;
+        renderer::Swapchain swapchain_;
+
+        renderer::Queue renderQueue_;
+        renderer::Queue presentQueue_;
 
         bool running_ = true;
     };

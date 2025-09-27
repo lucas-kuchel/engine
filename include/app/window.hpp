@@ -7,6 +7,8 @@
 #include <queue>
 #include <string>
 
+struct GLFWwindow;
+
 namespace app {
     // @brief Visibility state of a window
     enum class WindowVisibility {
@@ -250,15 +252,37 @@ namespace app {
         // @throws std::runtime_error if the window is in an invalid state
         [[nodiscard]] std::queue<WindowEvent>& queryEvents();
 
+        // @brief Gets the window's agnostic handle (GLFWwindow*)
+        // @return The agnostic handle of the window
+        // @throws std::runtime_error if the window is in an invalid state
+        [[nodiscard]] GLFWwindow*& getAgnosticHandle();
+
         // @brief Gets the window's native platform handle
         // @return The native handle of the window for the current platform
         // @note Gives HWND* on Windows, NSWindow* on macOS and either a Window* or wl_surface* on Linux
         // @throws std::runtime_error if the window is in an invalid state
-        void* getNativeHandle();
+        [[nodiscard]] void* getNativeHandle();
 
     private:
-        class Implementation;
+        data::Extent2D extent_;
 
-        std::unique_ptr<Implementation> implementation_;
+        std::string title_;
+        std::queue<WindowEvent> events_;
+
+        WindowVisibility visibility_;
+
+        GLFWwindow* handle_ = nullptr;
+
+        static void resizeCallback(GLFWwindow* window, int width, int height);
+        static void closeCallback(GLFWwindow* window);
+        static void focusCallback(GLFWwindow* window, int focused);
+        static void iconifyCallback(GLFWwindow* window, int iconified);
+        static void keyCallback(GLFWwindow* window, int key, int, int action, int);
+        static void mouseButtonCallback(GLFWwindow* window, int button, int action, int);
+        static void mousePositionCallback(GLFWwindow* window, double x, double y);
+        static void mouseScrollCallback(GLFWwindow* window, double x, double y);
+
+        [[nodiscard]] static Key mapKey(int key);
+        [[nodiscard]] static MouseButton mapMouseButton(int button);
     };
 }
