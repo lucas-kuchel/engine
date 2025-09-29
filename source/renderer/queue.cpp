@@ -2,80 +2,66 @@
 #include <renderer/queue.hpp>
 #include <renderer/surface.hpp>
 
+#include <renderer/commands/buffer.hpp>
+#include <renderer/commands/sync.hpp>
+
 #include <stdexcept>
 
 namespace renderer {
-    Queue::Queue() {
-    }
-
     Queue::~Queue() {
     }
 
-    void Queue::create(const QueueCreateInfo& createInfo) {
-        auto& instanceData = createInfo.instance.getData();
-        auto& surfaceData = createInfo.surface.getData();
-
-        VkQueueFlagBits queueTypeNeeded = VK_QUEUE_FLAG_BITS_MAX_ENUM;
-        bool isPresentType = false;
-
-        switch (createInfo.type) {
-            case QueueType::COMPUTE:
-                queueTypeNeeded = VK_QUEUE_COMPUTE_BIT;
-                break;
-
-            case QueueType::RENDER:
-                queueTypeNeeded = VK_QUEUE_GRAPHICS_BIT;
-                break;
-
-            case QueueType::TRANSFER:
-                queueTypeNeeded = VK_QUEUE_TRANSFER_BIT;
-                break;
-
-            case QueueType::PRESENT:
-                isPresentType = true;
-                break;
+    void Queue::submit(const std::vector<data::Reference<CommandBuffer>>& commandBuffers, const std::vector<data::Reference<Semaphore>>& available, const std::vector<data::Reference<Semaphore>>& finished, Fence& inFlight) {
+        if (commandBuffers.size() != available.size() || commandBuffers.size() != finished.size()) {
+            throw std::runtime_error("Error calling renderer::Queue::submit(): Mismatch between command buffer count and sync object count");
         }
 
-        for (std::uint32_t i = 0; i < instanceData.queueFamilyProperties.size(); i++) {
-            const auto& family = instanceData.queueFamilyProperties[i];
+        std::vector<VkCommandBuffer> buffers(commandBuffers.size());
+        std::vector<VkSemaphore> waits(available.size());
+        std::vector<VkSemaphore> signals(finished.size());
+        std::vector<VkPipelineStageFlags> flags(commandBuffers.size());
 
-            if (isPresentType) {
-                VkBool32 presentSupported = VK_FALSE;
-                vkGetPhysicalDeviceSurfaceSupportKHR(instanceData.physicalDevice, i, surfaceData.surface, &presentSupported);
-
-                if (presentSupported) {
-                    data_.familyIndex = i;
-
-                    if (instanceData.queueFamilyOccupations[i] == family.queueCount) {
-                        instanceData.queueFamilyOccupations[i] = 0;
-                    }
-
-                    data_.queueIndex = instanceData.queueFamilyOccupations[i];
-                    instanceData.queueFamilyOccupations[i]++;
-
-                    break;
-                }
-            }
-            else if (family.queueFlags & queueTypeNeeded) {
-                data_.familyIndex = i;
-
-                if (instanceData.queueFamilyOccupations[i] == family.queueCount) {
-                    instanceData.queueFamilyOccupations[i] = 0;
-                }
-
-                data_.queueIndex = instanceData.queueFamilyOccupations[i];
-                instanceData.queueFamilyOccupations[i]++;
-
-                break;
-            }
+        for (std::size_t i = 0; i < commandBuffers.size(); i++) {
+            buffers[i] = commandBuffers[i]->getVkCommandBuffer();
+            waits[i] = available[i]->getVkSemaphore();
+            signals[i] = finished[i]->getVkSemaphore();
+            flags[i] = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
         }
 
-        if (data_.familyIndex == std::numeric_limits<std::uint32_t>::max()) {
-            throw std::runtime_error("Error calling renderer::Queue::create(): Failed to find queue family for requested queue");
+        VkSubmitInfo submitInfo = {
+            .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+            .pNext = nullptr,
+            .waitSemaphoreCount = static_cast<std::uint32_t>(waits.size()),
+            .pWaitSemaphores = waits.data(),
+            .pWaitDstStageMask = flags.data(),
+            .commandBufferCount = static_cast<std::uint32_t>(buffers.size()),
+            .pCommandBuffers = buffers.data(),
+            .signalSemaphoreCount = static_cast<std::uint32_t>(signals.size()),
+            .pSignalSemaphores = signals.data(),
+        };
+
+        if (vkQueueSubmit(queue_, commandBuffers.size(), &submitInfo, inFlight.getVkFence()) != VK_SUCCESS) {
+            throw std::runtime_error("Error calling renderer::Queue::submit(): Failed to submit command buffers to queue");
         }
     }
 
-    QueueData& Queue::getData() {
-        return data_;
+    QueueType Queue::getType() const {
+        return type_;
+    }
+
+    VkQueue& Queue::getVkQueue() {
+        return queue_;
+    }
+
+    const VkQueue& Queue::getVkQueue() const {
+        return queue_;
+    }
+
+    std::uint32_t Queue::getVkFamilyIndex() const {
+        return familyIndex_;
+    }
+
+    std::uint32_t Queue::getVkQueueIndex() const {
+        return queueIndex_;
     }
 }

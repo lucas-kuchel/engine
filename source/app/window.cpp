@@ -17,25 +17,8 @@
 #include <GLFW/glfw3native.h>
 
 namespace app {
-    Window::Window() = default;
-
-    Window::~Window() {
-        if (handle_) {
-            glfwDestroyWindow(handle_);
-
-            handle_ = nullptr;
-        }
-    }
-
-    void Window::create(const WindowCreateInfo& createInfo) {
-        if (handle_) {
-            throw std::runtime_error("Illegal call to app::Window::create(): Window already valid");
-        }
-
-        extent_ = createInfo.extent;
-        visibility_ = createInfo.visibility;
-        title_ = createInfo.title;
-
+    Window::Window(const WindowCreateInfo& createInfo)
+        : extent_(createInfo.extent), title_(createInfo.title), visibility_(createInfo.visibility) {
         glfwWindowHint(GLFW_RESIZABLE, createInfo.resizable);
 
         handle_ = glfwCreateWindow(extent_.width, extent_.height, title_.c_str(), nullptr, nullptr);
@@ -79,7 +62,15 @@ namespace app {
         glfwSetScrollCallback(handle_, mouseScrollCallback);
     }
 
-    void Window::setExtent(const data::Extent2D& extent) {
+    Window::~Window() {
+        if (handle_) {
+            glfwDestroyWindow(handle_);
+
+            handle_ = nullptr;
+        }
+    }
+
+    void Window::setExtent(const data::Extent2D<std::uint32_t>& extent) {
         if (!handle_) {
             throw std::runtime_error("Illegal call to app::Window::setExtent(): Window is invalid");
         }
@@ -134,7 +125,7 @@ namespace app {
         }
     }
 
-    const data::Extent2D& Window::getExtent() const {
+    const data::Extent2D<std::uint32_t>& Window::getExtent() const {
         if (!handle_) {
             throw std::runtime_error("Illegal call to app::Window::getExtent(): Window is invalid");
         }

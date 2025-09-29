@@ -3,7 +3,7 @@
 #include <data/extent.hpp>
 #include <data/position.hpp>
 
-#include <memory>
+#include <cstdint>
 #include <queue>
 #include <string>
 
@@ -23,7 +23,7 @@ namespace app {
     struct WindowCreateInfo {
         Context& context;
 
-        data::Extent2D extent;
+        data::Extent2D<std::uint32_t> extent;
 
         std::string title;
 
@@ -156,7 +156,7 @@ namespace app {
     };
 
     struct WindowResizeEventInfo {
-        data::Extent2D extent;
+        data::Extent2D<std::uint32_t> extent;
     };
 
     struct WindowKeyPressedEventInfo {
@@ -176,11 +176,11 @@ namespace app {
     };
 
     struct WindowMouseScrolledEventInfo {
-        data::Position2D offset;
+        data::Position2D<double> offset;
     };
 
     struct WindowMouseMovedEventInfo {
-        data::Position2D position;
+        data::Position2D<double> position;
     };
 
     using WindowEventInfo = std::variant<
@@ -203,7 +203,7 @@ namespace app {
     // @note Not safe to copy
     class Window {
     public:
-        Window();
+        Window(const WindowCreateInfo& createInfo);
         ~Window();
 
         Window(const Window&) = delete;
@@ -212,59 +212,45 @@ namespace app {
         Window& operator=(const Window&) = delete;
         Window& operator=(Window&&) noexcept = default;
 
-        // @brief Creates the window
-        // @param The window create info
-        // @throws std::runtime_error if window creation fails
-        void create(const WindowCreateInfo& createInfo);
-
         // @brief Sets the window's extent
         // @param The requested window extent
-        // @throws std::runtime_error if the window is in an invalid state
-        void setExtent(const data::Extent2D& extent);
+        void setExtent(const data::Extent2D<std::uint32_t>& extent);
 
         // @brief Sets the window's title
         // @param The requested title
-        // @throws std::runtime_error if the window is in an invalid state
         void setTitle(const std::string& title);
 
         // @brief Sets the window's visibility state
         // @param The requested visibility state
-        // @throws std::runtime_error if the window is in an invalid state
         void setVisibility(const WindowVisibility& visibility);
 
         // @brief Gets the window's extent
         // @return The extent of the window
-        // @throws std::runtime_error if the window is in an invalid state
-        [[nodiscard]] const data::Extent2D& getExtent() const;
+        [[nodiscard]] const data::Extent2D<std::uint32_t>& getExtent() const;
 
         // @brief Gets the window's title
         // @return The title of the window
-        // @throws std::runtime_error if the window is in an invalid state
         [[nodiscard]] const std::string& getTitle() const;
 
         // @brief Gets the window's visibility state
         // @return The visibility state of the window
-        // @throws std::runtime_error if the window is in an invalid state
         [[nodiscard]] const WindowVisibility& getVisibility() const;
 
         // @brief Gets the window's queued events
         // @return The queued events of the window
-        // @throws std::runtime_error if the window is in an invalid state
         [[nodiscard]] std::queue<WindowEvent>& queryEvents();
 
         // @brief Gets the window's agnostic handle (GLFWwindow*)
         // @return The agnostic handle of the window
-        // @throws std::runtime_error if the window is in an invalid state
         [[nodiscard]] GLFWwindow*& getAgnosticHandle();
 
         // @brief Gets the window's native platform handle
         // @return The native handle of the window for the current platform
         // @note Gives HWND* on Windows, NSWindow* on macOS and either a Window* or wl_surface* on Linux
-        // @throws std::runtime_error if the window is in an invalid state
         [[nodiscard]] void* getNativeHandle();
 
     private:
-        data::Extent2D extent_;
+        data::Extent2D<std::uint32_t> extent_;
 
         std::string title_;
         std::queue<WindowEvent> events_;

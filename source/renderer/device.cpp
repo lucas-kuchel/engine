@@ -6,36 +6,100 @@
 #include <stdexcept>
 
 namespace renderer {
-    Device::Device() {
-    }
-
-    Device::~Device() {
-        if (data_.device != VK_NULL_HANDLE) {
-            vkDestroyDevice(data_.device, nullptr);
-
-            data_.device = VK_NULL_HANDLE;
-        }
-    }
-
-    void Device::create(const DeviceCreateInfo& createInfo) {
-        auto& instanceData = createInfo.instance.getData();
+    Device::Device(const DeviceCreateInfo& createInfo)
+        : instance_(createInfo.instance) {
+        auto& physicalDevice = instance_->getVkPhysicalDevice();
 
         std::vector<std::uint32_t> familyIndexMappings;
         std::vector<std::vector<float>> familyIndexPriorities;
 
-        for (auto& queue : createInfo.queues) {
-            auto& queueData = queue.get().getData();
+        queues_.reserve(createInfo.queues.size());
 
-            auto& index = queueData.familyIndex;
+        for (auto& queueCreateInfo : createInfo.queues) {
+            queues_.push_back(Queue());
 
-            if (familyIndexMappings.size() <= index) {
-                familyIndexMappings.resize(index + 1, 0);
-                familyIndexPriorities.resize(index + 1);
+            auto& queue = queues_.back();
+
+            VkQueueFlagBits queueTypeNeeded = VK_QUEUE_FLAG_BITS_MAX_ENUM;
+            bool isPresentType = false;
+
+            switch (queueCreateInfo.type) {
+                case QueueType::COMPUTE:
+                    queueTypeNeeded = VK_QUEUE_COMPUTE_BIT;
+                    break;
+
+                case QueueType::RENDER:
+                    queueTypeNeeded = VK_QUEUE_GRAPHICS_BIT;
+                    break;
+
+                case QueueType::TRANSFER:
+                    queueTypeNeeded = VK_QUEUE_TRANSFER_BIT;
+                    break;
+
+                case QueueType::PRESENT:
+                    isPresentType = true;
+                    break;
             }
 
-            if (familyIndexMappings[index] < instanceData.queueFamilyProperties[index].queueCount) {
-                familyIndexMappings[index]++;
-                familyIndexPriorities[index].push_back(1.0f);
+            auto& queueFamilyProperties = instance_->queueFamilyProperties_;
+            auto& queueFamilyOccupations = instance_->queueFamilyOccupations_;
+            auto& physicalDevice = instance_->physicalDevice_;
+
+            for (std::uint32_t i = 0; i < queueFamilyProperties.size(); i++) {
+                const auto& family = queueFamilyProperties[i];
+
+                if (isPresentType) {
+                    VkBool32 presentSupported = VK_FALSE;
+
+                    if (queueCreateInfo.surface == nullptr) {
+                        throw std::runtime_error("Error constructing renderer::Queue inside renderer::Device: Present queues require a surface to be created");
+                    }
+
+                    auto& surface = queueCreateInfo.surface->getVkSurface();
+
+                    if (vkGetPhysicalDeviceSurfaceSupportKHR(physicalDevice, i, surface, &presentSupported) != VK_SUCCESS) {
+                        throw std::runtime_error("Error constructing renderer::Queue inside renderer::Device: Failed to query surface presentation support");
+                    }
+
+                    if (presentSupported) {
+                        queue.familyIndex_ = i;
+
+                        if (queueFamilyOccupations[i] == family.queueCount) {
+                            queueFamilyOccupations[i] = 0;
+                        }
+
+                        queue.queueIndex_ = queueFamilyOccupations[i];
+                        queueFamilyOccupations[i]++;
+
+                        break;
+                    }
+                }
+                else if (family.queueFlags & queueTypeNeeded) {
+                    queue.familyIndex_ = i;
+
+                    if (queueFamilyOccupations[i] == family.queueCount) {
+                        queueFamilyOccupations[i] = 0;
+                    }
+
+                    queue.queueIndex_ = queueFamilyOccupations[i];
+                    queueFamilyOccupations[i]++;
+
+                    break;
+                }
+            }
+
+            if (queue.familyIndex_ == std::numeric_limits<std::uint32_t>::max()) {
+                throw std::runtime_error("Error constructing renderer::Queue inside renderer::Device: Failed to find queue family for requested queue");
+            }
+
+            if (familyIndexMappings.size() <= queue.familyIndex_) {
+                familyIndexMappings.resize(queue.familyIndex_ + 1, 0);
+                familyIndexPriorities.resize(queue.familyIndex_ + 1);
+            }
+
+            if (familyIndexMappings[queue.familyIndex_] < queueFamilyProperties[queue.familyIndex_].queueCount) {
+                familyIndexMappings[queue.familyIndex_]++;
+                familyIndexPriorities[queue.familyIndex_].push_back(1.0f);
             }
         }
 
@@ -60,13 +124,13 @@ namespace renderer {
 
         std::uint32_t extensionCount = 0;
 
-        if (vkEnumerateDeviceExtensionProperties(instanceData.physicalDevice, nullptr, &extensionCount, nullptr) != VK_SUCCESS) {
+        if (vkEnumerateDeviceExtensionProperties(physicalDevice, nullptr, &extensionCount, nullptr) != VK_SUCCESS) {
             throw std::runtime_error("Error calling renderer::Device::create(): Failed to enumerate device extensions");
         }
 
         std::vector<VkExtensionProperties> extensionProperties(extensionCount);
 
-        if (vkEnumerateDeviceExtensionProperties(instanceData.physicalDevice, nullptr, &extensionCount, extensionProperties.data()) != VK_SUCCESS) {
+        if (vkEnumerateDeviceExtensionProperties(physicalDevice, nullptr, &extensionCount, extensionProperties.data()) != VK_SUCCESS) {
             throw std::runtime_error("Error calling renderer::Device::create(): Failed to enumerate device extensions");
         }
 
@@ -106,95 +170,36 @@ namespace renderer {
             .pEnabledFeatures = nullptr,
         };
 
-        if (vkCreateDevice(instanceData.physicalDevice, &deviceCreateInfo, nullptr, &data_.device) != VK_SUCCESS) {
+        if (vkCreateDevice(physicalDevice, &deviceCreateInfo, nullptr, &device_) != VK_SUCCESS) {
             throw std::runtime_error("Error calling renderer::Device::create(): Failed to create device");
         }
 
-        for (auto& queue : createInfo.queues) {
-            auto& queueData = queue.get().getData();
-
-            vkGetDeviceQueue(data_.device, queueData.familyIndex, queueData.queueIndex, &queueData.queue);
+        for (auto& queue : queues_) {
+            vkGetDeviceQueue(device_, queue.familyIndex_, queue.queueIndex_, &queue.queue_);
         }
     }
 
-    ImageHandle Device::createImage(const ImageCreateInfo& createInfo) {
-        Image image;
+    Device::~Device() {
+        if (device_ != VK_NULL_HANDLE) {
+            vkDestroyDevice(device_, nullptr);
 
-        VkImageCreateInfo imageCreateInfo = {
-            .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
-            .pNext = nullptr,
-            .flags = 0,
-            .imageType = Image::mapType(createInfo.type),
-            .format = Image::mapFormat(createInfo.format),
-            .extent = {createInfo.extent.width, createInfo.extent.height, createInfo.extent.depth},
-            .mipLevels = createInfo.mipLevels,
-            .arrayLayers = createInfo.arrayLayers,
-            .samples = static_cast<VkSampleCountFlagBits>(createInfo.sampleCount),
-            .tiling = Image::mapTiling(createInfo.tiling),
-            .usage = Image::mapFlags(createInfo.usage),
-            .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
-            .queueFamilyIndexCount = 0,
-            .pQueueFamilyIndices = nullptr,
-            .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-        };
-
-        if (vkCreateImage(data_.device, &imageCreateInfo, nullptr, &image.image) != VK_SUCCESS) {
-            throw std::runtime_error("Error calling renderer::Device::createImage(): Failed to create image");
+            device_ = VK_NULL_HANDLE;
         }
-
-        return data_.images_.insert(image);
     }
 
-    ImageViewHandle Device::createImageView(const ImageViewCreateInfo& createInfo) {
-        ImageView imageView;
-
-        const auto& image = data_.images_.get(createInfo.image);
-
-        VkImageViewCreateInfo viewCreateInfo = {
-            .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
-            .pNext = nullptr,
-            .flags = 0,
-            .image = image.image,
-            .viewType = ImageView::mapType(createInfo.viewType),
-            .format = Image::mapFormat(createInfo.format),
-            .components = {},
-            .subresourceRange = {
-                .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-                .baseMipLevel = createInfo.baseMipLevel,
-                .levelCount = createInfo.levelCount,
-                .baseArrayLayer = createInfo.baseArrayLayer,
-                .layerCount = createInfo.layerCount,
-            },
-        };
-
-        if (vkCreateImageView(data_.device, &viewCreateInfo, nullptr, &imageView.imageView) != VK_SUCCESS) {
-            throw std::runtime_error("Error calling renderer::Device::createImageView(): Failed to create image view");
-        }
-
-        return data_.imageViews_.insert(imageView);
+    std::span<Queue> Device::getQueues() {
+        return queues_;
     }
 
-    void Device::destroyImage(ImageHandle handle) {
-        auto& image = data_.images_.get(handle);
-
-        if (image.image != VK_NULL_HANDLE) {
-            vkDestroyImage(data_.device, image.image, nullptr);
-        }
-
-        data_.images_.remove(handle);
+    std::span<const Queue> Device::getQueues() const {
+        return queues_;
     }
 
-    void Device::destroyImageView(ImageViewHandle handle) {
-        auto& view = data_.imageViews_.get(handle);
-
-        if (view.imageView != VK_NULL_HANDLE) {
-            vkDestroyImageView(data_.device, view.imageView, nullptr);
-        }
-
-        data_.imageViews_.remove(handle);
+    VkDevice& Device::getVkDevice() {
+        return device_;
     }
 
-    DeviceData& Device::getData() {
-        return data_;
+    const VkDevice& Device::getVkDevice() const {
+        return device_;
     }
 }

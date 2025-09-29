@@ -1,18 +1,24 @@
 #pragma once
 
-#include <cstdint>
+#include <type_traits>
 
 namespace data {
     // @brief Represents a 2-dimensional area
+    // @tparam Any arithmetic type
+    template <typename T>
+    requires(std::is_arithmetic_v<T>)
     struct Extent2D {
-        std::uint32_t width;
-        std::uint32_t height;
+        T width = 0;
+        T height = 0;
     };
 
     // @brief Represents a 3-dimensional area
+    // @tparam Any arithmetic type
+    template <typename T>
+    requires(std::is_arithmetic_v<T>)
     struct Extent3D {
-        std::uint32_t width;
-        std::uint32_t height;
-        std::uint32_t depth;
+        T width = 0;
+        T height = 0;
+        T depth = 0;
     };
 }

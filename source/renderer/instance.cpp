@@ -5,20 +5,30 @@
 #include <GLFW/glfw3.h>
 
 namespace renderer {
-    Instance::Instance() {
+    Instance::Instance(const InstanceCreateInfo& createInfo) {
         std::uint32_t apiVersion = 0;
 
         if (vkEnumerateInstanceVersion(&apiVersion) != VK_SUCCESS) {
             throw std::runtime_error("Error calling renderer::Instance::create(): Could not retrieve API version");
         }
 
+        auto applicationVersion = VK_MAKE_VERSION(
+            createInfo.applicationVersion.major,
+            createInfo.applicationVersion.minor,
+            createInfo.applicationVersion.patch);
+
+        auto engineVersion = VK_MAKE_VERSION(
+            createInfo.engineVersion.major,
+            createInfo.engineVersion.minor,
+            createInfo.engineVersion.patch);
+
         VkApplicationInfo applicationInfo = {
             .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
             .pNext = nullptr,
-            .pApplicationName = "generic",
-            .applicationVersion = VK_MAKE_VERSION(0, 0, 1),
-            .pEngineName = "generic",
-            .engineVersion = VK_MAKE_VERSION(0, 0, 1),
+            .pApplicationName = createInfo.applicationName.c_str(),
+            .applicationVersion = applicationVersion,
+            .pEngineName = createInfo.engineName.c_str(),
+            .engineVersion = engineVersion,
             .apiVersion = apiVersion,
         };
 
@@ -41,6 +51,7 @@ namespace renderer {
 
 #if defined(DEBUG_BUILD_TYPE)
         for (auto& instanceLayer : layerProperties) {
+
             bool isValidationLayer = std::string_view(instanceLayer.layerName) == "VK_LAYER_KHRONOS_validation";
 
             if (isValidationLayer) {
@@ -62,19 +73,19 @@ namespace renderer {
             .ppEnabledExtensionNames = extensions,
         };
 
-        if (vkCreateInstance(&instanceCreateInfo, nullptr, &data_.instance) != VK_SUCCESS) {
+        if (vkCreateInstance(&instanceCreateInfo, nullptr, &instance_) != VK_SUCCESS) {
             throw std::runtime_error("failed to create VkInstance");
         }
 
         std::uint32_t physicalDeviceCount = 0;
 
-        if (vkEnumeratePhysicalDevices(data_.instance, &physicalDeviceCount, nullptr) != VK_SUCCESS) {
+        if (vkEnumeratePhysicalDevices(instance_, &physicalDeviceCount, nullptr) != VK_SUCCESS) {
             throw std::runtime_error("failed to enumerate VkPhysicalDevices");
         }
 
         std::vector<VkPhysicalDevice> physicalDevices(physicalDeviceCount);
 
-        if (vkEnumeratePhysicalDevices(data_.instance, &physicalDeviceCount, physicalDevices.data()) != VK_SUCCESS) {
+        if (vkEnumeratePhysicalDevices(instance_, &physicalDeviceCount, physicalDevices.data()) != VK_SUCCESS) {
             throw std::runtime_error("failed to enumerate VkPhysicalDevices");
         }
 
@@ -84,32 +95,52 @@ namespace renderer {
             vkGetPhysicalDeviceProperties(device, &deviceProperties);
 
             if (deviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) {
-                data_.physicalDevice = device;
+                physicalDevice_ = device;
                 break;
             }
         }
 
-        if (data_.physicalDevice == VK_NULL_HANDLE) {
-            data_.physicalDevice = physicalDevices.front();
+        if (physicalDevice_ == VK_NULL_HANDLE) {
+            physicalDevice_ = physicalDevices.front();
         }
 
         std::uint32_t queueFamilyCount = 0;
 
-        vkGetPhysicalDeviceQueueFamilyProperties(data_.physicalDevice, &queueFamilyCount, nullptr);
+        vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice_, &queueFamilyCount, nullptr);
 
-        data_.queueFamilyProperties.resize(queueFamilyCount);
-        data_.queueFamilyOccupations.resize(queueFamilyCount);
+        queueFamilyProperties_.resize(queueFamilyCount);
+        queueFamilyOccupations_.resize(queueFamilyCount);
 
-        vkGetPhysicalDeviceQueueFamilyProperties(data_.physicalDevice, &queueFamilyCount, data_.queueFamilyProperties.data());
+        vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice_, &queueFamilyCount, queueFamilyProperties_.data());
     }
 
     Instance::~Instance() {
-        if (data_.instance != VK_NULL_HANDLE) {
-            vkDestroyInstance(data_.instance, nullptr);
+        if (instance_ != VK_NULL_HANDLE) {
+            vkDestroyInstance(instance_, nullptr);
         }
     }
 
-    InstanceData& Instance::getData() {
-        return data_;
+    VkInstance& Instance::getVkInstance() {
+        return instance_;
+    }
+
+    VkPhysicalDevice& Instance::getVkPhysicalDevice() {
+        return physicalDevice_;
+    }
+
+    const VkInstance& Instance::getVkInstance() const {
+        return instance_;
+    }
+
+    const VkPhysicalDevice& Instance::getVkPhysicalDevice() const {
+        return physicalDevice_;
+    }
+
+    const std::vector<VkQueueFamilyProperties>& Instance::getVkQueueFamilyProperties() const {
+        return queueFamilyProperties_;
+    }
+
+    const std::vector<std::uint32_t>& Instance::getVkQueueFamilyOccupations() const {
+        return queueFamilyOccupations_;
     }
 }

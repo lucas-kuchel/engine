@@ -3,31 +3,32 @@
 #include <data/references.hpp>
 #include <data/registry.hpp>
 
+#include <renderer/queue.hpp>
+
+#include <renderer/resources/framebuffer.hpp>
 #include <renderer/resources/image.hpp>
+#include <renderer/resources/pass.hpp>
+
+#include <span>
 
 #include <vulkan/vulkan.h>
 
 namespace renderer {
     class Instance;
     class Surface;
-    class Queue;
 
-    struct DeviceData {
-        VkDevice device = VK_NULL_HANDLE;
-
-        data::UniqueRegistry<Image> images_;
-        data::UniqueRegistry<ImageView> imageViews_;
-    };
-
+    // @brief Creation information for a device
     struct DeviceCreateInfo {
         Instance& instance;
 
-        data::ReferenceList<Queue> queues;
+        std::vector<QueueCreateInfo> queues;
     };
 
+    // @brief Represents the device of the renderer
+    // @note Not safe to copy
     class Device {
     public:
-        Device();
+        Device(const DeviceCreateInfo& createInfo);
         ~Device();
 
         Device(const Device&) = delete;
@@ -36,17 +37,27 @@ namespace renderer {
         Device& operator=(const Device&) = delete;
         Device& operator=(Device&&) noexcept = default;
 
-        void create(const DeviceCreateInfo& createInfo);
+        // @brief Queries the queues from the device
+        // @return List of all usable queues
+        [[nodiscard]] std::span<Queue> getQueues();
 
-        ImageHandle createImage(const ImageCreateInfo& createInfo);
-        ImageViewHandle createImageView(const ImageViewCreateInfo& createInfo);
+        // @brief Queries the queues from the device
+        // @return List of all usable queues
+        [[nodiscard]] std::span<const Queue> getQueues() const;
 
-        void destroyImage(ImageHandle image);
-        void destroyImageView(ImageViewHandle imageView);
+        // @brief Provides the Vulkan VkDevice
+        // @return The VkDevice
+        [[nodiscard]] VkDevice& getVkDevice();
 
-        DeviceData& getData();
+        // @brief Provides the Vulkan VkDevice
+        // @return The VkDevice
+        [[nodiscard]] const VkDevice& getVkDevice() const;
 
     private:
-        DeviceData data_;
+        VkDevice device_ = VK_NULL_HANDLE;
+
+        data::Reference<Instance> instance_;
+
+        std::vector<Queue> queues_;
     };
 }

@@ -1,5 +1,10 @@
 #pragma once
 
+#include <data/extent.hpp>
+#include <data/references.hpp>
+
+#include <cstdint>
+
 #include <vulkan/vulkan.h>
 
 struct GLFWwindow;
@@ -11,20 +16,17 @@ namespace app {
 namespace renderer {
     class Instance;
 
-    struct SurfaceData {
-        VkSurfaceKHR surface = VK_NULL_HANDLE;
-        VkInstance instance = VK_NULL_HANDLE;
-        app::Window* window = nullptr;
-    };
-
+    // @brief Creation information for a surface
     struct SurfaceCreateInfo {
         Instance& instance;
         app::Window& window;
     };
 
+    // @brief Represents a window's renderable area
+    // @note Not safe to copy
     class Surface {
     public:
-        Surface();
+        Surface(const SurfaceCreateInfo& createInfo);
         ~Surface();
 
         Surface(const Surface&) = delete;
@@ -33,11 +35,22 @@ namespace renderer {
         Surface& operator=(const Surface&) = delete;
         Surface& operator=(Surface&&) noexcept = default;
 
-        void create(const SurfaceCreateInfo& createInfo);
+        // @brief Provides the extent of the surface
+        // @return The extent of the surface
+        [[nodiscard]] data::Extent2D<std::uint32_t> getExtent() const;
 
-        SurfaceData& getData();
+        // @brief Provides the VkSurface
+        // @return The VkSurface
+        [[nodiscard]] VkSurfaceKHR& getVkSurface();
+
+        // @brief Provides the VkSurface
+        // @return The VkSurface
+        [[nodiscard]] const VkSurfaceKHR& getVkSurface() const;
 
     private:
-        SurfaceData data_;
+        VkSurfaceKHR surface_ = VK_NULL_HANDLE;
+
+        data::Reference<Instance> instance_;
+        data::Reference<app::Window> window_;
     };
 }
