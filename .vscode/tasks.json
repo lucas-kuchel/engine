@@ -4,7 +4,7 @@
         {
             "label": "build",
             "type": "shell",
-            "command": "cmake -B build --preset release && cmake --build build",
+            "command": "cmake -B build --preset debug && cmake --build build",
             "group": {
                 "kind": "build",
                 "isDefault": true

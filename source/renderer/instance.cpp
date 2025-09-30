@@ -1,6 +1,8 @@
 #include <renderer/instance.hpp>
 
+#include <print>
 #include <stdexcept>
+#include <string_view>
 
 #include <GLFW/glfw3.h>
 
@@ -9,7 +11,7 @@ namespace renderer {
         std::uint32_t apiVersion = 0;
 
         if (vkEnumerateInstanceVersion(&apiVersion) != VK_SUCCESS) {
-            throw std::runtime_error("Error calling renderer::Instance::create(): Could not retrieve API version");
+            throw std::runtime_error("Error constucting renderer::Instance: Could not retrieve API version");
         }
 
         auto applicationVersion = VK_MAKE_VERSION(
@@ -32,33 +34,73 @@ namespace renderer {
             .apiVersion = apiVersion,
         };
 
-        std::uint32_t extensionCount = 0;
+        std::uint32_t windowExtensionCount = 0;
 
-        const char** extensions = glfwGetRequiredInstanceExtensions(&extensionCount);
+        const char** windowExtensions = glfwGetRequiredInstanceExtensions(&windowExtensionCount);
+
+        std::uint32_t availableExtensionCount = 0;
+
+        if (vkEnumerateInstanceExtensionProperties(nullptr, &availableExtensionCount, nullptr) != VK_SUCCESS) {
+            throw std::runtime_error("Error constucting renderer::Instance: Failed to enumerate Vulkan instance extension properties");
+        }
+
+        std::vector<VkExtensionProperties> extensionProperties(availableExtensionCount);
+        std::vector<std::string> requestedExtensions;
+        std::vector<const char*> selectedExtensions;
+
+        if (vkEnumerateInstanceExtensionProperties(nullptr, &availableExtensionCount, extensionProperties.data()) != VK_SUCCESS) {
+            throw std::runtime_error("Error constucting renderer::Instance: Failed to enumerate Vulkan instance extension properties");
+        }
+
+        for (std::size_t i = 0; i < windowExtensionCount; i++) {
+            requestedExtensions.emplace_back(windowExtensions[i]);
+        }
+
+        for (std::size_t i = 0; i < extensionProperties.size(); i++) {
+            auto& available = extensionProperties[i];
+
+            for (std::size_t j = 0; j < requestedExtensions.size(); j++) {
+                auto& requested = requestedExtensions[j];
+
+                if (std::string_view(available.extensionName) != requested) {
+                    continue;
+                }
+
+                selectedExtensions.push_back(available.extensionName);
+
+                requestedExtensions[j] = requestedExtensions.back();
+                requestedExtensions.pop_back();
+            }
+        }
+
+        if (createInfo.requestDebug) {
+            for (auto& requestedExtension : requestedExtensions) {
+                std::println("Runtime warning: Requested extension \"{}\" is unsupported", requestedExtension);
+            }
+        }
 
         std::uint32_t availableLayerCount = 0;
 
         if (vkEnumerateInstanceLayerProperties(&availableLayerCount, nullptr) != VK_SUCCESS) {
-            throw std::runtime_error("failed to enumerate Vulkan instance layer properties");
+            throw std::runtime_error("Error constucting renderer::Instance: Failed to enumerate Vulkan instance layer properties");
         }
 
         std::vector<VkLayerProperties> layerProperties(availableLayerCount);
         std::vector<const char*> selectedLayers;
 
         if (vkEnumerateInstanceLayerProperties(&availableLayerCount, layerProperties.data()) != VK_SUCCESS) {
-            throw std::runtime_error("failed to enumerate Vulkan instance layer properties");
+            throw std::runtime_error("Error constucting renderer::Instance: Failed to enumerate Vulkan instance layer properties");
         }
 
-#if defined(DEBUG_BUILD_TYPE)
-        for (auto& instanceLayer : layerProperties) {
+        if (createInfo.requestDebug) {
+            for (auto& instanceLayer : layerProperties) {
+                bool isValidationLayer = std::string_view(instanceLayer.layerName) == "VK_LAYER_KHRONOS_validation";
 
-            bool isValidationLayer = std::string_view(instanceLayer.layerName) == "VK_LAYER_KHRONOS_validation";
-
-            if (isValidationLayer) {
-                selectedLayers.push_back(instanceLayer.layerName);
+                if (isValidationLayer) {
+                    selectedLayers.push_back(instanceLayer.layerName);
+                }
             }
         }
-#endif
 
         std::uint32_t layerCount = static_cast<std::uint32_t>(selectedLayers.size());
 
@@ -69,24 +111,24 @@ namespace renderer {
             .pApplicationInfo = &applicationInfo,
             .enabledLayerCount = layerCount,
             .ppEnabledLayerNames = selectedLayers.data(),
-            .enabledExtensionCount = extensionCount,
-            .ppEnabledExtensionNames = extensions,
+            .enabledExtensionCount = static_cast<std::uint32_t>(selectedExtensions.size()),
+            .ppEnabledExtensionNames = selectedExtensions.data(),
         };
 
         if (vkCreateInstance(&instanceCreateInfo, nullptr, &instance_) != VK_SUCCESS) {
-            throw std::runtime_error("failed to create VkInstance");
+            throw std::runtime_error("Error constucting renderer::Instance: Failed to create VkInstance");
         }
 
         std::uint32_t physicalDeviceCount = 0;
 
         if (vkEnumeratePhysicalDevices(instance_, &physicalDeviceCount, nullptr) != VK_SUCCESS) {
-            throw std::runtime_error("failed to enumerate VkPhysicalDevices");
+            throw std::runtime_error("Error constucting renderer::Instance: Failed to enumerate VkPhysicalDevices");
         }
 
         std::vector<VkPhysicalDevice> physicalDevices(physicalDeviceCount);
 
         if (vkEnumeratePhysicalDevices(instance_, &physicalDeviceCount, physicalDevices.data()) != VK_SUCCESS) {
-            throw std::runtime_error("failed to enumerate VkPhysicalDevices");
+            throw std::runtime_error("Error constucting renderer::Instance: Failed to enumerate VkPhysicalDevices");
         }
 
         for (auto& device : physicalDevices) {

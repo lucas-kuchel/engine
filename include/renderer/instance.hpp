@@ -11,11 +11,13 @@
 namespace renderer {
     // @brief Creation information for the instance
     struct InstanceCreateInfo {
+        std::string applicationName;
         data::Version applicationVersion;
+
+        std::string engineName;
         data::Version engineVersion;
 
-        std::string applicationName;
-        std::string engineName;
+        bool requestDebug;
     };
 
     // @brief Represents the interaction layer between the system/physical device and application

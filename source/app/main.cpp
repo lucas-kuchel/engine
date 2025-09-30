@@ -41,10 +41,11 @@ void run() {
     app::Window window(windowCreateInfo);
 
     renderer::InstanceCreateInfo instanceCreateInfo = {
-        .applicationVersion = data::Version(0, 0, 1),
-        .engineVersion = data::Version(0, 0, 1),
         .applicationName = window.getTitle(),
+        .applicationVersion = data::Version(0, 0, 1),
         .engineName = "Engine",
+        .engineVersion = data::Version(0, 0, 1),
+        .requestDebug = true,
     };
 
     renderer::Instance instance(instanceCreateInfo);
