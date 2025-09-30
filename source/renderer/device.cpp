@@ -43,7 +43,6 @@ namespace renderer {
 
             auto& queueFamilyProperties = instance_->queueFamilyProperties_;
             auto& queueFamilyOccupations = instance_->queueFamilyOccupations_;
-            auto& physicalDevice = instance_->physicalDevice_;
 
             for (std::uint32_t i = 0; i < queueFamilyProperties.size(); i++) {
                 const auto& family = queueFamilyProperties[i];
@@ -74,7 +73,7 @@ namespace renderer {
                         break;
                     }
                 }
-                else if (family.queueFlags & queueTypeNeeded) {
+                else if (family.queueFlags & static_cast<std::uint32_t>(queueTypeNeeded)) {
                     queue.familyIndex_ = i;
 
                     if (queueFamilyOccupations[i] == family.queueCount) {
@@ -125,13 +124,13 @@ namespace renderer {
         std::uint32_t extensionCount = 0;
 
         if (vkEnumerateDeviceExtensionProperties(physicalDevice, nullptr, &extensionCount, nullptr) != VK_SUCCESS) {
-            throw std::runtime_error("Error calling renderer::Device::create(): Failed to enumerate device extensions");
+            throw std::runtime_error("Error constructing renderer::Device: Failed to enumerate device extensions");
         }
 
         std::vector<VkExtensionProperties> extensionProperties(extensionCount);
 
         if (vkEnumerateDeviceExtensionProperties(physicalDevice, nullptr, &extensionCount, extensionProperties.data()) != VK_SUCCESS) {
-            throw std::runtime_error("Error calling renderer::Device::create(): Failed to enumerate device extensions");
+            throw std::runtime_error("Error constructing renderer::Device: Failed to enumerate device extensions");
         }
 
         std::vector<const char*> selectedExtensions;
@@ -151,11 +150,11 @@ namespace renderer {
         }
 
         if (!foundSwapchain) {
-            throw std::runtime_error("Error calling renderer::Device::create(): Swapchain is unsupported on this system");
+            throw std::runtime_error("Error constructing renderer::Device: Swapchain is unsupported on this system");
         }
 
-        std::uint32_t extensionInfoCount = selectedExtensions.size();
-        std::uint32_t queueCreateInfoCount = queueCreateInfos.size();
+        std::uint32_t extensionInfoCount = static_cast<std::uint32_t>(selectedExtensions.size());
+        std::uint32_t queueCreateInfoCount = static_cast<std::uint32_t>(queueCreateInfos.size());
 
         VkDeviceCreateInfo deviceCreateInfo = {
             .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
@@ -171,7 +170,7 @@ namespace renderer {
         };
 
         if (vkCreateDevice(physicalDevice, &deviceCreateInfo, nullptr, &device_) != VK_SUCCESS) {
-            throw std::runtime_error("Error calling renderer::Device::create(): Failed to create device");
+            throw std::runtime_error("Error constructing renderer::Device: Failed to create device");
         }
 
         for (auto& queue : queues_) {
@@ -184,6 +183,36 @@ namespace renderer {
             vkDestroyDevice(device_, nullptr);
 
             device_ = VK_NULL_HANDLE;
+        }
+    }
+
+    void Device::waitIdle() {
+        if (vkDeviceWaitIdle(device_) != VK_SUCCESS) {
+            throw std::runtime_error("Error calling renderer::Device::waitIdle(): Failed to wait for GPU to be idle");
+        }
+    }
+
+    void Device::waitForFences(const std::vector<data::Reference<Fence>>& fences, bool waitAll, std::uint32_t timeout) {
+        std::vector<VkFence> vkFences(fences.size());
+
+        for (std::size_t i = 0; i < fences.size(); i++) {
+            vkFences[i] = fences[i]->getVkFence();
+        }
+
+        if (vkWaitForFences(device_, static_cast<std::uint32_t>(vkFences.size()), vkFences.data(), waitAll, timeout) != VK_SUCCESS) {
+            throw std::runtime_error("Error calling renderer::Device::waitForFences(): Error waiting for fences");
+        }
+    }
+
+    void Device::resetFences(const std::vector<data::Reference<Fence>>& fences) {
+        std::vector<VkFence> vkFences(fences.size());
+
+        for (std::size_t i = 0; i < fences.size(); i++) {
+            vkFences[i] = fences[i]->getVkFence();
+        }
+
+        if (vkResetFences(device_, static_cast<std::uint32_t>(vkFences.size()), vkFences.data()) != VK_SUCCESS) {
+            throw std::runtime_error("Error calling renderer::Device::resetFences(): Error resetting fences");
         }
     }
 

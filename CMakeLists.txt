@@ -15,6 +15,40 @@ target_compile_options(engine PRIVATE
 
 target_link_libraries(engine PRIVATE glfw)
 
+# For GCC/Clang
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    target_compile_options(engine PRIVATE
+        -Wall
+        -Wextra
+        -Wpedantic
+        -Wshadow             # Warn if a variable shadows another
+        -Wnon-virtual-dtor    # Warn if a polymorphic class lacks virtual dtor
+        -Wold-style-cast
+        -Wcast-align
+        -Wunused
+        -Wconversion
+        -Wsign-conversion
+        -Wzero-as-null-pointer-constant
+        -Wduplicated-cond
+        -Wduplicated-branches
+        -Wlogical-op
+        -Wnull-dereference
+        -Wdouble-promotion
+        -Wformat=2
+        -Werror              # Treat all warnings as errors
+    )
+endif()
+
+# For MSVC
+if(MSVC)
+    target_compile_options(engine PRIVATE
+        /W4           # Maximum warnings
+        /permissive-  # Strict ISO compliance
+        /WX           # Treat warnings as errors
+    )
+endif()
+
+
 if (NOT APPLE)
     find_package(VulkanHeaders CONFIG REQUIRED)
     find_package(Vulkan REQUIRED)

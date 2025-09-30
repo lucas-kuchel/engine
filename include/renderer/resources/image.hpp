@@ -1,7 +1,6 @@
 #pragma once
 
 #include <renderer/commands/buffer.hpp>
-#include <renderer/commands/sync.hpp>
 
 #include <data/extent.hpp>
 

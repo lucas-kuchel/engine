@@ -2,11 +2,12 @@
 
 #include <data/references.hpp>
 
+#include <renderer/resources/fence.hpp>
 #include <renderer/resources/image.hpp>
 #include <renderer/resources/pass.hpp>
+#include <renderer/resources/semaphore.hpp>
 
 #include <renderer/commands/buffer.hpp>
-#include <renderer/commands/sync.hpp>
 
 #include <vulkan/vulkan.h>
 
@@ -24,7 +25,19 @@ namespace renderer {
         Surface& surface;
         Device& device;
         Queue& presentQueue;
+        Queue& renderQueue;
 
+        // @brief How many images you want the swapchain to posess
+        // @note This may be disregarded as the driver has the final say
+        std::uint32_t imageCount;
+
+        // @brief Whether presentation should be synchronised with vertical refresh rate (VSync)
+        // @note Vulkan will always prefer VK_PRESENT_MODE_MAILBOX_KHR when available
+        bool synchronise;
+    };
+
+    // @brief Recreation information for a swapchain
+    struct SwapchainRecreateInfo {
         // @brief How many images you want the swapchain to posess
         // @note This may be disregarded as the driver has the final say
         std::uint32_t imageCount;
@@ -49,10 +62,13 @@ namespace renderer {
 
         // @brief Selects the next image to render to
         // @param The semaphore to signal GPU availability
-        // @note Blocks while the provided command sync is not complete
-        // @note Will attempt to acquire up to 10 times if resizing is required
-        // @throws std::runtime_error if the swapchain is invalid or if the recreation limit is exceeeded
-        void acquireNextImage(Semaphore& available);
+        // @return The next image index
+        // @throws std::runtime_error if the swapchain is invalid
+        [[nodiscard]] std::uint32_t acquireNextImage(Semaphore& available);
+
+        // @brief Recreates the swapchain with the provided information
+        // @param The recreation information
+        void recreate(const SwapchainRecreateInfo& recreateInfo);
 
         // @brief Presents the selected next image
         // @param The semaphore for indicating GPU operation completion
@@ -60,26 +76,17 @@ namespace renderer {
         // @throws std::runtime_error if the swapchain is invalid or if presentation fails
         void presentNextImage(Semaphore& finished);
 
-        // @brief Sets if synchronisation should be enabled
-        // @param If the swapchain should synchronise
-        void setSynchronisation(bool sync);
-
-        // @brief Sets the image count
-        // @param Requested image count
-        // @note This may be disregarded as the driver has the final say
-        void setImageCount(std::uint32_t count);
-
         // @brief Provides the backend-agnostic image format
         // @return The image format of all images in the Swapchain
         [[nodiscard]] ImageFormat getImageFormat() const;
 
-        // @brief Provides the number of frames in the swapchain
+        // @brief Provides the number of images in the swapchain
         // @return Frame count of the swapchain
-        [[nodiscard]] std::uint32_t getFrameCount() const;
+        [[nodiscard]] std::uint32_t getImageCount() const;
 
-        // @brief Provides the current frame index of the swapchain
+        // @brief Provides the current image index of the swapchain
         // @return Current frame index of the swapchain
-        [[nodiscard]] std::uint32_t getFrameIndex() const;
+        [[nodiscard]] std::uint32_t getImageIndex() const;
 
         // @brief Provides all image views of the swapchain
         // @return Image views of the swapchain
@@ -90,9 +97,13 @@ namespace renderer {
         [[nodiscard]] bool isSynchronised() const;
 
         // @brief Returns if the swapchain is flagged for recreation
-        // @note The swapchain will be recreated automatically at the next call of acquireNextImage
+        // @note This flag must be acted upon if true
         // @return Whether the swapchain will be recreated
-        [[nodiscard]] bool needsRecreate() const;
+        [[nodiscard]] bool shouldRecreate() const;
+
+        // @brief Returns the current extent of the swapchain
+        // @return The current extent of the swapchain
+        [[nodiscard]] data::Extent2D<std::uint32_t> getExtent() const;
 
         // @brief Provides the Vulkan swapchain handle
         // @return the VkSwapchainKHR handle
@@ -119,15 +130,16 @@ namespace renderer {
         [[nodiscard]] const VkSurfaceFormatKHR& getVkSurfaceFormatKHR() const;
 
     private:
-        VkSwapchainKHR swapchain_;
+        VkSwapchainKHR swapchain_ = VK_NULL_HANDLE;
         VkPresentModeKHR presentMode_;
         VkSurfaceFormatKHR surfaceFormat_;
         VkExtent2D extent_;
 
-        data::NullableReference<Instance> instance_;
-        data::NullableReference<Surface> surface_;
-        data::NullableReference<Device> device_;
-        data::NullableReference<Queue> presentQueue_;
+        data::Reference<Instance> instance_;
+        data::Reference<Surface> surface_;
+        data::Reference<Device> device_;
+        data::Reference<Queue> presentQueue_;
+        data::Reference<Queue> renderQueue_;
 
         std::uint32_t imageCount_;
         std::uint32_t imageIndex_ = 0;
@@ -136,7 +148,7 @@ namespace renderer {
         std::vector<ImageView> imageViews_;
 
         bool synchronise_;
-        bool recreateSwapchain_ = false;
+        bool recreate_ = false;
 
         VkSurfaceCapabilitiesKHR getSurfaceCapabilities();
         void createImageResources(const VkSwapchainCreateInfoKHR& swapchainCreateInfo);

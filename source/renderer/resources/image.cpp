@@ -306,7 +306,7 @@ namespace renderer {
     }
 
     const Image& ImageView::getImage() const {
-        return image_;
+        return image_.get();
     }
 
     ImageViewType ImageView::getImageViewType() const {

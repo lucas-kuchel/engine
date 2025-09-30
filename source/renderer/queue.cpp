@@ -3,7 +3,9 @@
 #include <renderer/surface.hpp>
 
 #include <renderer/commands/buffer.hpp>
-#include <renderer/commands/sync.hpp>
+
+#include <renderer/resources/fence.hpp>
+#include <renderer/resources/semaphore.hpp>
 
 #include <stdexcept>
 
@@ -40,7 +42,7 @@ namespace renderer {
             .pSignalSemaphores = signals.data(),
         };
 
-        if (vkQueueSubmit(queue_, commandBuffers.size(), &submitInfo, inFlight.getVkFence()) != VK_SUCCESS) {
+        if (vkQueueSubmit(queue_, static_cast<std::uint32_t>(commandBuffers.size()), &submitInfo, inFlight.getVkFence()) != VK_SUCCESS) {
             throw std::runtime_error("Error calling renderer::Queue::submit(): Failed to submit command buffers to queue");
         }
     }

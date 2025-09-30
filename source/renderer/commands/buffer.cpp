@@ -9,20 +9,20 @@ namespace renderer {
     }
 
     void CommandBufferRenderPassPeriod::end() {
-        if (rendering_) {
-            rendering_ = false;
+        if (rendering_.get()) {
+            rendering_.get() = false;
 
             vkCmdEndRenderPass(commandBuffer_->getVkCommandBuffer());
         }
     }
 
     bool CommandBufferRenderPassPeriod::renderEnded() const {
-        return !rendering_;
+        return !rendering_.get();
     }
 
     CommandBufferRenderPassPeriod::CommandBufferRenderPassPeriod(CommandBufferCapturePeriod& period, RenderPassBeginInfo& beginInfo)
         : commandBuffer_(period.commandBuffer_), rendering_(period.rendering_) {
-        std::uint32_t clearValueCount = beginInfo.clearValues.size();
+        std::uint32_t clearValueCount = static_cast<std::uint32_t>(beginInfo.clearValues.size());
 
         if (beginInfo.depthClearValue || beginInfo.stencilClearValue) {
             clearValueCount += 1;
@@ -88,8 +88,8 @@ namespace renderer {
     }
 
     void CommandBufferCapturePeriod::end() {
-        if (capturing_ && !rendering_) {
-            capturing_ = false;
+        if (capturing_.get() && !rendering_) {
+            capturing_.get() = false;
 
             if (vkEndCommandBuffer(commandBuffer_->commandBuffer_) != VK_SUCCESS) {
                 throw std::runtime_error("Error calling renderer::CommandBufferCapturePeriod::end(): Failed to end command buffer capture");
@@ -102,7 +102,7 @@ namespace renderer {
     }
 
     bool CommandBufferCapturePeriod::captureEnded() const {
-        return !capturing_;
+        return !capturing_.get();
     }
 
     CommandBufferCapturePeriod::CommandBufferCapturePeriod(CommandBuffer& commandBuffer)

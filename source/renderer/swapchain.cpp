@@ -13,7 +13,7 @@
 namespace renderer {
     Swapchain::Swapchain(const SwapchainCreateInfo& createInfo)
         : instance_(createInfo.instance), surface_(createInfo.surface),
-          device_(createInfo.device), presentQueue_(createInfo.presentQueue),
+          device_(createInfo.device), presentQueue_(createInfo.presentQueue), renderQueue_(createInfo.renderQueue),
           imageCount_(createInfo.imageCount), synchronise_(createInfo.synchronise) {
         recreateSwapchain();
     }
@@ -28,44 +28,35 @@ namespace renderer {
         }
     }
 
-    void Swapchain::acquireNextImage(Semaphore& available) {
-        auto& device = device_->getVkDevice();
-
-        VkResult result;
-
-        std::uint32_t i = 0;
-
-        while (true) {
-            if (i >= 10) {
-                throw std::runtime_error("Error calling renderer::Swapchain::acquireNextImage(): Too many retries for acquisition of image: Swapchain lost");
-            }
-
-            if (recreateSwapchain_) {
-                vkDeviceWaitIdle(device);
-
-                recreateSwapchain();
-
-                recreateSwapchain_ = false;
-            }
-
-            result = vkAcquireNextImageKHR(device_->getVkDevice(), swapchain_, UINT32_MAX, available.getVkSemaphore(), VK_NULL_HANDLE, &imageIndex_);
-
-            if (result == VK_ERROR_OUT_OF_DATE_KHR) {
-                recreateSwapchain_ = true;
-            }
-            else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
-                throw std::runtime_error("Error calling renderer::Swapchain::acquireNextImage(): Failed to acquire next image for presentation");
-            }
-            else {
-                break;
-            }
-
-            i++;
+    std::uint32_t Swapchain::acquireNextImage(Semaphore& available) {
+        if (recreate_) {
+            throw std::runtime_error("Error calling renderer::Swapchain::acquireNextImage(): Swapchain requires resizing; cannot acquire next image");
         }
+
+        VkResult result = vkAcquireNextImageKHR(device_->getVkDevice(), swapchain_, UINT32_MAX, available.getVkSemaphore(), VK_NULL_HANDLE, &imageIndex_);
+
+        if (result == VK_ERROR_OUT_OF_DATE_KHR) {
+            recreate_ = true;
+        }
+        else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
+            throw std::runtime_error("Error calling renderer::Swapchain::acquireNextImage(): Failed to acquire next image for presentation");
+        }
+
+        return imageIndex_;
+    }
+
+    void Swapchain::recreate(const SwapchainRecreateInfo& recreateInfo) {
+        synchronise_ = recreateInfo.synchronise;
+        imageCount_ = recreateInfo.imageCount;
+
+        recreateSwapchain();
+
+        recreate_ = false;
     }
 
     void Swapchain::presentNextImage(Semaphore& finished) {
         auto& queue = presentQueue_->getVkQueue();
+
         VkPresentInfoKHR presentInfo = {
             .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
             .pNext = nullptr,
@@ -80,7 +71,7 @@ namespace renderer {
         VkResult result = vkQueuePresentKHR(queue, &presentInfo);
 
         if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) {
-            recreateSwapchain_ = true;
+            recreate_ = true;
         }
         else if (result != VK_SUCCESS) {
             throw std::runtime_error("Error calling renderer::Swapchain::presentNextImage(): Failed to present image");
@@ -91,11 +82,11 @@ namespace renderer {
         return Image::reverseMapFormat(surfaceFormat_.format);
     }
 
-    std::uint32_t Swapchain::getFrameCount() const {
+    std::uint32_t Swapchain::getImageCount() const {
         return imageCount_;
     }
 
-    std::uint32_t Swapchain::getFrameIndex() const {
+    std::uint32_t Swapchain::getImageIndex() const {
         return imageIndex_;
     }
 
@@ -107,8 +98,12 @@ namespace renderer {
         return synchronise_;
     }
 
-    bool Swapchain::needsRecreate() const {
-        return recreateSwapchain_;
+    bool Swapchain::shouldRecreate() const {
+        return recreate_;
+    }
+
+    data::Extent2D<std::uint32_t> Swapchain::getExtent() const {
+        return {extent_.width, extent_.height};
     }
 
     VkSwapchainKHR& Swapchain::getVkSwapchainKHR() {
@@ -154,7 +149,7 @@ namespace renderer {
         imageViews_.reserve(actualImageCount);
 
         for (std::size_t i = 0; i < actualImageCount; i++) {
-            images_.push_back(Image(device_));
+            images_.push_back(Image(device_.get()));
 
             Image& image = images_.back();
 
@@ -169,7 +164,7 @@ namespace renderer {
             image.usageFlags_ = swapchainCreateInfo.imageUsage;
 
             ImageViewCreateInfo viewCreateInfo = {
-                .device = device_,
+                .device = device_.get(),
                 .image = image,
                 .type = ImageViewType::IMAGE_2D,
                 .baseMipLevel = 0,
@@ -324,6 +319,22 @@ namespace renderer {
             .clipped = VK_TRUE,
             .oldSwapchain = oldSwapchain,
         };
+
+        std::vector<std::uint32_t> familyIndices = {
+            renderQueue_->getVkQueueIndex(),
+            presentQueue_->getVkQueueIndex(),
+        };
+
+        if (renderQueue_->getVkFamilyIndex() != presentQueue_->getVkFamilyIndex()) {
+            swapchainCreateInfo.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
+            swapchainCreateInfo.queueFamilyIndexCount = static_cast<std::uint32_t>(familyIndices.size());
+            swapchainCreateInfo.pQueueFamilyIndices = familyIndices.data();
+        }
+        else {
+            swapchainCreateInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
+            swapchainCreateInfo.queueFamilyIndexCount = 0;
+            swapchainCreateInfo.pQueueFamilyIndices = nullptr;
+        }
 
         if (vkCreateSwapchainKHR(device, &swapchainCreateInfo, nullptr, &swapchain_) != VK_SUCCESS) {
             throw std::runtime_error("Error constructing renderer::Swapchain: Failed to create swapchain");

@@ -236,21 +236,22 @@ namespace app {
         // @return The visibility state of the window
         [[nodiscard]] const WindowVisibility& getVisibility() const;
 
-        // @brief Gets the window's queued events
-        // @return The queued events of the window
-        [[nodiscard]] std::queue<WindowEvent>& queryEvents();
+        // @brief Returns if the window has events to process
+        // @return If events need polling
+        [[nodiscard]] bool hasEvents() const;
+
+        // @brief Gets the window's next queued event
+        // @return The next event of the window
+        // @throws If no events are queued
+        [[nodiscard]] WindowEvent getNextEvent();
 
         // @brief Gets the window's agnostic handle (GLFWwindow*)
         // @return The agnostic handle of the window
         [[nodiscard]] GLFWwindow*& getAgnosticHandle();
 
-        // @brief Gets the window's native platform handle
-        // @return The native handle of the window for the current platform
-        // @note Gives HWND* on Windows, NSWindow* on macOS and either a Window* or wl_surface* on Linux
-        [[nodiscard]] void* getNativeHandle();
-
     private:
         data::Extent2D<std::uint32_t> extent_;
+        data::Extent2D<std::uint32_t> lastWindowedExtent_;
 
         std::string title_;
         std::queue<WindowEvent> events_;

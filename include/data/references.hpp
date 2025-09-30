@@ -21,25 +21,10 @@ namespace data {
         Reference& operator=(const Reference&) = default;
         Reference& operator=(Reference&&) noexcept = default;
 
-        Reference& operator=(const T& other) noexcept {
-            *raw_ = other;
+        Reference& operator=(T& other) noexcept {
+            raw_ = &other;
 
             return *this;
-        }
-
-        template <typename U>
-        Reference& operator=(U&& other) noexcept {
-            *raw_ = std::forward<U>(other);
-
-            return *this;
-        }
-
-        operator T&() {
-            return *raw_;
-        }
-
-        operator const T&() const {
-            return *raw_;
         }
 
         T* operator->() {
@@ -55,7 +40,7 @@ namespace data {
         }
 
         bool operator==(T& other) const {
-            return *raw_ == other.raw_;
+            return raw_ == &other;
         }
 
         bool operator!=(Reference<T>& other) const {
@@ -63,7 +48,15 @@ namespace data {
         }
 
         bool operator!=(T& other) const {
-            return *raw_ != other.raw_;
+            return raw_ != &other;
+        }
+
+        T& get() {
+            return *raw_;
+        }
+
+        const T& get() const {
+            return *raw_;
         }
 
     private:
@@ -100,23 +93,8 @@ namespace data {
         NullableReference& operator=(const NullableReference&) = default;
         NullableReference& operator=(NullableReference&&) noexcept = default;
 
-        NullableReference& operator=(const T& other) {
-            if (!raw_) {
-                throw std::runtime_error("Illegal implicit dereference of data::NullableReference: Value is null");
-            }
-
-            *raw_ = other;
-
-            return *this;
-        }
-
-        template <typename U>
-        NullableReference& operator=(U&& other) {
-            if (!raw_) {
-                throw std::runtime_error("Illegal implicit dereference of data::NullableReference: Value is null");
-            }
-
-            *raw_ = std::forward<U>(other);
+        NullableReference& operator=(T& other) {
+            raw_ = &other;
 
             return *this;
         }
@@ -131,22 +109,6 @@ namespace data {
             raw_ = other;
 
             return *this;
-        }
-
-        operator T&() {
-            if (!raw_) {
-                throw std::runtime_error("Illegal implicit dereference of data::NullableReference: Value is null");
-            }
-
-            return *raw_;
-        }
-
-        operator const T&() const {
-            if (!raw_) {
-                throw std::runtime_error("Illegal implicit dereference of data::NullableReference: Value is null");
-            }
-
-            return *raw_;
         }
 
         T* operator->() {
@@ -170,11 +132,7 @@ namespace data {
         }
 
         bool operator==(T& other) const {
-            if (!raw_) {
-                throw std::runtime_error("Illegal implicit dereference of data::NullableReference: Value is null");
-            }
-
-            return *raw_ == other.raw_;
+            return raw_ == &other;
         }
 
         bool operator==(std::nullptr_t other) const {
@@ -186,15 +144,27 @@ namespace data {
         }
 
         bool operator!=(T& other) const {
-            if (!raw_) {
-                throw std::runtime_error("Illegal implicit dereference of data::NullableReference: Value is null");
-            }
-
-            return *raw_ != other.raw_;
+            return raw_ != &other;
         }
 
         bool operator!=(std::nullptr_t other) const {
             return raw_ != other;
+        }
+
+        T& get() {
+            if (!raw_) {
+                throw std::runtime_error("Illegal explicit dereference of data::NullableReference: Value is null");
+            }
+
+            return *raw_;
+        }
+
+        const T& get() const {
+            if (!raw_) {
+                throw std::runtime_error("Illegal explicit dereference of data::NullableReference: Value is null");
+            }
+
+            return *raw_;
         }
 
     private:

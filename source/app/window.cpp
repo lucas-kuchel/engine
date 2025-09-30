@@ -4,24 +4,12 @@
 
 #include <GLFW/glfw3.h>
 
-#if defined(PLATFORM_APPLE)
-
-#define GLFW_EXPOSE_NATIVE_COCOA
-
-#elif defined(PLATFORM_WINDOWS)
-
-#define GLFW_EXPOSE_NATIVE_WIN32
-
-#endif
-
-#include <GLFW/glfw3native.h>
-
 namespace app {
     Window::Window(const WindowCreateInfo& createInfo)
         : extent_(createInfo.extent), title_(createInfo.title), visibility_(createInfo.visibility) {
         glfwWindowHint(GLFW_RESIZABLE, createInfo.resizable);
 
-        handle_ = glfwCreateWindow(extent_.width, extent_.height, title_.c_str(), nullptr, nullptr);
+        handle_ = glfwCreateWindow(static_cast<std::int32_t>(extent_.width), static_cast<std::int32_t>(extent_.height), title_.c_str(), nullptr, nullptr);
 
         if (!handle_) {
             throw std::runtime_error("Error calling app::Window::Window(): Failed to create window");
@@ -77,7 +65,7 @@ namespace app {
 
         extent_ = extent;
 
-        glfwSetWindowSize(handle_, extent_.width, extent_.height);
+        glfwSetWindowSize(handle_, static_cast<std::int32_t>(extent_.width), static_cast<std::int32_t>(extent_.height));
     }
 
     void Window::setTitle(const std::string& title) {
@@ -99,11 +87,18 @@ namespace app {
             return;
         }
 
-        visibility_ = visibility;
-
-        switch (visibility_) {
+        switch (visibility) {
             case WindowVisibility::WINDOWED:
-                glfwRestoreWindow(handle_);
+                if (visibility_ == WindowVisibility::MINIMISED) {
+                    glfwRestoreWindow(handle_);
+                }
+                else if (visibility_ == WindowVisibility::FULLSCREEN) {
+                    std::uint32_t width = lastWindowedExtent_.width;
+                    std::uint32_t height = lastWindowedExtent_.height;
+
+                    glfwSetWindowMonitor(handle_, nullptr, GLFW_DONT_CARE, GLFW_DONT_CARE, static_cast<std::int32_t>(width), static_cast<std::int32_t>(height), 0);
+                }
+
                 break;
 
             case WindowVisibility::MINIMISED:
@@ -114,6 +109,8 @@ namespace app {
                 GLFWmonitor* monitor = glfwGetPrimaryMonitor();
                 const GLFWvidmode* mode = glfwGetVideoMode(monitor);
 
+                lastWindowedExtent_ = extent_;
+
                 glfwSetWindowMonitor(
                     handle_,
                     monitor,
@@ -123,6 +120,8 @@ namespace app {
                 break;
             }
         }
+
+        visibility_ = visibility;
     }
 
     const data::Extent2D<std::uint32_t>& Window::getExtent() const {
@@ -149,12 +148,20 @@ namespace app {
         return visibility_;
     }
 
-    std::queue<WindowEvent>& Window::queryEvents() {
-        if (!handle_) {
-            throw std::runtime_error("Illegal call to app::Window::queryEvents(): Window is invalid");
+    bool Window::hasEvents() const {
+        return !events_.empty();
+    }
+
+    WindowEvent Window::getNextEvent() {
+        if (events_.empty()) {
+            throw std::runtime_error("Illegal call to app::Window::getNextEvent(): No events to process");
         }
 
-        return events_;
+        WindowEvent event = events_.front();
+
+        events_.pop();
+
+        return event;
     }
 
     GLFWwindow*& Window::getAgnosticHandle() {
@@ -163,28 +170,6 @@ namespace app {
         }
 
         return handle_;
-    }
-
-    void* Window::getNativeHandle() {
-        if (!handle_) {
-            throw std::runtime_error("Illegal call to app::Window::getNativeHandle(): Window is invalid");
-        }
-
-#if defined(PLATFORM_APPLE)
-
-        return glfwGetCocoaWindow(handle_);
-
-#elif defined(PLATFORM_WINDOWS)
-
-        return glfwGetWin32Window(handle_);
-
-#else
-
-        throw std::runtime_error("Error calling app::Window::getNativeHandle(): Cannot query backend when not under Cocoa or Win32");
-
-#endif
-
-        throw std::runtime_error("Error calling app::Window::getNativeHandle(): Backend is unsupported");
     }
 
     void Window::resizeCallback(GLFWwindow* window, int width, int height) {

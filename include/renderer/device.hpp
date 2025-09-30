@@ -9,6 +9,8 @@
 #include <renderer/resources/image.hpp>
 #include <renderer/resources/pass.hpp>
 
+#include <renderer/resources/fence.hpp>
+
 #include <span>
 
 #include <vulkan/vulkan.h>
@@ -36,6 +38,20 @@ namespace renderer {
 
         Device& operator=(const Device&) = delete;
         Device& operator=(Device&&) noexcept = default;
+
+        // @brief Blocks until the GPU is not busy
+        void waitIdle();
+
+        // @brief Blocks until fences have been signalled
+        // @param List of fences to wait for
+        // @param If all fences should be waited for. Defaults to true
+        // @param Timeout period. Defaults to UINT32_MAX
+        void waitForFences(const std::vector<data::Reference<Fence>>& fences, bool waitAll = true, std::uint32_t timeout = std::numeric_limits<std::uint32_t>::max());
+
+        // @brief Resets all fences to be unsignalled
+        // @param List of fences to reset
+        // @note Must be called when all fences are not pending
+        void resetFences(const std::vector<data::Reference<Fence>>& fences);
 
         // @brief Queries the queues from the device
         // @return List of all usable queues
