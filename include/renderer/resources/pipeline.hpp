@@ -391,9 +391,8 @@ namespace renderer {
         // @brief Input assembly state
         PipelineInputAssemblyState inputAssembly;
 
-        // @brief Viewports to be used
-        std::vector<Viewport> viewports;
-        std::vector<Scissor> scissors;
+        std::uint32_t viewportCount;
+        std::uint32_t scissorCount;
 
         // @brief Rasterisation, depth, and stencil state
         RasterisationState rasterisation;

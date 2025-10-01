@@ -192,29 +192,6 @@ void run() {
 
     renderer::PipelineLayout pipelineLayout(pipelineLayoutCreateInfo);
 
-    renderer::Viewport viewport = {
-        {
-            .x = 0.0,
-            .y = 0.0,
-        },
-        {
-            .width = static_cast<float>(window.getExtent().width),
-            .height = static_cast<float>(window.getExtent().height),
-        },
-        {
-            .min = 0.0,
-            .max = 1.0,
-        },
-    };
-
-    renderer::Scissor scissor = {
-        {
-            .x = 0,
-            .y = 0,
-        },
-        window.getExtent(),
-    };
-
     renderer::PipelineCreateInfo pipelineCreateInfo = {
         .renderPass = renderPass,
         .layout = pipelineLayout,
@@ -253,12 +230,8 @@ void run() {
             },
         },
         .inputAssembly = {},
-        .viewports = {
-            viewport,
-        },
-        .scissors = {
-            scissor,
-        },
+        .viewportCount = 1,
+        .scissorCount = 1,
         .rasterisation = {},
         .multisample = {},
         .colourBlend = {

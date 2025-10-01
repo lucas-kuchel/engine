@@ -375,10 +375,10 @@ namespace renderer {
                 .sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
                 .pNext = nullptr,
                 .flags = 0,
-                .viewportCount = static_cast<uint32_t>(createInfo.viewports.size()),
-                .pViewports = reinterpret_cast<const VkViewport*>(createInfo.viewports.data()),
-                .scissorCount = static_cast<uint32_t>(createInfo.scissors.size()),
-                .pScissors = reinterpret_cast<const VkRect2D*>(createInfo.scissors.data()),
+                .viewportCount = createInfo.viewportCount,
+                .pViewports = nullptr,
+                .scissorCount = createInfo.scissorCount,
+                .pScissors = nullptr,
             };
 
             createData.raster = {
