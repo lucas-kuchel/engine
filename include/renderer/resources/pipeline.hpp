@@ -1,5 +1,6 @@
 #pragma once
 
+#include <data/colour.hpp>
 #include <data/range.hpp>
 #include <data/rect.hpp>
 #include <data/references.hpp>
@@ -282,9 +283,22 @@ namespace renderer {
         BlendOperation alphaBlendOperation = BlendOperation::ADD;
     };
 
+    using BlendConstants = data::ColourRGBA;
+
     // @brief Describes the blend state of all colour attachments
     struct ColourBlendState {
         std::vector<ColourBlendAttachment> attachments;
+    };
+
+    enum class StencilFaces {
+        FRONT,
+        BACK,
+        BOTH,
+    };
+
+    enum class IndexType {
+        U16,
+        U32,
     };
 
     enum class ShaderInputType {

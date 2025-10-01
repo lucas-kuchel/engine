@@ -2,7 +2,7 @@
 
 #include <data/references.hpp>
 
-#include <vector>
+#include <renderer/resources/pipeline.hpp>
 
 #include <vulkan/vulkan.h>
 
@@ -11,6 +11,7 @@ namespace renderer {
     class CommandPool;
     class CommandBuffer;
     class CommandBufferCapturePeriod;
+    class Buffer;
 
     struct RenderPassBeginInfo;
 
@@ -29,6 +30,23 @@ namespace renderer {
         // @brief Ends the render pass prematurely
         // @note Not necessary to call; destructor will call it too
         void end();
+
+        void bindPipeline(Pipeline& pipeline);
+        void bindVertexBuffers(const std::vector<data::Reference<Buffer>>& buffers, const std::vector<std::uint64_t>& offsets, std::uint32_t first);
+        void bindIndexBuffer(Buffer& buffer, std::uint64_t offset, IndexType indexType);
+
+        void setPipelineViewports(const std::vector<renderer::Viewport>& viewports, std::uint32_t offset);
+        void setPipelineScissors(const std::vector<renderer::Scissor>& scissors, std::uint32_t offset);
+        void setPipelineLineWidth(float width);
+        void setPipelineDepthBias(float depthBiasConstantFactor, float depthBiasClamp, float depthBiasSlopeFactor);
+        void setPipelineBlendConstants(BlendConstants blend);
+        void setPipelineDepthBounds(data::Range<float> range);
+        void setPipelineStencilCompareMask(StencilFaces faces, std::uint32_t compareMask);
+        void setPipelineStencilWriteMask(StencilFaces faces, std::uint32_t writeMask);
+        void setPipelineStencilReferenceMask(StencilFaces faces, std::uint32_t reference);
+
+        void draw(std::uint32_t vertexCount, std::uint32_t instances, std::uint32_t firstVertex, std::uint32_t firstInstance);
+        void drawIndexed(std::uint32_t indexCount, std::uint32_t instanceCount, std::uint32_t firstIndex, std::uint32_t firstInstance, std::int32_t vertexOffset);
 
         // @brief Indicates if this render pass has ended
         [[nodiscard]] bool renderEnded() const;
@@ -63,7 +81,8 @@ namespace renderer {
 
         // @brief Ends the capture prematurely
         // @note Not necessary to call; destructor will call it too
-        void end();
+        void
+        end();
 
         // @brief Indicates if command capture is already rendering
         // @return If the command capture is rendering

@@ -231,7 +231,10 @@ void run() {
                 },
             },
         },
-        .inputAssembly = {},
+        .inputAssembly = {
+            .topology = renderer::RasterisationPrimitive::TRIANGLE_STRIP,
+            .primitiveRestart = false,
+        },
         .viewportCount = 1,
         .scissorCount = 1,
         .rasterisation = {},
@@ -243,20 +246,45 @@ void run() {
 
     std::vector<renderer::Pipeline> pipelines = device.createPipelines({pipelineCreateInfo});
 
-    std::array<data::Position2D<float>, 3> vertices = {
-        data::Position2D{0.0f, 0.5f},
-        data::Position2D{0.5f, -0.5f},
-        data::Position2D{-0.5f, -0.5f},
+    renderer::Pipeline& pipeline = pipelines.front();
+
+    struct Vertex {
+        data::Position2D<float> position;
+        data::ColourRGB colour;
+    };
+
+    struct Triangle {
+        std::uint32_t a, b, c;
+    };
+
+    std::array<Vertex, 4> vertices = {
+        Vertex({-0.5, -0.5}, {0.0, 1.0, 0.0}),
+        Vertex({-0.5, 0.5}, {0.0, 0.0, 1.0}),
+        Vertex({0.5, -0.5}, {1.0, 0.0, 0.0}),
+        Vertex({0.5, 0.5}, {1.0, 1.0, 1.0}),
+    };
+
+    std::array<Triangle, 2> triangles = {
+        Triangle{0, 1, 2},
+        Triangle{0, 2, 3},
     };
 
     renderer::BufferCreateInfo vertexBufferCreateInfo = {
         .device = device,
         .type = renderer::MemoryType::HOST_VISIBLE,
-        .sizeBytes = vertices.size() * sizeof(data::Position2D<float>),
+        .sizeBytes = vertices.size() * sizeof(Vertex),
         .usage = renderer::BufferUsageFlags::VERTEX,
     };
 
+    renderer::BufferCreateInfo indexBufferCreateInfo = {
+        .device = device,
+        .type = renderer::MemoryType::HOST_VISIBLE,
+        .sizeBytes = triangles.size() * sizeof(Triangle),
+        .usage = renderer::BufferUsageFlags::INDEX,
+    };
+
     renderer::Buffer vertexBuffer(vertexBufferCreateInfo);
+    renderer::Buffer indexBuffer(indexBufferCreateInfo);
 
     if (vertexBuffer.isMappable()) {
         renderer::BufferMemoryMapping mapping = vertexBuffer.map(vertexBuffer.getSize(), 0);
@@ -264,6 +292,16 @@ void run() {
         auto data = mapping.get();
 
         std::memcpy(data.data(), vertices.data(), vertexBuffer.getSize());
+
+        mapping.unmap();
+    }
+
+    if (indexBuffer.isMappable()) {
+        renderer::BufferMemoryMapping mapping = indexBuffer.map(indexBuffer.getSize(), 0);
+
+        auto data = mapping.get();
+
+        std::memcpy(data.data(), triangles.data(), indexBuffer.getSize());
 
         mapping.unmap();
     }
@@ -367,6 +405,35 @@ void run() {
         auto capture = commandBuffer.beginCapture();
         auto render = capture.beginRenderPass(renderPassBeginInfo);
 
+        render.bindPipeline(pipeline);
+
+        renderer::Viewport viewport = {
+            .position = {
+                .x = 0.0,
+                .y = 0.0,
+            },
+            .extent = {
+                .width = static_cast<float>(swapchain.getExtent().width),
+                .height = static_cast<float>(swapchain.getExtent().height),
+            },
+            .depth = {
+                .min = 0.0,
+                .max = 1.0,
+            },
+        };
+
+        renderer::Scissor scissor = {
+            .offset = {0, 0},
+            .extent = swapchain.getExtent(),
+        };
+
+        render.setPipelineViewports({viewport}, 0);
+        render.setPipelineScissors({scissor}, 0);
+
+        render.bindVertexBuffers({vertexBuffer}, {0}, 0);
+
+        render.draw(4, 1, 0, 0);
+
         render.end();
         capture.end();
 
@@ -375,20 +442,6 @@ void run() {
         swapchain.presentNextImage(submitSemaphore);
 
         frameIndex = (frameIndex + 1) % frameCount;
-    }
-
-    if (vertexBuffer.isMappable()) {
-        renderer::BufferMemoryMapping mapping = vertexBuffer.map(vertexBuffer.getSize(), 0);
-
-        auto data = mapping.get();
-
-        auto* vertexData = reinterpret_cast<data::Position2D<float>*>(data.data());
-
-        std::vector<data::Position2D<float>> copiedVertices(vertexData, vertexData + vertices.size());
-
-        for (auto& vertex : copiedVertices) {
-            std::println("Vertex copied from GPU: {}, {}", vertex.x, vertex.y);
-        }
     }
 
     device.waitIdle();
