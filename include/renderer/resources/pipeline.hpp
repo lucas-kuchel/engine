@@ -92,11 +92,11 @@ namespace renderer {
     // @brief Describes the input assembly stage of the fixed-function pipeline
     struct PipelineInputAssemblyState {
         // @brief What topology to assemble vertices into
-        RasterisationPrimitive topology;
+        RasterisationPrimitive topology = RasterisationPrimitive::TRIANGLE;
 
         // @brief If strip-type primitives should be restarted when a certain value is seen
         // @note The restart value should be in the index buffer. 0xFFFF for 16-bit indices, OxFFFFFFFF for 32-bit indices
-        bool primitiveRestart;
+        bool primitiveRestart = false;
     };
 
     // @brief Describes all state related to vertex buffer inputs
@@ -111,13 +111,13 @@ namespace renderer {
     // @brief The renderable area of the screen that a pipeline will target
     struct Viewport {
         // @brief The position of the top-left corner
-        data::Position2D<float> position;
+        data::Position2D<float> position = {};
 
         // @brief The extent (size) of the renderable region
-        data::Extent2D<float> extent;
+        data::Extent2D<float> extent = {};
 
         // @brief The depth range of the region
-        data::Range<float> depth;
+        data::Range<float> depth = {};
     };
 
     // @brief Defines the winding order for points of a polygon
@@ -128,7 +128,7 @@ namespace renderer {
 
     // @brief Defines the culling mode of a polygon
     enum class PolygonCullMode {
-        NONE,
+        NEVER,
         FRONT,
         BACK,
         ALWAYS,
@@ -160,74 +160,74 @@ namespace renderer {
 
     struct PerFaceRasterisationState {
         // @brief Comparison used when depth testing
-        CompareOperation depthComparison;
+        CompareOperation depthComparison = CompareOperation::NEVER;
 
         // @brief Comparison used when stencil testing
-        CompareOperation stencilComparison;
+        CompareOperation stencilComparison = CompareOperation::NEVER;
 
         // @brief Action to take when the stencil test fails
-        ValueOperation stencilFailOperation;
+        ValueOperation stencilFailOperation = ValueOperation::ZERO;
 
         // @brief Action to take when the depth test fails
         // @note Depth testing always occurs after stencil testing
-        ValueOperation depthFailOperation;
+        ValueOperation depthFailOperation = ValueOperation::ZERO;
 
         // @brief Action to take when both depth and stencil pass
-        ValueOperation passOperation;
+        ValueOperation passOperation = ValueOperation::ZERO;
 
         // @brief Comparison mask for stencil testing
-        std::uint32_t stencilCompareMask;
+        std::uint32_t stencilCompareMask = 0xF;
 
         // @brief Write mask for stencil testing
-        std::uint32_t stencilWriteMask;
+        std::uint32_t stencilWriteMask = 0xF;
     };
 
     struct RasterisationState {
         // @brief What winding direction the front face will have
-        PolygonFaceWinding frontFaceWinding;
+        PolygonFaceWinding frontFaceWinding = PolygonFaceWinding::CLOCKWISE;
 
         // @brief What cull mode to use for polygons
-        PolygonCullMode cullMode;
+        PolygonCullMode cullMode = PolygonCullMode::NEVER;
 
         // @brief Frontface rasterisation state
-        PerFaceRasterisationState frontface;
+        PerFaceRasterisationState frontface = {};
 
         // @brief Backface rasterisation state
-        PerFaceRasterisationState backface;
+        PerFaceRasterisationState backface = {};
 
         // @brief If depth values should be clamped
-        bool depthClampEnable;
+        bool depthClampEnable = false;
 
         // @brief If depth values should be read and tested against
-        bool depthTestEnable;
+        bool depthTestEnable = false;
 
         // @brief If depth values should be written to the depth texture
-        bool depthWriteEnable;
+        bool depthWriteEnable = false;
 
         // @brief If depth bounds testing should occur
-        bool depthBoundsTestEnable;
+        bool depthBoundsTestEnable = false;
 
         // @brief If stencil testing should be performed
-        bool stencilTestEnable;
+        bool stencilTestEnable = false;
     };
 
     // @brief Describes how rasterised fragments are sampled
     struct MultisampleState {
         // @brief Number of samples per pixel (1 = no MSAA)
-        std::uint32_t sampleCount;
+        std::uint32_t sampleCount = 1;
 
         // @brief If enabled, run the fragment shader per-sample instead of per-pixel
-        bool sampleShadingEnable;
+        bool sampleShadingEnable = false;
 
         // @brief If enabled, use the fragment's alpha to influence sample coverage
-        bool alphaToCoverageEnable;
+        bool alphaToCoverageEnable = false;
 
         // @brief If enabled, force the alpha channel to 1.0 after coverage
-        bool alphaToOneEnable;
+        bool alphaToOneEnable = false;
 
         // @brief Minimum fraction of samples that must be shaded
         // @note Only relevant if sampleShadingEnable is true
-        float minSampleShading;
+        float minSampleShading = 0.0;
     };
 
     // @brief Possible blend factors used for combining source and destination values
@@ -261,25 +261,25 @@ namespace renderer {
     // @brief Describes how a single render target should blend fragments
     struct ColourBlendAttachment {
         // @brief If blending is enabled for this attachment
-        bool blendEnable;
+        bool blendEnable = false;
 
         // @brief Source blend factor for the alpha channel
-        BlendFactor sourceColourBlendFactor;
+        BlendFactor sourceColourBlendFactor = BlendFactor::ONE;
 
         // @brief Destination blend factor for the alpha channel
-        BlendFactor destinationColourBlendFactor;
+        BlendFactor destinationColourBlendFactor = BlendFactor::ZERO;
 
         // @brief Operation used when blending the alpha channel
-        BlendOperation colourBlendOperation;
+        BlendOperation colourBlendOperation = BlendOperation::ADD;
 
         // @brief Source blend factor for the alpha channel
-        BlendFactor sourceAlphaBlendFactor;
+        BlendFactor sourceAlphaBlendFactor = BlendFactor::ONE;
 
         // @brief Destination blend factor for the alpha channel
-        BlendFactor destinationAlphaBlendFactor;
+        BlendFactor destinationAlphaBlendFactor = BlendFactor::ZERO;
 
         // @brief Operation used when blending the alpha channel
-        BlendOperation alphaBlendOperation;
+        BlendOperation alphaBlendOperation = BlendOperation::ADD;
     };
 
     // @brief Describes the blend state of all colour attachments

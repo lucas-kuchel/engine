@@ -252,46 +252,17 @@ void run() {
                 },
             },
         },
-        .inputAssembly = {
-            renderer::RasterisationPrimitive::TRIANGLE,
-            false,
-        },
+        .inputAssembly = {},
         .viewports = {
             viewport,
         },
         .scissors = {
             scissor,
         },
-        .rasterisation = {
-            .frontFaceWinding = renderer::PolygonFaceWinding::CLOCKWISE,
-            .cullMode = renderer::PolygonCullMode::NONE,
-            .frontface = {},
-            .backface = {},
-            .depthClampEnable = false,
-            .depthTestEnable = false,
-            .depthWriteEnable = false,
-            .depthBoundsTestEnable = false,
-            .stencilTestEnable = false,
-        },
-        .multisample = {
-            .sampleCount = 1,
-            .sampleShadingEnable = false,
-            .alphaToCoverageEnable = false,
-            .alphaToOneEnable = false,
-            .minSampleShading = 0.0f,
-        },
+        .rasterisation = {},
+        .multisample = {},
         .colourBlend = {
-            .attachments = {
-                {
-                    .blendEnable = false,
-                    .sourceColourBlendFactor = renderer::BlendFactor::ONE,
-                    .destinationColourBlendFactor = renderer::BlendFactor::ZERO,
-                    .colourBlendOperation = renderer::BlendOperation::ADD,
-                    .sourceAlphaBlendFactor = renderer::BlendFactor::ONE,
-                    .destinationAlphaBlendFactor = renderer::BlendFactor::ZERO,
-                    .alphaBlendOperation = renderer::BlendOperation::ADD,
-                },
-            },
+            .attachments = {renderer::ColourBlendAttachment{}},
         },
     };
 

@@ -252,7 +252,7 @@ namespace renderer {
 
     VkCullModeFlags Pipeline::reverseMapCullMode(PolygonCullMode cullMode) {
         switch (cullMode) {
-            case PolygonCullMode::NONE:
+            case PolygonCullMode::NEVER:
                 return VK_CULL_MODE_NONE;
 
             case PolygonCullMode::FRONT:

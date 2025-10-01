@@ -219,13 +219,25 @@ namespace renderer {
     }
 
     std::vector<Pipeline> Device::createPipelines(const std::vector<PipelineCreateInfo>& createInfos) {
+        struct PipelineCreationData {
+            std::vector<VkPipelineShaderStageCreateInfo> shaderStages;
+            std::vector<VkVertexInputBindingDescription> bindings;
+            std::vector<VkVertexInputAttributeDescription> attributes;
+            std::vector<VkPipelineColorBlendAttachmentState> blendAttachments;
+
+            VkPipelineVertexInputStateCreateInfo vertexInput;
+            VkPipelineInputAssemblyStateCreateInfo inputAssembly;
+            VkPipelineViewportStateCreateInfo viewportState;
+            VkPipelineRasterizationStateCreateInfo raster;
+            VkPipelineMultisampleStateCreateInfo multisample;
+            VkPipelineDepthStencilStateCreateInfo depthStencil;
+            VkPipelineColorBlendStateCreateInfo colourBlend;
+        };
+
+        std::vector<VkGraphicsPipelineCreateInfo> pipelineCreateInfos(createInfos.size());
+        std::vector<VkPipeline> pipelineHandles(createInfos.size(), VK_NULL_HANDLE);
+        std::vector<PipelineCreationData> creationData(createInfos.size());
         std::vector<Pipeline> pipelines;
-        std::vector<VkGraphicsPipelineCreateInfo> vkCreateInfos(createInfos.size());
-        std::vector<VkPipeline> vkPipelines(createInfos.size(), VK_NULL_HANDLE);
-        std::vector<std::vector<VkPipelineShaderStageCreateInfo>> shaderStages(createInfos.size());
-        std::vector<std::vector<VkVertexInputBindingDescription>> bindings(createInfos.size());
-        std::vector<std::vector<VkVertexInputAttributeDescription>> attributes(createInfos.size());
-        std::vector<std::vector<VkPipelineColorBlendAttachmentState>> blendAttachments(createInfos.size());
 
         pipelines.reserve(createInfos.size());
 
@@ -251,19 +263,16 @@ namespace renderer {
 
         for (std::size_t i = 0; i < createInfos.size(); i++) {
             auto& createInfo = createInfos[i];
-            auto& vkCreateInfo = vkCreateInfos[i];
-            auto& vkShaderStages = shaderStages[i];
-            auto& vkBindings = bindings[i];
-            auto& vkAttributes = attributes[i];
-            auto& vkBlendAttachments = blendAttachments[i];
+            auto& createData = creationData[i];
+            auto& pipelineCreateInfo = pipelineCreateInfos[i];
 
-            vkShaderStages.resize(createInfo.shaderStages.size());
-            vkBindings.resize(createInfo.vertexInput.bindings.size());
-            vkAttributes.resize(createInfo.vertexInput.attributes.size());
-            vkBlendAttachments.resize(createInfo.colourBlend.attachments.size());
+            createData.shaderStages.resize(createInfo.shaderStages.size());
+            createData.bindings.resize(createInfo.vertexInput.bindings.size());
+            createData.attributes.resize(createInfo.vertexInput.attributes.size());
+            createData.blendAttachments.resize(createInfo.colourBlend.attachments.size());
 
-            for (std::size_t j = 0; j < vkShaderStages.size(); j++) {
-                auto& info = vkShaderStages[j];
+            for (std::size_t j = 0; j < createData.shaderStages.size(); j++) {
+                auto& info = createData.shaderStages[j];
                 auto& stage = createInfo.shaderStages[j];
 
                 info = {
@@ -277,8 +286,8 @@ namespace renderer {
                 };
             }
 
-            for (std::size_t j = 0; j < vkBindings.size(); j++) {
-                auto& description = vkBindings[j];
+            for (std::size_t j = 0; j < createData.bindings.size(); j++) {
+                auto& description = createData.bindings[j];
                 auto& binding = createInfo.vertexInput.bindings[j];
 
                 description = {
@@ -290,8 +299,8 @@ namespace renderer {
 
             std::uint32_t offset = 0;
 
-            for (std::size_t j = 0; j < vkAttributes.size(); j++) {
-                auto& description = vkAttributes[j];
+            for (std::size_t j = 0; j < createData.attributes.size(); j++) {
+                auto& description = createData.attributes[j];
                 auto& attribute = createInfo.vertexInput.attributes[j];
 
                 description = {
@@ -328,17 +337,33 @@ namespace renderer {
                 }
             }
 
-            VkPipelineVertexInputStateCreateInfo vertexInput = {
+            for (std::size_t j = 0; j < createData.blendAttachments.size(); j++) {
+                auto& state = createData.blendAttachments[j];
+                auto& attachment = createInfo.colourBlend.attachments[j];
+
+                state = {
+                    .blendEnable = attachment.blendEnable ? VK_TRUE : VK_FALSE,
+                    .srcColorBlendFactor = Pipeline::reverseMapBlendFactor(attachment.sourceColourBlendFactor),
+                    .dstColorBlendFactor = Pipeline::reverseMapBlendFactor(attachment.destinationColourBlendFactor),
+                    .colorBlendOp = Pipeline::reverseMapBlendOperation(attachment.colourBlendOperation),
+                    .srcAlphaBlendFactor = Pipeline::reverseMapBlendFactor(attachment.sourceAlphaBlendFactor),
+                    .dstAlphaBlendFactor = Pipeline::reverseMapBlendFactor(attachment.destinationAlphaBlendFactor),
+                    .alphaBlendOp = Pipeline::reverseMapBlendOperation(attachment.alphaBlendOperation),
+                    .colorWriteMask = 0xF,
+                };
+            }
+
+            createData.vertexInput = {
                 .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
                 .pNext = nullptr,
                 .flags = 0,
-                .vertexBindingDescriptionCount = static_cast<std::uint32_t>(vkBindings.size()),
-                .pVertexBindingDescriptions = vkBindings.data(),
-                .vertexAttributeDescriptionCount = static_cast<std::uint32_t>(vkAttributes.size()),
-                .pVertexAttributeDescriptions = vkAttributes.data(),
+                .vertexBindingDescriptionCount = static_cast<std::uint32_t>(createData.bindings.size()),
+                .pVertexBindingDescriptions = createData.bindings.data(),
+                .vertexAttributeDescriptionCount = static_cast<std::uint32_t>(createData.attributes.size()),
+                .pVertexAttributeDescriptions = createData.attributes.data(),
             };
 
-            VkPipelineInputAssemblyStateCreateInfo inputAssembly = {
+            createData.inputAssembly = {
                 .sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
                 .pNext = nullptr,
                 .flags = 0,
@@ -346,7 +371,7 @@ namespace renderer {
                 .primitiveRestartEnable = createInfo.inputAssembly.primitiveRestart ? VK_TRUE : VK_FALSE,
             };
 
-            VkPipelineViewportStateCreateInfo viewportState = {
+            createData.viewportState = {
                 .sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
                 .pNext = nullptr,
                 .flags = 0,
@@ -356,7 +381,7 @@ namespace renderer {
                 .pScissors = reinterpret_cast<const VkRect2D*>(createInfo.scissors.data()),
             };
 
-            VkPipelineRasterizationStateCreateInfo raster = {
+            createData.raster = {
                 .sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
                 .pNext = nullptr,
                 .flags = 0,
@@ -372,7 +397,7 @@ namespace renderer {
                 .lineWidth = 1.0f,
             };
 
-            VkPipelineMultisampleStateCreateInfo multisample = {
+            createData.multisample = {
                 .sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
                 .pNext = nullptr,
                 .flags = 0,
@@ -384,7 +409,7 @@ namespace renderer {
                 .alphaToOneEnable = createInfo.multisample.alphaToOneEnable ? VK_TRUE : VK_FALSE,
             };
 
-            VkPipelineDepthStencilStateCreateInfo depthStencil = {
+            createData.depthStencil = {
                 .sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
                 .pNext = nullptr,
                 .flags = 0,
@@ -399,47 +424,31 @@ namespace renderer {
                 .maxDepthBounds = 1.0,
             };
 
-            for (std::size_t j = 0; j < vkBlendAttachments.size(); j++) {
-                auto& state = vkBlendAttachments[j];
-                auto& attachment = createInfo.colourBlend.attachments[j];
-
-                state = {
-                    .blendEnable = attachment.blendEnable ? VK_TRUE : VK_FALSE,
-                    .srcColorBlendFactor = Pipeline::reverseMapBlendFactor(attachment.sourceColourBlendFactor),
-                    .dstColorBlendFactor = Pipeline::reverseMapBlendFactor(attachment.destinationColourBlendFactor),
-                    .colorBlendOp = Pipeline::reverseMapBlendOperation(attachment.colourBlendOperation),
-                    .srcAlphaBlendFactor = Pipeline::reverseMapBlendFactor(attachment.sourceAlphaBlendFactor),
-                    .dstAlphaBlendFactor = Pipeline::reverseMapBlendFactor(attachment.destinationAlphaBlendFactor),
-                    .alphaBlendOp = Pipeline::reverseMapBlendOperation(attachment.alphaBlendOperation),
-                    .colorWriteMask = 0xF,
-                };
-            }
-
-            VkPipelineColorBlendStateCreateInfo colorBlend = {
+            createData.colourBlend = {
                 .sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
                 .pNext = nullptr,
                 .flags = 0,
                 .logicOpEnable = VK_FALSE,
                 .logicOp = VK_LOGIC_OP_NO_OP,
-                .attachmentCount = static_cast<std::uint32_t>(vkBlendAttachments.size()),
-                .pAttachments = vkBlendAttachments.data(),
+                .attachmentCount = static_cast<std::uint32_t>(createData.blendAttachments.size()),
+                .pAttachments = createData.blendAttachments.data(),
                 .blendConstants = {},
             };
 
-            vkCreateInfo = {
+            pipelineCreateInfo = {
                 .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
                 .pNext = nullptr,
                 .flags = 0,
-                .stageCount = static_cast<std::uint32_t>(shaderStages.size()),
-                .pStages = vkShaderStages.data(),
-                .pVertexInputState = &vertexInput,
-                .pInputAssemblyState = &inputAssembly,
+                .stageCount = static_cast<std::uint32_t>(createData.shaderStages.size()),
+                .pStages = createData.shaderStages.data(),
+                .pVertexInputState = &createData.vertexInput,
+                .pInputAssemblyState = &createData.inputAssembly,
                 .pTessellationState = nullptr,
-                .pViewportState = &viewportState,
-                .pRasterizationState = &raster,
-                .pMultisampleState = &multisample,
-                .pDepthStencilState = &depthStencil,
-                .pColorBlendState = &colorBlend,
+                .pViewportState = &createData.viewportState,
+                .pRasterizationState = &createData.raster,
+                .pMultisampleState = &createData.multisample,
+                .pDepthStencilState = &createData.depthStencil,
+                .pColorBlendState = &createData.colourBlend,
                 .pDynamicState = &dynamicStateInfo,
                 .layout = createInfo.layout.getVkPipelineLayout(),
                 .renderPass = createInfo.renderPass.getVkRenderPass(),
@@ -449,11 +458,11 @@ namespace renderer {
             };
         }
 
-        if (vkCreateGraphicsPipelines(device_, VK_NULL_HANDLE, static_cast<std::uint32_t>(vkCreateInfos.size()), vkCreateInfos.data(), nullptr, vkPipelines.data()) != VK_SUCCESS) {
+        if (vkCreateGraphicsPipelines(device_, VK_NULL_HANDLE, static_cast<std::uint32_t>(pipelineCreateInfos.size()), pipelineCreateInfos.data(), nullptr, pipelineHandles.data()) != VK_SUCCESS) {
             throw std::runtime_error("Call failed: renderer::Device::createPipelines: Failed to create graphics pipelines");
         }
 
-        for (auto& vkPipeline : vkPipelines) {
+        for (auto& vkPipeline : pipelineHandles) {
             pipelines.push_back(Pipeline(*this));
             auto& pipeline = pipelines.back();
 
