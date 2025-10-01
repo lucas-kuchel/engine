@@ -152,6 +152,9 @@ namespace renderer {
         queueFamilyOccupations_.resize(queueFamilyCount);
 
         vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice_, &queueFamilyCount, queueFamilyProperties_.data());
+
+        vkGetPhysicalDeviceMemoryProperties(physicalDevice_, &memoryProperties_);
+        vkGetPhysicalDeviceProperties(physicalDevice_, &properties_);
     }
 
     Instance::~Instance() {
@@ -174,6 +177,22 @@ namespace renderer {
 
     const VkPhysicalDevice& Instance::getVkPhysicalDevice() const {
         return physicalDevice_;
+    }
+
+    VkPhysicalDeviceMemoryProperties& Instance::getVkPhysicalDeviceMemoryProperties() {
+        return memoryProperties_;
+    }
+
+    const VkPhysicalDeviceMemoryProperties& Instance::getVkPhysicalDeviceMemoryProperties() const {
+        return memoryProperties_;
+    }
+
+    VkPhysicalDeviceProperties& Instance::getVkPhysicalDeviceProperties() {
+        return properties_;
+    }
+
+    const VkPhysicalDeviceProperties& Instance::getVkPhysicalDeviceProperties() const {
+        return properties_;
     }
 
     const std::vector<VkQueueFamilyProperties>& Instance::getVkQueueFamilyProperties() const {

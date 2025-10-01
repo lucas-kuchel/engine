@@ -504,6 +504,14 @@ namespace renderer {
         return queues_;
     }
 
+    Instance& Device::getInstance() {
+        return instance_.get();
+    }
+
+    const Instance& Device::getInstance() const {
+        return instance_.get();
+    }
+
     VkDevice& Device::getVkDevice() {
         return device_;
     }

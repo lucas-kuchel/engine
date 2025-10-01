@@ -5,18 +5,16 @@
 
 #include <renderer/queue.hpp>
 
+#include <renderer/resources/fence.hpp>
 #include <renderer/resources/framebuffer.hpp>
 #include <renderer/resources/image.hpp>
 #include <renderer/resources/pass.hpp>
 #include <renderer/resources/pipeline.hpp>
 
-#include <renderer/resources/fence.hpp>
-
 #include <span>
 
-#include <vulkan/vulkan.h>
-
 #include <vk_mem_alloc.h>
+#include <vulkan/vulkan.h>
 
 namespace renderer {
     class Instance;
@@ -66,6 +64,9 @@ namespace renderer {
         // @brief Queries the queues from the device
         // @return List of all usable queues
         [[nodiscard]] std::span<Queue> getQueues();
+
+        [[nodiscard]] Instance& getInstance();
+        [[nodiscard]] const Instance& getInstance() const;
 
         // @brief Queries the queues from the device
         // @return List of all usable queues

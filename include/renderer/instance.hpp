@@ -37,17 +37,33 @@ namespace renderer {
         // @return The VkInstance
         [[nodiscard]] VkInstance& getVkInstance();
 
-        // @brief Provides the Vulkan VkPhysicalDevice
-        // @return The VkPhysicalDevice
-        [[nodiscard]] VkPhysicalDevice& getVkPhysicalDevice();
-
         // @brief Provides the Vulkan VkInstance
         // @return The VkInstance
         [[nodiscard]] const VkInstance& getVkInstance() const;
 
         // @brief Provides the Vulkan VkPhysicalDevice
         // @return The VkPhysicalDevice
+        [[nodiscard]] VkPhysicalDevice& getVkPhysicalDevice();
+
+        // @brief Provides the Vulkan VkPhysicalDevice
+        // @return The VkPhysicalDevice
         [[nodiscard]] const VkPhysicalDevice& getVkPhysicalDevice() const;
+
+        // @brief Provides the Vulkan VkPhysicalDeviceMemoryProperties
+        // @return The VkPhysicalDeviceMemoryProperties
+        [[nodiscard]] VkPhysicalDeviceMemoryProperties& getVkPhysicalDeviceMemoryProperties();
+
+        // @brief Provides the Vulkan VkPhysicalDeviceMemoryProperties
+        // @return The VkPhysicalDeviceMemoryProperties
+        [[nodiscard]] const VkPhysicalDeviceMemoryProperties& getVkPhysicalDeviceMemoryProperties() const;
+
+        // @brief Provides the Vulkan VkPhysicalDeviceProperties
+        // @return The VkPhysicalDeviceProperties
+        [[nodiscard]] VkPhysicalDeviceProperties& getVkPhysicalDeviceProperties();
+
+        // @brief Provides the Vulkan VkPhysicalDeviceProperties
+        // @return The VkPhysicalDeviceProperties
+        [[nodiscard]] const VkPhysicalDeviceProperties& getVkPhysicalDeviceProperties() const;
 
         // @brief Provides the Vulkan VkQueueFamilyProperties list
         // @return The VkQueueFamilyProperties list
@@ -60,6 +76,8 @@ namespace renderer {
     private:
         VkInstance instance_ = VK_NULL_HANDLE;
         VkPhysicalDevice physicalDevice_ = VK_NULL_HANDLE;
+        VkPhysicalDeviceMemoryProperties memoryProperties_;
+        VkPhysicalDeviceProperties properties_;
 
         std::uint32_t apiVersion_ = 0;
 

@@ -10,6 +10,7 @@
 #include <renderer/commands/buffer.hpp>
 #include <renderer/commands/pool.hpp>
 
+#include <renderer/resources/buffer.hpp>
 #include <renderer/resources/fence.hpp>
 #include <renderer/resources/framebuffer.hpp>
 #include <renderer/resources/image.hpp>
@@ -20,6 +21,7 @@
 
 #include <filesystem/file.hpp>
 
+#include <cstring>
 #include <exception>
 #include <print>
 
@@ -241,12 +243,37 @@ void run() {
 
     std::vector<renderer::Pipeline> pipelines = device.createPipelines({pipelineCreateInfo});
 
+    std::array<data::Position2D<float>, 3> vertices = {
+        data::Position2D{0.0f, 0.5f},
+        data::Position2D{0.5f, -0.5f},
+        data::Position2D{-0.5f, -0.5f},
+    };
+
+    renderer::BufferCreateInfo vertexBufferCreateInfo = {
+        .device = device,
+        .type = renderer::MemoryType::HOST_VISIBLE,
+        .sizeBytes = vertices.size() * sizeof(data::Position2D<float>),
+        .usage = renderer::BufferUsageFlags::VERTEX,
+    };
+
+    renderer::Buffer vertexBuffer(vertexBufferCreateInfo);
+
+    if (vertexBuffer.isMappable()) {
+        renderer::BufferMemoryMapping mapping = vertexBuffer.map(vertexBuffer.getSize(), 0);
+
+        auto data = mapping.get();
+
+        std::memcpy(data.data(), vertices.data(), vertexBuffer.getSize());
+
+        mapping.unmap();
+    }
+
     bool running = true;
 
     data::ColourRGBA attachmentClearColour = {
-        .r = 0.64f,
-        .g = 0.21f,
-        .b = 0.47f,
+        .r = 0.19f,
+        .g = 0.37f,
+        .b = 0.74f,
         .a = 1.0f,
     };
 
@@ -348,6 +375,20 @@ void run() {
         swapchain.presentNextImage(submitSemaphore);
 
         frameIndex = (frameIndex + 1) % frameCount;
+    }
+
+    if (vertexBuffer.isMappable()) {
+        renderer::BufferMemoryMapping mapping = vertexBuffer.map(vertexBuffer.getSize(), 0);
+
+        auto data = mapping.get();
+
+        auto* vertexData = reinterpret_cast<data::Position2D<float>*>(data.data());
+
+        std::vector<data::Position2D<float>> copiedVertices(vertexData, vertexData + vertices.size());
+
+        for (auto& vertex : copiedVertices) {
+            std::println("Vertex copied from GPU: {}, {}", vertex.x, vertex.y);
+        }
     }
 
     device.waitIdle();
