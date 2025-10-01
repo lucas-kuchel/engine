@@ -8,9 +8,7 @@
 
 namespace renderer {
     Instance::Instance(const InstanceCreateInfo& createInfo) {
-        std::uint32_t apiVersion = 0;
-
-        if (vkEnumerateInstanceVersion(&apiVersion) != VK_SUCCESS) {
+        if (vkEnumerateInstanceVersion(&apiVersion_) != VK_SUCCESS) {
             throw std::runtime_error("Error constucting renderer::Instance: Could not retrieve API version");
         }
 
@@ -31,7 +29,7 @@ namespace renderer {
             .applicationVersion = applicationVersion,
             .pEngineName = createInfo.engineName.c_str(),
             .engineVersion = engineVersion,
-            .apiVersion = apiVersion,
+            .apiVersion = apiVersion_,
         };
 
         std::uint32_t windowExtensionCount = 0;

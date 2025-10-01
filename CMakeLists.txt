@@ -3,10 +3,10 @@ cmake_minimum_required(VERSION 3.21)
 project(engine LANGUAGES CXX)
 
 file(GLOB_RECURSE SOURCES "source/*.cpp")
-file(GLOB_RECURSE HEADERS "include/*.hpp")
 
 find_package(glfw3 CONFIG REQUIRED)
 find_package(VulkanHeaders CONFIG REQUIRED)
+find_package(VulkanMemoryAllocator CONFIG REQUIRED)
 
 add_executable(engine ${SOURCES})
 
@@ -25,7 +25,6 @@ elseif(MSVC)
     )
 endif()
 
-target_link_libraries(engine PRIVATE glfw Vulkan::Headers)
 
 target_include_directories(engine PRIVATE "include")
 
@@ -37,6 +36,8 @@ else()
     find_package(Vulkan REQUIRED)
     target_link_libraries(engine PRIVATE Vulkan::Vulkan)
 endif()
+
+target_link_libraries(engine PRIVATE glfw Vulkan::Headers GPUOpen::VulkanMemoryAllocator)
 
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
     target_compile_definitions(engine PRIVATE DEBUG_BUILD_TYPE)

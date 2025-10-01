@@ -16,6 +16,8 @@
 
 #include <vulkan/vulkan.h>
 
+#include <vk_mem_alloc.h>
+
 namespace renderer {
     class Instance;
     class Surface;
@@ -77,8 +79,17 @@ namespace renderer {
         // @return The VkDevice
         [[nodiscard]] const VkDevice& getVkDevice() const;
 
+        // @brief Provides the Vulkan Memory Allocator VmaAllocator
+        // @return The VmaAllocator
+        [[nodiscard]] VmaAllocator& getVmaAllocator();
+
+        // @brief Provides the Vulkan Memory Allocator VmaAllocator
+        // @return The VmaAllocator
+        [[nodiscard]] const VmaAllocator& getVmaAllocator() const;
+
     private:
         VkDevice device_ = VK_NULL_HANDLE;
+        VmaAllocator allocator_ = VK_NULL_HANDLE;
 
         data::Reference<Instance> instance_;
 

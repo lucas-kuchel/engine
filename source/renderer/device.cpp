@@ -178,9 +178,33 @@ namespace renderer {
         for (auto& queue : queues_) {
             vkGetDeviceQueue(device_, queue.familyIndex_, queue.queueIndex_, &queue.queue_);
         }
+
+        VmaAllocatorCreateInfo allocatorCreateInfo = {
+            .flags = 0,
+            .physicalDevice = instance_->getVkPhysicalDevice(),
+            .device = device_,
+            .preferredLargeHeapBlockSize = 0,
+            .pAllocationCallbacks = nullptr,
+            .pDeviceMemoryCallbacks = nullptr,
+            .pHeapSizeLimit = nullptr,
+            .pVulkanFunctions = nullptr,
+            .instance = instance_->getVkInstance(),
+            .vulkanApiVersion = instance_->apiVersion_,
+            .pTypeExternalMemoryHandleTypes = nullptr,
+        };
+
+        if (vmaCreateAllocator(&allocatorCreateInfo, &allocator_) != VK_SUCCESS) {
+            throw std::runtime_error("Construction failed: renderer::Device: Failed to create memory allocator");
+        }
     }
 
     Device::~Device() {
+        if (allocator_ != VK_NULL_HANDLE) {
+            vmaDestroyAllocator(allocator_);
+
+            allocator_ = VK_NULL_HANDLE;
+        }
+
         if (device_ != VK_NULL_HANDLE) {
             vkDestroyDevice(device_, nullptr);
 
@@ -486,5 +510,13 @@ namespace renderer {
 
     const VkDevice& Device::getVkDevice() const {
         return device_;
+    }
+
+    VmaAllocator& Device::getVmaAllocator() {
+        return allocator_;
+    }
+
+    const VmaAllocator& Device::getVmaAllocator() const {
+        return allocator_;
     }
 }

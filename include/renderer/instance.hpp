@@ -61,6 +61,8 @@ namespace renderer {
         VkInstance instance_ = VK_NULL_HANDLE;
         VkPhysicalDevice physicalDevice_ = VK_NULL_HANDLE;
 
+        std::uint32_t apiVersion_ = 0;
+
         std::vector<VkQueueFamilyProperties> queueFamilyProperties_;
         std::vector<std::uint32_t> queueFamilyOccupations_;
 

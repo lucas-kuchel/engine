@@ -4,6 +4,6 @@
     "dependencies": [
         "glfw3",
         "vulkan-headers",
-        "glm"
+        "vulkan-memory-allocator"
     ]
 }
