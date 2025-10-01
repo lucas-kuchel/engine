@@ -34,7 +34,7 @@ namespace renderer {
         [[nodiscard]] const VkSemaphore& getVkSemaphore() const;
 
     private:
-        VkSemaphore semaphore_;
+        VkSemaphore semaphore_ = VK_NULL_HANDLE;
 
         data::Reference<Device> device_;
     };

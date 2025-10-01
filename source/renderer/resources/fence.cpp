@@ -12,7 +12,7 @@ namespace renderer {
         };
 
         if (vkCreateFence(device_->getVkDevice(), &fenceCreateInfo, nullptr, &fence_) != VK_SUCCESS) {
-            throw std::runtime_error("Error constructing renderer::Fence: Failed to create fence");
+            throw std::runtime_error("Construction failed: renderer::Fence: Failed to create fence");
         }
     }
 

@@ -28,7 +28,7 @@ namespace renderer {
         };
 
         if (vkCreateImage(device_->getVkDevice(), &imageCreateInfo, nullptr, &image_) != VK_SUCCESS) {
-            throw std::runtime_error("Error constructing renderer::Image: Failed to create image");
+            throw std::runtime_error("Construction failed: renderer::Image: Failed to create image");
         }
     }
 
@@ -137,7 +137,7 @@ namespace renderer {
                 return VK_FORMAT_D32_SFLOAT_S8_UINT;
 
             default:
-                throw std::runtime_error("Error calling renderer::Image::mapFormat(): Invalid image format");
+                throw std::runtime_error("Call failed: renderer::Image::mapFormat(): Invalid image format");
         }
     }
 
@@ -153,7 +153,7 @@ namespace renderer {
                 return VK_IMAGE_TYPE_3D;
 
             default:
-                throw std::runtime_error("Error calling renderer::Image::mapType(): Invalid image type");
+                throw std::runtime_error("Call failed: renderer::Image::mapType(): Invalid image type");
         }
     }
 
@@ -230,7 +230,7 @@ namespace renderer {
                 return ImageFormat::D32_SFLOAT_S8_UINT;
 
             default:
-                throw std::runtime_error("Error calling renderer::Image::reverseMapFormat(): Invalid image format");
+                throw std::runtime_error("Call failed: renderer::Image::reverseMapFormat(): Invalid image format");
         }
     }
 
@@ -246,7 +246,7 @@ namespace renderer {
                 return ImageType::IMAGE_3D;
 
             default:
-                throw std::runtime_error("Error calling renderer::ImageView::reverseMapType(): Invalid image view type");
+                throw std::runtime_error("Call failed: renderer::ImageView::reverseMapType(): Invalid image view type");
         }
     }
 
@@ -295,7 +295,7 @@ namespace renderer {
         };
 
         if (vkCreateImageView(device_->getVkDevice(), &viewCreateInfo, nullptr, &imageView_) != VK_SUCCESS) {
-            throw std::runtime_error("Error constructing renderer::ImageView: Failed to create image view");
+            throw std::runtime_error("Construction failed: renderer::ImageView: Failed to create image view");
         }
     }
 
@@ -337,7 +337,7 @@ namespace renderer {
                 return VK_IMAGE_VIEW_TYPE_3D;
 
             default:
-                throw std::runtime_error("Error calling renderer::ImageView::mapType(): Invalid image view type");
+                throw std::runtime_error("Call failed: renderer::ImageView::mapType(): Invalid image view type");
         }
     }
 
@@ -353,7 +353,7 @@ namespace renderer {
                 return ImageViewType::IMAGE_3D;
 
             default:
-                throw std::runtime_error("Error calling renderer::ImageView::reverseMapType(): Invalid image view type");
+                throw std::runtime_error("Call failed: renderer::ImageView::reverseMapType(): Invalid image view type");
         }
     }
 }

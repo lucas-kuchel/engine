@@ -3,6 +3,7 @@
 #include <data/colour.hpp>
 #include <data/extent.hpp>
 #include <data/optional.hpp>
+#include <data/rect.hpp>
 #include <data/references.hpp>
 
 #include <cstdint>
@@ -84,17 +85,11 @@ namespace renderer {
         data::Reference<Device> device_;
     };
 
-    // @brief Represents the area of an image to render to
-    struct Scissor {
-        data::Extent2D<std::int32_t> offset;
-        data::Extent2D<std::uint32_t> extent;
-    };
-
     // @brief Information regarding starting a render pass
     struct RenderPassBeginInfo {
         RenderPass& renderPass;
         Framebuffer& framebuffer;
-        Scissor renderArea;
+        data::Rect2D<std::int32_t, std::uint32_t> renderArea;
 
         std::vector<data::ColourRGBA> clearValues;
 

@@ -8,6 +8,7 @@
 #include <renderer/resources/framebuffer.hpp>
 #include <renderer/resources/image.hpp>
 #include <renderer/resources/pass.hpp>
+#include <renderer/resources/pipeline.hpp>
 
 #include <renderer/resources/fence.hpp>
 
@@ -52,6 +53,13 @@ namespace renderer {
         // @param List of fences to reset
         // @note Must be called when all fences are not pending
         void resetFences(const std::vector<data::Reference<Fence>>& fences);
+
+        // @brief Creates pipelines based on provided infos
+        // @note In the future, pipeline cache systems will be added to this
+        // @param List of pipeline creation infos
+        // @return List of created pipelines
+        // @note Pipelines are returned in the order the create infos are provided
+        [[nodiscard]] std::vector<Pipeline> createPipelines(const std::vector<PipelineCreateInfo>& createInfos);
 
         // @brief Queries the queues from the device
         // @return List of all usable queues

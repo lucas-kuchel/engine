@@ -47,7 +47,7 @@ namespace data {
         // @throws std::runtime_error if the index has no value
         inline void remove(std::size_t index) {
             if (index >= sparse_.size() || sparse_[index] == std::numeric_limits<std::size_t>::max()) {
-                throw std::runtime_error("Error calling data::SparseSet::remove(): Index out of range");
+                throw std::runtime_error("Call failed: data::SparseSet::remove(): Index out of range");
             }
 
             std::size_t denseIndex = sparse_[index];
@@ -79,7 +79,7 @@ namespace data {
         // @throws std::runtime_error if the index has no value
         [[nodiscard]] inline T& get(std::size_t index) {
             if (index >= sparse_.size() || sparse_[index] == std::numeric_limits<std::size_t>::max()) {
-                throw std::runtime_error("Error calling data::SparseSet::get(): Index out of range");
+                throw std::runtime_error("Call failed: data::SparseSet::get(): Index out of range");
             }
 
             return dense_[sparse_[index]];
@@ -91,7 +91,7 @@ namespace data {
         // @throws std::runtime_error if the index has no value
         [[nodiscard]] inline const T& get(std::size_t index) const {
             if (index >= sparse_.size() || sparse_[index] == std::numeric_limits<std::size_t>::max()) {
-                throw std::runtime_error("Error calling data::SparseSet::get(): Index out of range");
+                throw std::runtime_error("Call failed: data::SparseSet::get(): Index out of range");
             }
 
             return dense_[sparse_[index]];

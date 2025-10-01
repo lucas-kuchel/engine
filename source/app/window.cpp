@@ -12,7 +12,7 @@ namespace app {
         handle_ = glfwCreateWindow(static_cast<std::int32_t>(extent_.width), static_cast<std::int32_t>(extent_.height), title_.c_str(), nullptr, nullptr);
 
         if (!handle_) {
-            throw std::runtime_error("Error calling app::Window::Window(): Failed to create window");
+            throw std::runtime_error("Call failed: app::Window::Window(): Failed to create window");
         }
 
         switch (visibility_) {
@@ -190,7 +190,9 @@ namespace app {
 
         WindowEvent event = {
             .type = WindowEventType::RESIZED,
-            .info = eventInfo,
+            .info = {
+                .resize = eventInfo,
+            },
         };
 
         self->events_.push(event);
@@ -205,7 +207,7 @@ namespace app {
 
         WindowEvent event = {
             .type = WindowEventType::CLOSED,
-            .info = std::monostate(),
+            .info = {},
         };
 
         self->events_.push(event);
@@ -220,7 +222,7 @@ namespace app {
 
         WindowEvent event = {
             .type = focused ? WindowEventType::FOCUSED : WindowEventType::UNFOCUSED,
-            .info = std::monostate(),
+            .info = {},
         };
 
         self->events_.push(event);
@@ -235,7 +237,7 @@ namespace app {
 
         WindowEvent event = {
             .type = iconified ? WindowEventType::MINIMIZED : WindowEventType::RESTORED,
-            .info = std::monostate(),
+            .info = {},
         };
 
         self->events_.push(event);
@@ -250,7 +252,7 @@ namespace app {
 
         Key mappedKey = mapKey(key);
 
-        WindowEvent event;
+        WindowEvent event = {};
 
         if (action == GLFW_PRESS) {
             WindowKeyPressedEventInfo keyPressedEventInfo = {
@@ -259,7 +261,9 @@ namespace app {
 
             event = {
                 .type = WindowEventType::KEY_PRESSED,
-                .info = keyPressedEventInfo,
+                .info = {
+                    .keyPress = keyPressedEventInfo,
+                },
             };
         }
         else if (action == GLFW_RELEASE) {
@@ -269,7 +273,9 @@ namespace app {
 
             event = {
                 .type = WindowEventType::KEY_RELEASED,
-                .info = keyReleasedEventInfo,
+                .info = {
+                    .keyRelease = keyReleasedEventInfo,
+                },
             };
         }
 
@@ -285,7 +291,7 @@ namespace app {
 
         MouseButton mappedButton = mapMouseButton(button);
 
-        WindowEvent event;
+        WindowEvent event = {};
 
         if (action == GLFW_PRESS) {
             WindowMouseButtonPressedEventInfo mouseButtonPressedEventInfo = {
@@ -294,7 +300,9 @@ namespace app {
 
             event = {
                 .type = WindowEventType::MOUSE_BUTTON_PRESSED,
-                .info = mouseButtonPressedEventInfo,
+                .info = {
+                    .mouseButtonPress = mouseButtonPressedEventInfo,
+                },
             };
         }
         else if (action == GLFW_RELEASE) {
@@ -304,7 +312,9 @@ namespace app {
 
             event = {
                 .type = WindowEventType::MOUSE_BUTTON_RELEASED,
-                .info = mouseButtonReleasedEventInfo,
+                .info = {
+                    .mouseButtonRelease = mouseButtonReleasedEventInfo,
+                },
             };
         }
 
@@ -324,7 +334,9 @@ namespace app {
 
         WindowEvent event = {
             .type = WindowEventType::MOUSE_MOVED,
-            .info = mouseMoveEventInfo,
+            .info = {
+                .mouseMove = mouseMoveEventInfo,
+            },
         };
 
         self->events_.push(event);
@@ -343,7 +355,9 @@ namespace app {
 
         WindowEvent event = {
             .type = WindowEventType::MOUSE_SCROLLED,
-            .info = mouseScrollEventInfo,
+            .info = {
+                .mouseScroll = mouseScrollEventInfo,
+            },
         };
 
         self->events_.push(event);

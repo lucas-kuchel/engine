@@ -17,7 +17,7 @@ namespace renderer {
         };
 
         if (vkCreateCommandPool(device, &poolCreateInfo, nullptr, &pool_) != VK_SUCCESS) {
-            throw std::runtime_error("Error calling renderer::CommandPool::create(): Failed to create command pool");
+            throw std::runtime_error("Call failed: renderer::CommandPool::create(): Failed to create command pool");
         }
     }
 
@@ -56,7 +56,7 @@ namespace renderer {
         buffers.reserve(createInfo.count);
 
         if (vkAllocateCommandBuffers(device, &bufferAllocateInfo, commandBuffers.data()) != VK_SUCCESS) {
-            throw std::runtime_error("Error calling renderer::CommandPool::allocateCommandBuffers(): Failed to allocate command buffers");
+            throw std::runtime_error("Call failed: renderer::CommandPool::allocateCommandBuffers(): Failed to allocate command buffers");
         }
 
         for (std::size_t i = 0; i < createInfo.count; i++) {
@@ -71,7 +71,7 @@ namespace renderer {
 
     void CommandPool::resetAllCommandBuffers() {
         if (vkResetCommandPool(device_->getVkDevice(), pool_, 0) != VK_SUCCESS) {
-            throw std::runtime_error("Error calling renderer::CommandPool::reset(): Failed to reset all command buffers");
+            throw std::runtime_error("Call failed: renderer::CommandPool::reset(): Failed to reset all command buffers");
         }
     }
 

@@ -30,7 +30,7 @@ namespace renderer {
         };
 
         if (vkCreateFramebuffer(device_->getVkDevice(), &framebufferCreateInfo, nullptr, &framebuffer_) != VK_SUCCESS) {
-            throw std::runtime_error("Error constructing renderer::Framebuffer: Failed to create framebuffer");
+            throw std::runtime_error("Construction failed: renderer::Framebuffer: Failed to create framebuffer");
         }
     }
 

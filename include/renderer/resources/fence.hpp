@@ -37,7 +37,7 @@ namespace renderer {
         [[nodiscard]] const VkFence& getVkFence() const;
 
     private:
-        VkFence fence_;
+        VkFence fence_ = VK_NULL_HANDLE;
 
         data::Reference<Device> device_;
     };

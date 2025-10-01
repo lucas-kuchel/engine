@@ -3,6 +3,8 @@
 #include <renderer/queue.hpp>
 #include <renderer/surface.hpp>
 
+#include <renderer/resources/shader.hpp>
+
 #include <stdexcept>
 
 namespace renderer {
@@ -51,13 +53,13 @@ namespace renderer {
                     VkBool32 presentSupported = VK_FALSE;
 
                     if (queueCreateInfo.surface == nullptr) {
-                        throw std::runtime_error("Error constructing renderer::Queue inside renderer::Device: Present queues require a surface to be created");
+                        throw std::runtime_error("Construction failed: renderer::Queue inside renderer::Device: Present queues require a surface to be created");
                     }
 
                     auto& surface = queueCreateInfo.surface->getVkSurface();
 
                     if (vkGetPhysicalDeviceSurfaceSupportKHR(physicalDevice, i, surface, &presentSupported) != VK_SUCCESS) {
-                        throw std::runtime_error("Error constructing renderer::Queue inside renderer::Device: Failed to query surface presentation support");
+                        throw std::runtime_error("Construction failed: renderer::Queue inside renderer::Device: Failed to query surface presentation support");
                     }
 
                     if (presentSupported) {
@@ -88,7 +90,7 @@ namespace renderer {
             }
 
             if (queue.familyIndex_ == std::numeric_limits<std::uint32_t>::max()) {
-                throw std::runtime_error("Error constructing renderer::Queue inside renderer::Device: Failed to find queue family for requested queue");
+                throw std::runtime_error("Construction failed: renderer::Queue inside renderer::Device: Failed to find queue family for requested queue");
             }
 
             if (familyIndexMappings.size() <= queue.familyIndex_) {
@@ -124,13 +126,13 @@ namespace renderer {
         std::uint32_t extensionCount = 0;
 
         if (vkEnumerateDeviceExtensionProperties(physicalDevice, nullptr, &extensionCount, nullptr) != VK_SUCCESS) {
-            throw std::runtime_error("Error constructing renderer::Device: Failed to enumerate device extensions");
+            throw std::runtime_error("Construction failed: renderer::Device: Failed to enumerate device extensions");
         }
 
         std::vector<VkExtensionProperties> extensionProperties(extensionCount);
 
         if (vkEnumerateDeviceExtensionProperties(physicalDevice, nullptr, &extensionCount, extensionProperties.data()) != VK_SUCCESS) {
-            throw std::runtime_error("Error constructing renderer::Device: Failed to enumerate device extensions");
+            throw std::runtime_error("Construction failed: renderer::Device: Failed to enumerate device extensions");
         }
 
         std::vector<const char*> selectedExtensions;
@@ -150,7 +152,7 @@ namespace renderer {
         }
 
         if (!foundSwapchain) {
-            throw std::runtime_error("Error constructing renderer::Device: Swapchain is unsupported on this system");
+            throw std::runtime_error("Construction failed: renderer::Device: Swapchain is unsupported on this system");
         }
 
         std::uint32_t extensionInfoCount = static_cast<std::uint32_t>(selectedExtensions.size());
@@ -170,7 +172,7 @@ namespace renderer {
         };
 
         if (vkCreateDevice(physicalDevice, &deviceCreateInfo, nullptr, &device_) != VK_SUCCESS) {
-            throw std::runtime_error("Error constructing renderer::Device: Failed to create device");
+            throw std::runtime_error("Construction failed: renderer::Device: Failed to create device");
         }
 
         for (auto& queue : queues_) {
@@ -188,7 +190,7 @@ namespace renderer {
 
     void Device::waitIdle() {
         if (vkDeviceWaitIdle(device_) != VK_SUCCESS) {
-            throw std::runtime_error("Error calling renderer::Device::waitIdle(): Failed to wait for GPU to be idle");
+            throw std::runtime_error("Call failed: renderer::Device::waitIdle(): Failed to wait for GPU to be idle");
         }
     }
 
@@ -200,7 +202,7 @@ namespace renderer {
         }
 
         if (vkWaitForFences(device_, static_cast<std::uint32_t>(vkFences.size()), vkFences.data(), waitAll, timeout) != VK_SUCCESS) {
-            throw std::runtime_error("Error calling renderer::Device::waitForFences(): Error waiting for fences");
+            throw std::runtime_error("Call failed: renderer::Device::waitForFences(): Error waiting for fences");
         }
     }
 
@@ -212,8 +214,253 @@ namespace renderer {
         }
 
         if (vkResetFences(device_, static_cast<std::uint32_t>(vkFences.size()), vkFences.data()) != VK_SUCCESS) {
-            throw std::runtime_error("Error calling renderer::Device::resetFences(): Error resetting fences");
+            throw std::runtime_error("Call failed: renderer::Device::resetFences(): Error resetting fences");
         }
+    }
+
+    std::vector<Pipeline> Device::createPipelines(const std::vector<PipelineCreateInfo>& createInfos) {
+        std::vector<Pipeline> pipelines;
+        std::vector<VkGraphicsPipelineCreateInfo> vkCreateInfos(createInfos.size());
+        std::vector<VkPipeline> vkPipelines(createInfos.size(), VK_NULL_HANDLE);
+        std::vector<std::vector<VkPipelineShaderStageCreateInfo>> shaderStages(createInfos.size());
+        std::vector<std::vector<VkVertexInputBindingDescription>> bindings(createInfos.size());
+        std::vector<std::vector<VkVertexInputAttributeDescription>> attributes(createInfos.size());
+        std::vector<std::vector<VkPipelineColorBlendAttachmentState>> blendAttachments(createInfos.size());
+
+        pipelines.reserve(createInfos.size());
+
+        std::vector<VkDynamicState> dynamicStates = {
+            VK_DYNAMIC_STATE_VIEWPORT,
+            VK_DYNAMIC_STATE_SCISSOR,
+            VK_DYNAMIC_STATE_LINE_WIDTH,
+            VK_DYNAMIC_STATE_DEPTH_BIAS,
+            VK_DYNAMIC_STATE_BLEND_CONSTANTS,
+            VK_DYNAMIC_STATE_DEPTH_BOUNDS,
+            VK_DYNAMIC_STATE_STENCIL_COMPARE_MASK,
+            VK_DYNAMIC_STATE_STENCIL_WRITE_MASK,
+            VK_DYNAMIC_STATE_STENCIL_REFERENCE,
+        };
+
+        VkPipelineDynamicStateCreateInfo dynamicStateInfo = {
+            .sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
+            .pNext = nullptr,
+            .flags = 0,
+            .dynamicStateCount = static_cast<std::uint32_t>(dynamicStates.size()),
+            .pDynamicStates = dynamicStates.data(),
+        };
+
+        for (std::size_t i = 0; i < createInfos.size(); i++) {
+            auto& createInfo = createInfos[i];
+            auto& vkCreateInfo = vkCreateInfos[i];
+            auto& vkShaderStages = shaderStages[i];
+            auto& vkBindings = bindings[i];
+            auto& vkAttributes = attributes[i];
+            auto& vkBlendAttachments = blendAttachments[i];
+
+            vkShaderStages.resize(createInfo.shaderStages.size());
+            vkBindings.resize(createInfo.vertexInput.bindings.size());
+            vkAttributes.resize(createInfo.vertexInput.attributes.size());
+            vkBlendAttachments.resize(createInfo.colourBlend.attachments.size());
+
+            for (std::size_t j = 0; j < vkShaderStages.size(); j++) {
+                auto& info = vkShaderStages[j];
+                auto& stage = createInfo.shaderStages[j];
+
+                info = {
+                    .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+                    .pNext = nullptr,
+                    .flags = 0,
+                    .stage = Pipeline::reverseMapShaderStage(stage.stage),
+                    .module = stage.module.getVkShaderModule(),
+                    .pName = stage.entry.c_str(),
+                    .pSpecializationInfo = nullptr,
+                };
+            }
+
+            for (std::size_t j = 0; j < vkBindings.size(); j++) {
+                auto& description = vkBindings[j];
+                auto& binding = createInfo.vertexInput.bindings[j];
+
+                description = {
+                    .binding = binding.binding,
+                    .stride = binding.strideBytes,
+                    .inputRate = Pipeline::reverseMapVertexInputRate(binding.inputRate),
+                };
+            }
+
+            std::uint32_t offset = 0;
+
+            for (std::size_t j = 0; j < vkAttributes.size(); j++) {
+                auto& description = vkAttributes[j];
+                auto& attribute = createInfo.vertexInput.attributes[j];
+
+                description = {
+                    .location = attribute.location,
+                    .binding = attribute.binding,
+                    .format = Pipeline::reverseMapVertexAttributeFormat(attribute.format),
+                    .offset = offset,
+                };
+
+                switch (attribute.format) {
+                    case VertexAttributeFormat::R32_FLOAT:
+                    case VertexAttributeFormat::R32_INT:
+                    case VertexAttributeFormat::R32_UINT:
+                        offset += 4;
+                        break;
+
+                    case VertexAttributeFormat::R32G32_FLOAT:
+                    case VertexAttributeFormat::R32G32_INT:
+                    case VertexAttributeFormat::R32G32_UINT:
+                        offset += 8;
+                        break;
+
+                    case VertexAttributeFormat::R32G32B32_FLOAT:
+                    case VertexAttributeFormat::R32G32B32_INT:
+                    case VertexAttributeFormat::R32G32B32_UINT:
+                        offset += 12;
+                        break;
+
+                    case VertexAttributeFormat::R32G32B32A32_FLOAT:
+                    case VertexAttributeFormat::R32G32B32A32_INT:
+                    case VertexAttributeFormat::R32G32B32A32_UINT:
+                        offset += 16;
+                        break;
+                }
+            }
+
+            VkPipelineVertexInputStateCreateInfo vertexInput = {
+                .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
+                .pNext = nullptr,
+                .flags = 0,
+                .vertexBindingDescriptionCount = static_cast<std::uint32_t>(vkBindings.size()),
+                .pVertexBindingDescriptions = vkBindings.data(),
+                .vertexAttributeDescriptionCount = static_cast<std::uint32_t>(vkAttributes.size()),
+                .pVertexAttributeDescriptions = vkAttributes.data(),
+            };
+
+            VkPipelineInputAssemblyStateCreateInfo inputAssembly = {
+                .sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
+                .pNext = nullptr,
+                .flags = 0,
+                .topology = Pipeline::reverseMapPrimitive(createInfo.inputAssembly.topology),
+                .primitiveRestartEnable = createInfo.inputAssembly.primitiveRestart ? VK_TRUE : VK_FALSE,
+            };
+
+            VkPipelineViewportStateCreateInfo viewportState = {
+                .sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
+                .pNext = nullptr,
+                .flags = 0,
+                .viewportCount = static_cast<uint32_t>(createInfo.viewports.size()),
+                .pViewports = reinterpret_cast<const VkViewport*>(createInfo.viewports.data()),
+                .scissorCount = static_cast<uint32_t>(createInfo.scissors.size()),
+                .pScissors = reinterpret_cast<const VkRect2D*>(createInfo.scissors.data()),
+            };
+
+            VkPipelineRasterizationStateCreateInfo raster = {
+                .sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
+                .pNext = nullptr,
+                .flags = 0,
+                .depthClampEnable = createInfo.rasterisation.depthClampEnable ? VK_TRUE : VK_FALSE,
+                .rasterizerDiscardEnable = VK_FALSE,
+                .polygonMode = VK_POLYGON_MODE_FILL,
+                .cullMode = Pipeline::reverseMapCullMode(createInfo.rasterisation.cullMode),
+                .frontFace = Pipeline::reverseMapFrontFace(createInfo.rasterisation.frontFaceWinding),
+                .depthBiasEnable = VK_FALSE,
+                .depthBiasConstantFactor = 0,
+                .depthBiasClamp = 0,
+                .depthBiasSlopeFactor = 0,
+                .lineWidth = 1.0f,
+            };
+
+            VkPipelineMultisampleStateCreateInfo multisample = {
+                .sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
+                .pNext = nullptr,
+                .flags = 0,
+                .rasterizationSamples = Pipeline::reverseMapSampleCount(createInfo.multisample.sampleCount),
+                .sampleShadingEnable = createInfo.multisample.sampleShadingEnable ? VK_TRUE : VK_FALSE,
+                .minSampleShading = createInfo.multisample.minSampleShading,
+                .pSampleMask = nullptr,
+                .alphaToCoverageEnable = createInfo.multisample.alphaToCoverageEnable ? VK_TRUE : VK_FALSE,
+                .alphaToOneEnable = createInfo.multisample.alphaToOneEnable ? VK_TRUE : VK_FALSE,
+            };
+
+            VkPipelineDepthStencilStateCreateInfo depthStencil = {
+                .sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
+                .pNext = nullptr,
+                .flags = 0,
+                .depthTestEnable = createInfo.rasterisation.depthTestEnable ? VK_TRUE : VK_FALSE,
+                .depthWriteEnable = createInfo.rasterisation.depthWriteEnable ? VK_TRUE : VK_FALSE,
+                .depthCompareOp = Pipeline::reverseMapCompareOperation(createInfo.rasterisation.frontface.depthComparison),
+                .depthBoundsTestEnable = createInfo.rasterisation.depthBoundsTestEnable ? VK_TRUE : VK_FALSE,
+                .stencilTestEnable = createInfo.rasterisation.stencilTestEnable ? VK_TRUE : VK_FALSE,
+                .front = Pipeline::reverseMapStencilOperationState(createInfo.rasterisation.frontface),
+                .back = Pipeline::reverseMapStencilOperationState(createInfo.rasterisation.backface),
+                .minDepthBounds = 0.0,
+                .maxDepthBounds = 1.0,
+            };
+
+            for (std::size_t j = 0; j < vkBlendAttachments.size(); j++) {
+                auto& state = vkBlendAttachments[j];
+                auto& attachment = createInfo.colourBlend.attachments[j];
+
+                state = {
+                    .blendEnable = attachment.blendEnable ? VK_TRUE : VK_FALSE,
+                    .srcColorBlendFactor = Pipeline::reverseMapBlendFactor(attachment.sourceColourBlendFactor),
+                    .dstColorBlendFactor = Pipeline::reverseMapBlendFactor(attachment.destinationColourBlendFactor),
+                    .colorBlendOp = Pipeline::reverseMapBlendOperation(attachment.colourBlendOperation),
+                    .srcAlphaBlendFactor = Pipeline::reverseMapBlendFactor(attachment.sourceAlphaBlendFactor),
+                    .dstAlphaBlendFactor = Pipeline::reverseMapBlendFactor(attachment.destinationAlphaBlendFactor),
+                    .alphaBlendOp = Pipeline::reverseMapBlendOperation(attachment.alphaBlendOperation),
+                    .colorWriteMask = 0xF,
+                };
+            }
+
+            VkPipelineColorBlendStateCreateInfo colorBlend = {
+                .sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
+                .pNext = nullptr,
+                .flags = 0,
+                .logicOpEnable = VK_FALSE,
+                .logicOp = VK_LOGIC_OP_NO_OP,
+                .attachmentCount = static_cast<std::uint32_t>(vkBlendAttachments.size()),
+                .pAttachments = vkBlendAttachments.data(),
+                .blendConstants = {},
+            };
+
+            vkCreateInfo = {
+                .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
+                .pNext = nullptr,
+                .flags = 0,
+                .stageCount = static_cast<std::uint32_t>(shaderStages.size()),
+                .pStages = vkShaderStages.data(),
+                .pVertexInputState = &vertexInput,
+                .pInputAssemblyState = &inputAssembly,
+                .pTessellationState = nullptr,
+                .pViewportState = &viewportState,
+                .pRasterizationState = &raster,
+                .pMultisampleState = &multisample,
+                .pDepthStencilState = &depthStencil,
+                .pColorBlendState = &colorBlend,
+                .pDynamicState = &dynamicStateInfo,
+                .layout = createInfo.layout.getVkPipelineLayout(),
+                .renderPass = createInfo.renderPass.getVkRenderPass(),
+                .subpass = createInfo.subpassIndex,
+                .basePipelineHandle = VK_NULL_HANDLE,
+                .basePipelineIndex = 0,
+            };
+        }
+
+        if (vkCreateGraphicsPipelines(device_, VK_NULL_HANDLE, static_cast<std::uint32_t>(vkCreateInfos.size()), vkCreateInfos.data(), nullptr, vkPipelines.data()) != VK_SUCCESS) {
+            throw std::runtime_error("Call failed: renderer::Device::createPipelines: Failed to create graphics pipelines");
+        }
+
+        for (auto& vkPipeline : vkPipelines) {
+            pipelines.push_back(Pipeline(*this));
+            auto& pipeline = pipelines.back();
+
+            pipeline.pipeline_ = vkPipeline;
+        }
+
+        return pipelines;
     }
 
     std::span<Queue> Device::getQueues() {

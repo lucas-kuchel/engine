@@ -183,15 +183,15 @@ namespace app {
         data::Position2D<double> position;
     };
 
-    using WindowEventInfo = std::variant<
-        std::monostate,
-        WindowResizeEventInfo,
-        WindowKeyPressedEventInfo,
-        WindowKeyReleasedEventInfo,
-        WindowMouseButtonPressedEventInfo,
-        WindowMouseButtonReleasedEventInfo,
-        WindowMouseScrolledEventInfo,
-        WindowMouseMovedEventInfo>;
+    union WindowEventInfo {
+        WindowResizeEventInfo resize;
+        WindowKeyPressedEventInfo keyPress;
+        WindowKeyReleasedEventInfo keyRelease;
+        WindowMouseButtonPressedEventInfo mouseButtonPress;
+        WindowMouseButtonReleasedEventInfo mouseButtonRelease;
+        WindowMouseScrolledEventInfo mouseScroll;
+        WindowMouseMovedEventInfo mouseMove;
+    };
 
     // @brief Event emitted by a window
     struct WindowEvent {

@@ -14,7 +14,7 @@ namespace renderer {
         };
 
         if (vkCreateSemaphore(device, &semaphoreCreateInfo, nullptr, &semaphore_) != VK_SUCCESS) {
-            throw std::runtime_error("Error constructing renderer::Semaphore: Failed to create semaphore");
+            throw std::runtime_error("Construction failed: renderer::Semaphore: Failed to create semaphore");
         }
     }
 

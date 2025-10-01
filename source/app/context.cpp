@@ -7,7 +7,7 @@
 namespace app {
     Context::Context() {
         if (glfwInit() != GLFW_TRUE) {
-            throw std::runtime_error("Error calling app::Context::Context(): Failed to initialise window API");
+            throw std::runtime_error("Call failed: app::Context::Context(): Failed to initialise window API");
         }
 
         glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
@@ -44,7 +44,7 @@ namespace app {
                 return ContextBackend::X11;
 
             default:
-                throw std::runtime_error("Error calling app::GLFWContextImplementation::queryBackend(): Backend is unsupported");
+                throw std::runtime_error("Call failed: app::GLFWContextImplementation::queryBackend(): Backend is unsupported");
         }
     }
 }

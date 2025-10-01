@@ -101,7 +101,7 @@ namespace data {
         // @throws std::runtime_error if handle has no matching entry
         void remove(Handle<T> handle) {
             if (!data_.contains(handle.id_) || generations_[handle.id_] != handle.generation_) {
-                throw std::runtime_error("Error calling data::Registry::remove(): Index out of range");
+                throw std::runtime_error("Call failed: data::Registry::remove(): Index out of range");
             }
 
             generations_[handle.id_]++;
@@ -114,7 +114,7 @@ namespace data {
         // @throws std::runtime_error if the handle has no matching entry
         [[nodiscard]] T& get(Handle<T> handle) {
             if (!data_.contains(handle.id_) || generations_[handle.id_] != handle.generation_) {
-                throw std::runtime_error("Error calling data::Registry::get(): Index out of range");
+                throw std::runtime_error("Call failed: data::Registry::get(): Index out of range");
             }
 
             return data_.get(handle.id_);
@@ -125,7 +125,7 @@ namespace data {
         // @throws std::runtime_error if the handle has no matching entry
         [[nodiscard]] const T& get(Handle<T> handle) const {
             if (!data_.contains(handle.id_) || generations_[handle.id_] != handle.generation_) {
-                throw std::runtime_error("Error calling data::Registry::get(): Index out of range");
+                throw std::runtime_error("Call failed: data::Registry::get(): Index out of range");
             }
 
             return data_.get(handle.id_);

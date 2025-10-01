@@ -15,7 +15,7 @@ namespace renderer {
 
     void Queue::submit(const std::vector<data::Reference<CommandBuffer>>& commandBuffers, const std::vector<data::Reference<Semaphore>>& available, const std::vector<data::Reference<Semaphore>>& finished, Fence& inFlight) {
         if (commandBuffers.size() != available.size() || commandBuffers.size() != finished.size()) {
-            throw std::runtime_error("Error calling renderer::Queue::submit(): Mismatch between command buffer count and sync object count");
+            throw std::runtime_error("Call failed: renderer::Queue::submit(): Mismatch between command buffer count and sync object count");
         }
 
         std::vector<VkCommandBuffer> buffers(commandBuffers.size());
@@ -43,7 +43,7 @@ namespace renderer {
         };
 
         if (vkQueueSubmit(queue_, static_cast<std::uint32_t>(commandBuffers.size()), &submitInfo, inFlight.getVkFence()) != VK_SUCCESS) {
-            throw std::runtime_error("Error calling renderer::Queue::submit(): Failed to submit command buffers to queue");
+            throw std::runtime_error("Call failed: renderer::Queue::submit(): Failed to submit command buffers to queue");
         }
     }
 

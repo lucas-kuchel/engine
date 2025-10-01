@@ -14,10 +14,12 @@
 #include <renderer/resources/framebuffer.hpp>
 #include <renderer/resources/image.hpp>
 #include <renderer/resources/pass.hpp>
+#include <renderer/resources/pipeline.hpp>
 #include <renderer/resources/semaphore.hpp>
+#include <renderer/resources/shader.hpp>
 
-#include <chrono>
-#include <cmath>
+#include <filesystem/file.hpp>
+
 #include <exception>
 #include <print>
 
@@ -163,31 +165,148 @@ void run() {
         fences.emplace_back(fenceCreateInfo);
     }
 
+    filesystem::BinaryFile<std::uint32_t> vertexShaderFile("assets/shaders/basic.vert.spv");
+    filesystem::BinaryFile<std::uint32_t> fragmentShaderFile("assets/shaders/basic.frag.spv");
+
+    std::vector vertexShaderBinary = vertexShaderFile.read();
+    std::vector fragmentShaderBinary = fragmentShaderFile.read();
+
+    renderer::ShaderModuleCreateInfo vertexShaderModuleCreateInfo = {
+        .device = device,
+        .data = vertexShaderBinary,
+    };
+
+    renderer::ShaderModuleCreateInfo fragmentShaderModuleCreateInfo = {
+        .device = device,
+        .data = fragmentShaderBinary,
+    };
+
+    renderer::ShaderModule vertexShaderModule(vertexShaderModuleCreateInfo);
+    renderer::ShaderModule fragmentShaderModule(fragmentShaderModuleCreateInfo);
+
+    renderer::PipelineLayoutCreateInfo pipelineLayoutCreateInfo = {
+        .device = device,
+        .inputLayouts = {},
+        .pushConstants = {},
+    };
+
+    renderer::PipelineLayout pipelineLayout(pipelineLayoutCreateInfo);
+
+    renderer::Viewport viewport = {
+        {
+            .x = 0.0,
+            .y = 0.0,
+        },
+        {
+            .width = static_cast<float>(window.getExtent().width),
+            .height = static_cast<float>(window.getExtent().height),
+        },
+        {
+            .min = 0.0,
+            .max = 1.0,
+        },
+    };
+
+    renderer::Scissor scissor = {
+        {
+            .x = 0,
+            .y = 0,
+        },
+        window.getExtent(),
+    };
+
+    renderer::PipelineCreateInfo pipelineCreateInfo = {
+        .renderPass = renderPass,
+        .layout = pipelineLayout,
+        .subpassIndex = 0,
+        .shaderStages = {
+            {
+                vertexShaderModule,
+                renderer::ShaderStage::VERTEX,
+                "main",
+            },
+            {
+                fragmentShaderModule,
+                renderer::ShaderStage::FRAGMENT,
+                "main",
+            },
+        },
+        .vertexInput = {
+            .bindings = {
+                renderer::VertexInputBindingDescription{
+                    .binding = 0,
+                    .strideBytes = sizeof(float[2]) + sizeof(float[3]),
+                    .inputRate = renderer::VertexInputRate::PER_VERTEX,
+                },
+            },
+            .attributes = {
+                renderer::VertexAttributeDescription{
+                    .format = renderer::VertexAttributeFormat::R32G32_FLOAT,
+                    .location = 0,
+                    .binding = 0,
+                },
+                renderer::VertexAttributeDescription{
+                    .format = renderer::VertexAttributeFormat::R32G32B32_FLOAT,
+                    .location = 1,
+                    .binding = 0,
+                },
+            },
+        },
+        .inputAssembly = {
+            renderer::RasterisationPrimitive::TRIANGLE,
+            false,
+        },
+        .viewports = {
+            viewport,
+        },
+        .scissors = {
+            scissor,
+        },
+        .rasterisation = {
+            .frontFaceWinding = renderer::PolygonFaceWinding::CLOCKWISE,
+            .cullMode = renderer::PolygonCullMode::NONE,
+            .frontface = {},
+            .backface = {},
+            .depthClampEnable = false,
+            .depthTestEnable = false,
+            .depthWriteEnable = false,
+            .depthBoundsTestEnable = false,
+            .stencilTestEnable = false,
+        },
+        .multisample = {
+            .sampleCount = 1,
+            .sampleShadingEnable = false,
+            .alphaToCoverageEnable = false,
+            .alphaToOneEnable = false,
+            .minSampleShading = 0.0f,
+        },
+        .colourBlend = {
+            .attachments = {
+                {
+                    .blendEnable = false,
+                    .sourceColourBlendFactor = renderer::BlendFactor::ONE,
+                    .destinationColourBlendFactor = renderer::BlendFactor::ZERO,
+                    .colourBlendOperation = renderer::BlendOperation::ADD,
+                    .sourceAlphaBlendFactor = renderer::BlendFactor::ONE,
+                    .destinationAlphaBlendFactor = renderer::BlendFactor::ZERO,
+                    .alphaBlendOperation = renderer::BlendOperation::ADD,
+                },
+            },
+        },
+    };
+
+    std::vector<renderer::Pipeline> pipelines = device.createPipelines({pipelineCreateInfo});
+
     bool running = true;
 
-    float time = 0.0;
-
-    auto lastTime = std::chrono::high_resolution_clock::now();
-    int frameCounter = 0;
+    data::ColourRGBA attachmentClearColour = {
+        .r = 0.64f,
+        .g = 0.21f,
+        .b = 0.47f,
+        .a = 1.0f,
+    };
 
     while (running) {
-        frameCounter++;
-        auto currentTime = std::chrono::high_resolution_clock::now();
-        float elapsed = std::chrono::duration<float>(currentTime - lastTime).count();
-
-        if (elapsed >= 1.0f) {
-            std::println("FPS: {}", frameCounter);
-            frameCounter = 0;
-            lastTime = currentTime;
-        }
-
-        data::ColourRGBA attachmentClearColour = {
-            .r = -std::sin(time),
-            .g = std::cos(time),
-            .b = std::sin(time),
-            .a = 1.0,
-        };
-
         context.pollEvents();
 
         while (window.hasEvents()) {
@@ -285,8 +404,6 @@ void run() {
         swapchain.presentNextImage(submitSemaphore);
 
         frameIndex = (frameIndex + 1) % frameCount;
-
-        time += 0.005f;
     }
 
     device.waitIdle();

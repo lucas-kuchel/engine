@@ -55,7 +55,7 @@ namespace renderer {
             const FrameAttachmentInfo& stencilAttachment = createInfo.stencilAttachment.get();
 
             if (depthAttachment.format != stencilAttachment.format || depthAttachment.sampleCount != stencilAttachment.sampleCount) {
-                throw std::runtime_error("Error constructing renderer::RenderPass: Mismatched depth and stencil attachments");
+                throw std::runtime_error("Construction failed: renderer::RenderPass: Mismatched depth and stencil attachments");
             }
 
             VkAttachmentDescription depthStencilDescription = {
@@ -143,7 +143,7 @@ namespace renderer {
         };
 
         if (vkCreateRenderPass(device_->getVkDevice(), &renderPassCreateInfo, nullptr, &renderPass_) != VK_SUCCESS) {
-            throw std::runtime_error("Error constructing renderer::RenderPass: Failed to create render pass");
+            throw std::runtime_error("Construction failed: renderer::RenderPass: Failed to create render pass");
         }
     }
 

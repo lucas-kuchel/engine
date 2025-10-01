@@ -9,7 +9,7 @@ namespace renderer {
     Surface::Surface(const SurfaceCreateInfo& createInfo)
         : instance_(createInfo.instance), window_(createInfo.window) {
         if (glfwCreateWindowSurface(instance_->getVkInstance(), window_->getAgnosticHandle(), nullptr, &surface_) != VK_SUCCESS) {
-            throw std::runtime_error("Error calling renderer::Surface::create(): Failed to create window surface");
+            throw std::runtime_error("Call failed: renderer::Surface::create(): Failed to create window surface");
         }
     }
 

@@ -62,8 +62,8 @@ namespace renderer {
             .framebuffer = beginInfo.framebuffer.getVkFramebuffer(),
             .renderArea = {
                 {
-                    beginInfo.renderArea.offset.width,
-                    beginInfo.renderArea.offset.height,
+                    beginInfo.renderArea.offset.x,
+                    beginInfo.renderArea.offset.y,
                 },
                 {
                     beginInfo.renderArea.extent.width,
@@ -92,7 +92,7 @@ namespace renderer {
             capturing_.get() = false;
 
             if (vkEndCommandBuffer(commandBuffer_->commandBuffer_) != VK_SUCCESS) {
-                throw std::runtime_error("Error calling renderer::CommandBufferCapturePeriod::end(): Failed to end command buffer capture");
+                throw std::runtime_error("Call failed: renderer::CommandBufferCapturePeriod::end(): Failed to end command buffer capture");
             }
         }
     }
@@ -115,7 +115,7 @@ namespace renderer {
         };
 
         if (vkBeginCommandBuffer(commandBuffer_->commandBuffer_, &commandBufferBeginInfo) != VK_SUCCESS) {
-            throw std::runtime_error("Error constructing renderer::CommandBufferCapturePeriod: Failed to start command buffer capture");
+            throw std::runtime_error("Construction failed: renderer::CommandBufferCapturePeriod: Failed to start command buffer capture");
         }
     }
 

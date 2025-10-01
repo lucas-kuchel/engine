@@ -30,7 +30,7 @@ namespace renderer {
 
     std::uint32_t Swapchain::acquireNextImage(Semaphore& available) {
         if (recreate_) {
-            throw std::runtime_error("Error calling renderer::Swapchain::acquireNextImage(): Swapchain requires resizing; cannot acquire next image");
+            throw std::runtime_error("Call failed: renderer::Swapchain::acquireNextImage(): Swapchain requires resizing; cannot acquire next image");
         }
 
         VkResult result = vkAcquireNextImageKHR(device_->getVkDevice(), swapchain_, UINT32_MAX, available.getVkSemaphore(), VK_NULL_HANDLE, &imageIndex_);
@@ -39,7 +39,7 @@ namespace renderer {
             recreate_ = true;
         }
         else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
-            throw std::runtime_error("Error calling renderer::Swapchain::acquireNextImage(): Failed to acquire next image for presentation");
+            throw std::runtime_error("Call failed: renderer::Swapchain::acquireNextImage(): Failed to acquire next image for presentation");
         }
 
         return imageIndex_;
@@ -74,7 +74,7 @@ namespace renderer {
             recreate_ = true;
         }
         else if (result != VK_SUCCESS) {
-            throw std::runtime_error("Error calling renderer::Swapchain::presentNextImage(): Failed to present image");
+            throw std::runtime_error("Call failed: renderer::Swapchain::presentNextImage(): Failed to present image");
         }
     }
 
@@ -136,13 +136,13 @@ namespace renderer {
         std::uint32_t actualImageCount = 0;
 
         if (vkGetSwapchainImagesKHR(device, swapchain_, &actualImageCount, nullptr) != VK_SUCCESS) {
-            throw std::runtime_error("Error constructing renderer::Swapchain: Failed to query swapchain images");
+            throw std::runtime_error("Construction failed: renderer::Swapchain: Failed to query swapchain images");
         }
 
         std::vector<VkImage> queriedImages(actualImageCount);
 
         if (vkGetSwapchainImagesKHR(device, swapchain_, &actualImageCount, queriedImages.data()) != VK_SUCCESS) {
-            throw std::runtime_error("Error constructing renderer::Swapchain: Failed to query swapchain images");
+            throw std::runtime_error("Construction failed: renderer::Swapchain: Failed to query swapchain images");
         }
 
         images_.reserve(actualImageCount);
@@ -185,7 +185,7 @@ namespace renderer {
         VkSurfaceCapabilitiesKHR surfaceCapabilities;
 
         if (vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physicalDevice, surface, &surfaceCapabilities) != VK_SUCCESS) {
-            throw std::runtime_error("Error calling renderer::Swapchain::create(): Failed to enumerate surface capabilities");
+            throw std::runtime_error("Call failed: renderer::Swapchain::create(): Failed to enumerate surface capabilities");
         }
 
         if (surfaceCapabilities.currentExtent.width != std::numeric_limits<std::uint32_t>::max()) {
@@ -209,13 +209,13 @@ namespace renderer {
         std::uint32_t formatCount = 0;
 
         if (vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, surface, &formatCount, nullptr) != VK_SUCCESS) {
-            throw std::runtime_error("Error calling renderer::Swapchain::create(): Failed to get surface formats");
+            throw std::runtime_error("Call failed: renderer::Swapchain::create(): Failed to get surface formats");
         }
 
         std::vector<VkSurfaceFormatKHR> formats(formatCount);
 
         if (vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, surface, &formatCount, formats.data()) != VK_SUCCESS) {
-            throw std::runtime_error("Error calling renderer::Swapchain::create(): Failed to get surface formats");
+            throw std::runtime_error("Call failed: renderer::Swapchain::create(): Failed to get surface formats");
         }
 
         surfaceFormat_ = formats[0];
@@ -241,13 +241,13 @@ namespace renderer {
         std::uint32_t presentModeCount = 0;
 
         if (vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, surface, &presentModeCount, nullptr) != VK_SUCCESS) {
-            throw std::runtime_error("Error calling renderer::Swapchain::create(): Failed to get surface present modes");
+            throw std::runtime_error("Call failed: renderer::Swapchain::create(): Failed to get surface present modes");
         }
 
         std::vector<VkPresentModeKHR> presentModes(presentModeCount);
 
         if (vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, surface, &presentModeCount, presentModes.data()) != VK_SUCCESS) {
-            throw std::runtime_error("Error calling renderer::Swapchain::create(): Failed to get surface present modes");
+            throw std::runtime_error("Call failed: renderer::Swapchain::create(): Failed to get surface present modes");
         }
 
         presentMode_ = VK_PRESENT_MODE_FIFO_KHR;
@@ -337,7 +337,7 @@ namespace renderer {
         }
 
         if (vkCreateSwapchainKHR(device, &swapchainCreateInfo, nullptr, &swapchain_) != VK_SUCCESS) {
-            throw std::runtime_error("Error constructing renderer::Swapchain: Failed to create swapchain");
+            throw std::runtime_error("Construction failed: renderer::Swapchain: Failed to create swapchain");
         }
 
         if (oldSwapchain != VK_NULL_HANDLE) {
