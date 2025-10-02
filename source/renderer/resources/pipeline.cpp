@@ -14,11 +14,11 @@ namespace renderer {
 
             VkShaderStageFlags flags = 0;
 
-            if (input.vertexAvailable) {
+            if (input.stageFlags & ShaderStageFlags::VERTEX) {
                 flags |= VK_SHADER_STAGE_VERTEX_BIT;
             }
 
-            if (input.fragmentAvailable) {
+            if (input.stageFlags & ShaderStageFlags::FRAGMENT) {
                 flags |= VK_SHADER_STAGE_FRAGMENT_BIT;
             }
 
@@ -95,11 +95,11 @@ namespace renderer {
 
             VkShaderStageFlags flags = 0;
 
-            if (pushConstant.vertexAvailable) {
+            if (pushConstant.stageFlags & ShaderStageFlags::VERTEX) {
                 flags |= VK_SHADER_STAGE_VERTEX_BIT;
             }
 
-            if (pushConstant.fragmentAvailable) {
+            if (pushConstant.stageFlags & ShaderStageFlags::FRAGMENT) {
                 flags |= VK_SHADER_STAGE_FRAGMENT_BIT;
             }
 

@@ -45,6 +45,8 @@ namespace renderer {
         void setPipelineStencilWriteMask(StencilFaces faces, std::uint32_t writeMask);
         void setPipelineStencilReferenceMask(StencilFaces faces, std::uint32_t reference);
 
+        void pushConstants(PipelineLayout& layout, std::uint32_t stageFlags, std::span<std::uint8_t> data, std::uint32_t offset);
+
         void draw(std::uint32_t vertexCount, std::uint32_t instances, std::uint32_t firstVertex, std::uint32_t firstInstance);
         void drawIndexed(std::uint32_t indexCount, std::uint32_t instanceCount, std::uint32_t firstIndex, std::uint32_t firstInstance, std::int32_t vertexOffset);
 

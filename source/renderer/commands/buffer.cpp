@@ -209,6 +209,24 @@ namespace renderer {
         vkCmdSetStencilReference(commandBuffer_->getVkCommandBuffer(), face, reference);
     }
 
+    void CommandBufferRenderPassPeriod::pushConstants(PipelineLayout& layout, std::uint32_t stageFlags, std::span<std::uint8_t> data, std::uint32_t offset) {
+        if (!rendering_.get()) {
+            throw std::runtime_error("Call failed: renderer::CommandBufferRenderPassPeriod::pushConstants(): Render pass has ended");
+        }
+
+        VkShaderStageFlags flags = 0;
+
+        if (stageFlags & ShaderStageFlags::VERTEX) {
+            flags |= VK_SHADER_STAGE_VERTEX_BIT;
+        }
+
+        if (stageFlags & ShaderStageFlags::FRAGMENT) {
+            flags |= VK_SHADER_STAGE_FRAGMENT_BIT;
+        }
+
+        vkCmdPushConstants(commandBuffer_->getVkCommandBuffer(), layout.getVkPipelineLayout(), flags, offset, static_cast<std::uint32_t>(data.size()), data.data());
+    }
+
     void CommandBufferRenderPassPeriod::draw(std::uint32_t vertexCount, std::uint32_t instances, std::uint32_t firstVertex, std::uint32_t firstInstance) {
         if (!rendering_.get()) {
             throw std::runtime_error("Call failed: renderer::CommandBufferRenderPassPeriod::draw(): Render pass has ended");

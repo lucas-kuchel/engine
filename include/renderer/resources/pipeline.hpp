@@ -308,6 +308,13 @@ namespace renderer {
         DYNAMIC_STORAGE_BUFFER,
     };
 
+    struct ShaderStageFlags {
+        enum {
+            VERTEX = 1 << 0,
+            FRAGMENT = 1 << 1,
+        };
+    };
+
     struct ShaderInputInfo {
         ShaderInputType type;
 
@@ -315,12 +322,7 @@ namespace renderer {
 
         // @brief The buffer binding index that the data comes from
         std::uint32_t binding;
-
-        // @brief Makes input visible in the vertex shader
-        bool vertexAvailable;
-
-        // @brief Makes input visible in the fragment shader
-        bool fragmentAvailable;
+        std::uint32_t stageFlags;
     };
 
     struct ShaderInputLayoutCreateInfo {
@@ -352,12 +354,7 @@ namespace renderer {
 
     struct PushConstantInfo {
         std::uint32_t sizeBytes;
-
-        // @brief Makes input visible in the vertex shader
-        bool vertexAvailable;
-
-        // @brief Makes input visible in the fragment shader
-        bool fragmentAvailable;
+        std::uint32_t stageFlags;
     };
 
     struct PipelineLayoutCreateInfo {

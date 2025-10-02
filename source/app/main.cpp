@@ -21,6 +21,8 @@
 
 #include <filesystem/file.hpp>
 
+#include <chrono>
+#include <cmath>
 #include <cstring>
 #include <exception>
 #include <print>
@@ -190,7 +192,12 @@ void run() {
     renderer::PipelineLayoutCreateInfo pipelineLayoutCreateInfo = {
         .device = device,
         .inputLayouts = {},
-        .pushConstants = {},
+        .pushConstants = {
+            renderer::PushConstantInfo{
+                .sizeBytes = 8,
+                .stageFlags = renderer::ShaderStageFlags::VERTEX,
+            },
+        },
     };
 
     renderer::PipelineLayout pipelineLayout(pipelineLayoutCreateInfo);
@@ -343,8 +350,10 @@ void run() {
 
         transferCommandBufferCapture.end();
 
+        renderer::Fence fence({device, false});
+
         renderer::SubmitInfo submitInfo = {
-            .fence = nullptr,
+            .fence = fence,
             .commandBuffers = {transferCommandBuffer},
             .waits = {},
             .signals = {},
@@ -352,6 +361,8 @@ void run() {
         };
 
         renderQueue.submit(submitInfo);
+
+        device.waitForFences({fence});
     }
 
     bool running = true;
@@ -363,7 +374,31 @@ void run() {
         .a = 1.0f,
     };
 
+    data::Position2D<float> pushConstant = {
+        .x = 0.0f,
+        .y = 0.0f,
+    };
+
+    float angle = 0.0f;
+    const float radius = 0.5f;
+    const float speed = 1.0f;
+
+    auto lastTime = std::chrono::high_resolution_clock::now();
+
     while (running) {
+        auto currentTime = std::chrono::high_resolution_clock::now();
+        float deltaTime = std::chrono::duration<float>(currentTime - lastTime).count();
+
+        lastTime = currentTime;
+
+        angle += speed * deltaTime;
+        if (angle > 2.0f * M_PIf) {
+            angle -= 2.0f * M_PIf;
+        }
+
+        pushConstant.x = std::cos(angle) * radius;
+        pushConstant.y = std::sin(angle) * radius;
+
         context.pollEvents();
 
         while (window.hasEvents()) {
@@ -477,6 +512,8 @@ void run() {
 
         render.setPipelineViewports({viewport}, 0);
         render.setPipelineScissors({scissor}, 0);
+
+        render.pushConstants(pipelineLayout, renderer::ShaderStageFlags::VERTEX, {reinterpret_cast<std::uint8_t*>(&pushConstant), sizeof(data::Position2D<float>)}, 0);
 
         render.bindVertexBuffers({vertexBuffer}, {0}, 0);
 
