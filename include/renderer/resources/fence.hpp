@@ -10,6 +10,7 @@ namespace renderer {
     // @brief Creation information for a fence
     struct FenceCreateInfo {
         Device& device;
+        bool startSignaled;
     };
 
     // @brief Represents a synchronisation object GPU/CPU operations

@@ -5,10 +5,16 @@
 namespace renderer {
     Fence::Fence(const FenceCreateInfo& createInfo)
         : device_(createInfo.device) {
+        VkFenceCreateFlags flags = 0;
+
+        if (createInfo.startSignaled) {
+            flags |= VK_FENCE_CREATE_SIGNALED_BIT;
+        }
+
         VkFenceCreateInfo fenceCreateInfo = {
             .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
             .pNext = nullptr,
-            .flags = VK_FENCE_CREATE_SIGNALED_BIT,
+            .flags = flags,
         };
 
         if (vkCreateFence(device_->getVkDevice(), &fenceCreateInfo, nullptr, &fence_) != VK_SUCCESS) {

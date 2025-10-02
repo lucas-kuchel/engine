@@ -65,11 +65,11 @@ void run() {
         .instance = instance,
         .queues = {
             renderer::QueueCreateInfo{
-                .type = renderer::QueueType::RENDER,
+                .flags = renderer::QueueFlags::RENDER | renderer::QueueFlags::TRANSFER,
                 .surface = nullptr,
             },
             renderer::QueueCreateInfo{
-                .type = renderer::QueueType::PRESENT,
+                .flags = renderer::QueueFlags::PRESENT,
                 .surface = surface,
             },
         },
@@ -149,6 +149,7 @@ void run() {
 
     renderer::FenceCreateInfo fenceCreateInfo = {
         .device = device,
+        .startSignaled = true,
     };
 
     for (std::uint32_t i = 0; i < imageCount; i++) {
@@ -271,39 +272,86 @@ void run() {
 
     renderer::BufferCreateInfo vertexBufferCreateInfo = {
         .device = device,
-        .type = renderer::MemoryType::HOST_VISIBLE,
+        .type = renderer::MemoryType::DEVICE_LOCAL,
         .sizeBytes = vertices.size() * sizeof(Vertex),
-        .usage = renderer::BufferUsageFlags::VERTEX,
+        .usage = renderer::BufferUsageFlags::VERTEX | renderer::BufferUsageFlags::TRANSFER_DESTINATION,
     };
 
     renderer::BufferCreateInfo indexBufferCreateInfo = {
         .device = device,
-        .type = renderer::MemoryType::HOST_VISIBLE,
+        .type = renderer::MemoryType::DEVICE_LOCAL,
         .sizeBytes = triangles.size() * sizeof(Triangle),
-        .usage = renderer::BufferUsageFlags::INDEX,
+        .usage = renderer::BufferUsageFlags::INDEX | renderer::BufferUsageFlags::TRANSFER_DESTINATION,
     };
 
     renderer::Buffer vertexBuffer(vertexBufferCreateInfo);
     renderer::Buffer indexBuffer(indexBufferCreateInfo);
 
-    if (vertexBuffer.isMappable()) {
-        renderer::BufferMemoryMapping mapping = vertexBuffer.map(vertexBuffer.getSize(), 0);
+    {
+        renderer::CommandBufferCreateInfo transferCommandBuffersCreateInfo = {
+            .level = renderer::CommandBufferLevel::PRIMARY,
+            .count = 1,
+        };
 
-        auto data = mapping.get();
+        std::vector<renderer::CommandBuffer> transferCommandBuffers = commandPool.allocateCommandBuffers(transferCommandBuffersCreateInfo);
 
-        std::memcpy(data.data(), vertices.data(), vertexBuffer.getSize());
+        auto& transferCommandBuffer = transferCommandBuffers.front();
 
-        mapping.unmap();
-    }
+        renderer::BufferCreateInfo vertexStagingBufferCreateInfo = {
+            .device = device,
+            .type = renderer::MemoryType::HOST_VISIBLE,
+            .sizeBytes = vertices.size() * sizeof(Vertex),
+            .usage = renderer::BufferUsageFlags::TRANSFER_SOURCE,
+        };
 
-    if (indexBuffer.isMappable()) {
-        renderer::BufferMemoryMapping mapping = indexBuffer.map(indexBuffer.getSize(), 0);
+        renderer::BufferCreateInfo indexStagingBufferCreateInfo = {
+            .device = device,
+            .type = renderer::MemoryType::HOST_VISIBLE,
+            .sizeBytes = triangles.size() * sizeof(Triangle),
+            .usage = renderer::BufferUsageFlags::TRANSFER_SOURCE,
+        };
 
-        auto data = mapping.get();
+        renderer::Buffer vertexStagingBuffer(vertexStagingBufferCreateInfo);
+        renderer::Buffer indexStagingBuffer(indexStagingBufferCreateInfo);
 
-        std::memcpy(data.data(), triangles.data(), indexBuffer.getSize());
+        auto vertexStagingBufferMapping = vertexStagingBuffer.map(vertexStagingBuffer.getSize(), 0);
+        auto indexStagingBufferMapping = indexStagingBuffer.map(indexStagingBuffer.getSize(), 0);
 
-        mapping.unmap();
+        auto vertexMemory = vertexStagingBufferMapping.get();
+        auto indexMemory = indexStagingBufferMapping.get();
+
+        std::memcpy(vertexMemory.data(), vertices.data(), vertexStagingBuffer.getSize());
+        std::memcpy(indexMemory.data(), triangles.data(), indexStagingBuffer.getSize());
+
+        vertexStagingBufferMapping.unmap();
+        indexStagingBufferMapping.unmap();
+
+        auto transferCommandBufferCapture = transferCommandBuffer.beginCapture();
+
+        renderer::BufferCopyRegion vertexCopyRegion = {
+            .sourceOffset = 0,
+            .destinationOffset = 0,
+            .size = vertexStagingBuffer.getSize()};
+
+        renderer::BufferCopyRegion indexCopyRegion = {
+            .sourceOffset = 0,
+            .destinationOffset = 0,
+            .size = indexStagingBuffer.getSize()};
+
+        transferCommandBufferCapture.copyBuffer(vertexStagingBuffer, vertexBuffer, {vertexCopyRegion});
+        transferCommandBufferCapture.copyBuffer(indexStagingBuffer, indexBuffer, {indexCopyRegion});
+
+        transferCommandBufferCapture.end();
+
+        renderer::SubmitInfo submitInfo = {
+            .fence = nullptr,
+            .commandBuffers = {transferCommandBuffer},
+            .waits = {},
+            .signals = {},
+            .waitFlags = {},
+        };
+
+        renderQueue.submit(submitInfo);
     }
 
     bool running = true;
@@ -437,7 +485,15 @@ void run() {
         render.end();
         capture.end();
 
-        renderQueue.submit({commandBuffer}, {acquireSemaphore}, {submitSemaphore}, {fence});
+        renderer::SubmitInfo submitInfo = {
+            .fence = {fence},
+            .commandBuffers = {commandBuffer},
+            .waits = {acquireSemaphore},
+            .signals = {submitSemaphore},
+            .waitFlags = {renderer::SubmitWaitFlags::COLOR_ATTACHMENT_OUTPUT},
+        };
+
+        renderQueue.submit(submitInfo);
 
         swapchain.presentNextImage(submitSemaphore);
 

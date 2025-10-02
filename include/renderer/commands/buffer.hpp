@@ -2,6 +2,7 @@
 
 #include <data/references.hpp>
 
+#include <renderer/resources/buffer.hpp>
 #include <renderer/resources/pipeline.hpp>
 
 #include <vulkan/vulkan.h>
@@ -11,7 +12,6 @@ namespace renderer {
     class CommandPool;
     class CommandBuffer;
     class CommandBufferCapturePeriod;
-    class Buffer;
 
     struct RenderPassBeginInfo;
 
@@ -81,8 +81,9 @@ namespace renderer {
 
         // @brief Ends the capture prematurely
         // @note Not necessary to call; destructor will call it too
-        void
-        end();
+        void end();
+
+        void copyBuffer(Buffer& source, Buffer& destination, const std::vector<BufferCopyRegion>& copyRegions);
 
         // @brief Indicates if command capture is already rendering
         // @return If the command capture is rendering

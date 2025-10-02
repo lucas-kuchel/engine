@@ -306,6 +306,27 @@ namespace renderer {
         }
     }
 
+    void CommandBufferCapturePeriod::copyBuffer(Buffer& source, Buffer& destination, const std::vector<BufferCopyRegion>& copyRegions) {
+        if (!capturing_.get()) {
+            throw std::runtime_error("Call failed: renderer::CommandBufferCapturePeriod::copyBuffer(): Render pass has ended");
+        }
+
+        std::vector<VkBufferCopy> bufferCopies(copyRegions.size());
+
+        for (std::size_t i = 0; i < bufferCopies.size(); i++) {
+            auto& bufferCopy = bufferCopies[i];
+            auto& copyRegion = copyRegions[i];
+
+            bufferCopy = {
+                .srcOffset = copyRegion.sourceOffset,
+                .dstOffset = copyRegion.destinationOffset,
+                .size = copyRegion.size,
+            };
+        }
+
+        vkCmdCopyBuffer(commandBuffer_->getVkCommandBuffer(), source.getVkBuffer(), destination.getVkBuffer(), static_cast<std::uint32_t>(bufferCopies.size()), bufferCopies.data());
+    }
+
     bool CommandBufferCapturePeriod::isRendering() const {
         return rendering_;
     }

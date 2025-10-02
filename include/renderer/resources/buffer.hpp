@@ -34,6 +34,12 @@ namespace renderer {
         DEVICE_LOCAL,
     };
 
+    struct BufferCopyRegion {
+        std::uint64_t sourceOffset;
+        std::uint64_t destinationOffset;
+        std::uint64_t size;
+    };
+
     struct BufferCreateInfo {
         Device& device;
 

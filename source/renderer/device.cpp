@@ -22,25 +22,28 @@ namespace renderer {
 
             auto& queue = queues_.back();
 
-            VkQueueFlagBits queueTypeNeeded = VK_QUEUE_FLAG_BITS_MAX_ENUM;
+            VkQueueFlags queueTypeNeeded = 0;
             bool isPresentType = false;
+            bool preferUnique = false;
 
-            switch (queueCreateInfo.type) {
-                case QueueType::COMPUTE:
-                    queueTypeNeeded = VK_QUEUE_COMPUTE_BIT;
-                    break;
+            if (queueCreateInfo.flags & QueueFlags::COMPUTE) {
+                queueTypeNeeded |= VK_QUEUE_COMPUTE_BIT;
+            }
 
-                case QueueType::RENDER:
-                    queueTypeNeeded = VK_QUEUE_GRAPHICS_BIT;
-                    break;
+            if (queueCreateInfo.flags & QueueFlags::RENDER) {
+                queueTypeNeeded |= VK_QUEUE_GRAPHICS_BIT;
+            }
 
-                case QueueType::TRANSFER:
-                    queueTypeNeeded = VK_QUEUE_TRANSFER_BIT;
-                    break;
+            if (queueCreateInfo.flags & QueueFlags::TRANSFER) {
+                queueTypeNeeded |= VK_QUEUE_TRANSFER_BIT;
+            }
 
-                case QueueType::PRESENT:
-                    isPresentType = true;
-                    break;
+            if (queueCreateInfo.flags & QueueFlags::PRESENT) {
+                isPresentType = true;
+            }
+
+            if (queueCreateInfo.flags & QueueFlags::PREFER_UNIQUE) {
+                preferUnique = true;
             }
 
             auto& queueFamilyProperties = instance_->queueFamilyProperties_;
@@ -64,26 +67,32 @@ namespace renderer {
 
                     if (presentSupported) {
                         queue.familyIndex_ = i;
+                        queue.queueIndex_ = 0;
 
-                        if (queueFamilyOccupations[i] == family.queueCount) {
-                            queueFamilyOccupations[i] = 0;
+                        if (preferUnique) {
+                            if (queueFamilyOccupations[i] == family.queueCount) {
+                                queueFamilyOccupations[i] = 0;
+                            }
+
+                            queue.queueIndex_ = queueFamilyOccupations[i];
+                            queueFamilyOccupations[i]++;
                         }
-
-                        queue.queueIndex_ = queueFamilyOccupations[i];
-                        queueFamilyOccupations[i]++;
 
                         break;
                     }
                 }
                 else if (family.queueFlags & static_cast<std::uint32_t>(queueTypeNeeded)) {
                     queue.familyIndex_ = i;
+                    queue.queueIndex_ = 0;
 
-                    if (queueFamilyOccupations[i] == family.queueCount) {
-                        queueFamilyOccupations[i] = 0;
+                    if (preferUnique) {
+                        if (queueFamilyOccupations[i] == family.queueCount) {
+                            queueFamilyOccupations[i] = 0;
+                        }
+
+                        queue.queueIndex_ = queueFamilyOccupations[i];
+                        queueFamilyOccupations[i]++;
                     }
-
-                    queue.queueIndex_ = queueFamilyOccupations[i];
-                    queueFamilyOccupations[i]++;
 
                     break;
                 }

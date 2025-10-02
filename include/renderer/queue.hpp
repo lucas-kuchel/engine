@@ -13,20 +13,49 @@ namespace renderer {
     class Fence;
     class CommandBuffer;
 
-    // @brief The purpose of the queue
-    enum class QueueType {
-        PRESENT,
-        TRANSFER,
-        COMPUTE,
-        RENDER,
+    // @brief Queue capabilites required
+    struct QueueFlags {
+        enum {
+            PRESENT = 1 << 0,
+            TRANSFER = 1 << 1,
+            COMPUTE = 1 << 2,
+            RENDER = 1 << 3,
+            PREFER_UNIQUE = 1 << 4,
+        };
+    };
+
+    struct SubmitWaitFlags {
+        enum {
+            TOP_OF_PIPE = 1 << 0,
+            DRAW_INDIRECT = 1 << 1,
+            VERTEX_INPUT = 1 << 2,
+            VERTEX_SHADER = 1 << 3,
+            FRAGMENT_SHADER = 1 << 4,
+            EARLY_FRAGMENT_TESTS = 1 << 5,
+            LATE_FRAGMENT_TESTS = 1 << 6,
+            COLOR_ATTACHMENT_OUTPUT = 1 << 7,
+            TRANSFER = 1 << 8,
+            BOTTOM_OF_PIPE = 1 << 9,
+            HOST = 1 << 10,
+            ALL_GRAPHICS = 1 << 11,
+            ALL_COMMANDS = 1 << 12,
+        };
     };
 
     // @brief Creation information for a queue
     struct QueueCreateInfo {
-        QueueType type;
+        std::uint32_t flags;
 
-        // @note Only needs to be filled in if creating a PRESENT queue
+        // @note Only needs to be filled in if the PRESENT flag is set
         data::NullableReference<Surface> surface;
+    };
+
+    struct SubmitInfo {
+        data::NullableReference<Fence> fence;
+        std::vector<data::Reference<CommandBuffer>> commandBuffers;
+        std::vector<data::Reference<Semaphore>> waits;
+        std::vector<data::Reference<Semaphore>> signals;
+        std::vector<std::uint32_t> waitFlags;
     };
 
     // @brief Represents a submission queue between the CPU and GPU
@@ -42,15 +71,8 @@ namespace renderer {
         Queue& operator=(Queue&&) noexcept = default;
 
         // @brief Submits work for processing on the GPU
-        // @param The list of command buffers to process
-        // @param The semaphore to signal GPU availability
-        // @param The semaphore to signal GPU operation completion
-        // @param The fence to indicate if operations are active
-        void submit(const std::vector<data::Reference<CommandBuffer>>& commandBuffers, const std::vector<data::Reference<Semaphore>>& available, const std::vector<data::Reference<Semaphore>>& finished, Fence& inFlight);
-
-        // @brief Provides the queue type
-        // @return The queue type
-        [[nodiscard]] QueueType getType() const;
+        // @param The submission information
+        void submit(const SubmitInfo& submitInfo);
 
         // @brief Provides the Vulkan VkQueue
         // @return The VkQueue
@@ -70,8 +92,6 @@ namespace renderer {
 
     private:
         Queue() = default;
-
-        QueueType type_;
 
         VkQueue queue_ = VK_NULL_HANDLE;
 
