@@ -3,7 +3,7 @@
 #include <renderer/device.hpp>
 
 namespace renderer {
-    ShaderInputLayout::ShaderInputLayout(const ShaderInputLayoutCreateInfo& createInfo)
+    DescriptorSetLayout::DescriptorSetLayout(const DescriptorSetLayoutCreateInfo& createInfo)
         : device_(createInfo.device) {
 
         std::vector<VkDescriptorSetLayoutBinding> bindings(createInfo.inputs.size());
@@ -14,31 +14,23 @@ namespace renderer {
 
             VkShaderStageFlags flags = 0;
 
-            if (input.stageFlags & ShaderStageFlags::VERTEX) {
+            if (input.stageFlags & DescriptorShaderStageFlags::VERTEX) {
                 flags |= VK_SHADER_STAGE_VERTEX_BIT;
             }
 
-            if (input.stageFlags & ShaderStageFlags::FRAGMENT) {
+            if (input.stageFlags & DescriptorShaderStageFlags::FRAGMENT) {
                 flags |= VK_SHADER_STAGE_FRAGMENT_BIT;
             }
 
             VkDescriptorType descriptorType = VK_DESCRIPTOR_TYPE_MAX_ENUM;
 
             switch (input.type) {
-                case ShaderInputType::UNIFORM_BUFFER:
+                case DescriptorInputType::UNIFORM_BUFFER:
                     descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
                     break;
 
-                case ShaderInputType::STORAGE_BUFFER:
+                case DescriptorInputType::STORAGE_BUFFER:
                     descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-                    break;
-
-                case ShaderInputType::DYNAMIC_UNIFORM_BUFFER:
-                    descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
-                    break;
-
-                case ShaderInputType::DYNAMIC_STORAGE_BUFFER:
-                    descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC;
                     break;
             }
 
@@ -64,18 +56,167 @@ namespace renderer {
         }
     }
 
-    ShaderInputLayout::~ShaderInputLayout() {
+    DescriptorSetLayout::~DescriptorSetLayout() {
         if (layout_ != VK_NULL_HANDLE) {
             vkDestroyDescriptorSetLayout(device_->getVkDevice(), layout_, nullptr);
         }
     }
 
-    VkDescriptorSetLayout& ShaderInputLayout::getVkDescriptorSetLayout() {
+    VkDescriptorSetLayout& DescriptorSetLayout::getVkDescriptorSetLayout() {
         return layout_;
     }
 
-    const VkDescriptorSetLayout& ShaderInputLayout::getVkDescriptorSetLayout() const {
+    const VkDescriptorSetLayout& DescriptorSetLayout::getVkDescriptorSetLayout() const {
         return layout_;
+    }
+
+    DescriptorSet::~DescriptorSet() {
+    }
+
+    VkDescriptorSet& DescriptorSet::getVkDescriptorSet() {
+        return set_;
+    }
+
+    const VkDescriptorSet& DescriptorSet::getVkDescriptorSet() const {
+        return set_;
+    }
+
+    DescriptorSet::DescriptorSet(Device& device, const DescriptorSetLayout& layout, DescriptorPool& pool)
+        : device_(device), layout_(layout), pool_(pool) {
+    }
+
+    DescriptorPool::DescriptorPool(const DescriptorPoolCreateInfo& createInfo)
+        : device_(createInfo.device) {
+        std::vector<VkDescriptorPoolSize> poolSizes(createInfo.poolSizes.size());
+
+        for (std::size_t i = 0; i < poolSizes.size(); i++) {
+            VkDescriptorType descriptorType = VK_DESCRIPTOR_TYPE_MAX_ENUM;
+
+            switch (createInfo.poolSizes[i].type) {
+                case DescriptorInputType::UNIFORM_BUFFER:
+                    descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+                    break;
+
+                case DescriptorInputType::STORAGE_BUFFER:
+                    descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+                    break;
+            }
+
+            poolSizes[i] = {
+                .type = descriptorType,
+                .descriptorCount = createInfo.poolSizes[i].count,
+            };
+        }
+
+        VkDescriptorPoolCreateInfo poolCreateInfo = {
+            .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
+            .pNext = nullptr,
+            .flags = 0,
+            .maxSets = createInfo.maximumSetCount,
+            .poolSizeCount = static_cast<std::uint32_t>(poolSizes.size()),
+            .pPoolSizes = poolSizes.data(),
+        };
+
+        if (vkCreateDescriptorPool(device_->getVkDevice(), &poolCreateInfo, nullptr, &pool_) != VK_SUCCESS) {
+            throw std::runtime_error("Construction failed: renderer::DescriptorPool: Failed to create descriptor pool");
+        }
+    }
+
+    DescriptorPool::~DescriptorPool() {
+        if (pool_ != VK_NULL_HANDLE) {
+            vkDestroyDescriptorPool(device_->getVkDevice(), pool_, nullptr);
+        }
+    }
+
+    std::vector<DescriptorSet> DescriptorPool::allocateDescriptorSets(const DescriptorSetCreateInfo& createInfo) {
+        std::vector<VkDescriptorSet> descriptorSets(createInfo.layouts.size());
+        std::vector<VkDescriptorSetLayout> layouts(createInfo.layouts.size());
+
+        for (std::size_t i = 0; i < layouts.size(); i++) {
+            layouts[i] = createInfo.layouts[i]->getVkDescriptorSetLayout();
+        }
+
+        VkDescriptorSetAllocateInfo allocationInfo = {
+            .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+            .pNext = nullptr,
+            .descriptorPool = pool_,
+            .descriptorSetCount = static_cast<std::uint32_t>(layouts.size()),
+            .pSetLayouts = layouts.data(),
+        };
+
+        if (vkAllocateDescriptorSets(device_->getVkDevice(), &allocationInfo, descriptorSets.data()) != VK_SUCCESS) {
+            throw std::runtime_error("Call failed: renderer::DescriptorPool::allocateDescriptorSets(): Failed to allocate descriptor sets");
+        }
+
+        std::vector<DescriptorSet> sets;
+
+        sets.reserve(createInfo.layouts.size());
+
+        for (std::size_t i = 0; i < descriptorSets.size(); i++) {
+            auto& descriptorSet = descriptorSets[i];
+            auto& descriptorSetLayout = createInfo.layouts[i];
+
+            sets.push_back(DescriptorSet(device_.get(), descriptorSetLayout.get(), *this));
+
+            auto& set = sets.back();
+
+            set.set_ = descriptorSet;
+        }
+
+        return sets;
+    }
+
+    void DescriptorPool::updateDescriptorSets(std::vector<DescriptorSetUpdateInfo> updateInfos) {
+        std::vector<VkWriteDescriptorSet> writes(updateInfos.size());
+
+        std::vector<std::vector<VkDescriptorBufferInfo>> bufferInfos(updateInfos.size());
+
+        for (std::size_t i = 0; i < writes.size(); i++) {
+            bufferInfos[i].resize(updateInfos[i].buffers.size());
+
+            for (std::size_t j = 0; j < writes.size(); j++) {
+                bufferInfos[i][j] = {
+                    .buffer = updateInfos[i].buffers[i].buffer.getVkBuffer(),
+                    .offset = updateInfos[i].buffers[i].offset,
+                    .range = updateInfos[i].buffers[i].range,
+                };
+            }
+
+            VkDescriptorType descriptorType = VK_DESCRIPTOR_TYPE_MAX_ENUM;
+
+            switch (updateInfos[i].inputType) {
+                case DescriptorInputType::UNIFORM_BUFFER:
+                    descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+                    break;
+
+                case DescriptorInputType::STORAGE_BUFFER:
+                    descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+                    break;
+            }
+
+            writes[i] = {
+                .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+                .pNext = nullptr,
+                .dstSet = updateInfos[i].set.getVkDescriptorSet(),
+                .dstBinding = updateInfos[i].binding,
+                .dstArrayElement = updateInfos[i].arrayElement,
+                .descriptorCount = static_cast<std::uint32_t>(bufferInfos[i].size()),
+                .descriptorType = descriptorType,
+                .pImageInfo = nullptr,
+                .pBufferInfo = bufferInfos[i].data(),
+                .pTexelBufferView = nullptr,
+            };
+        }
+
+        vkUpdateDescriptorSets(device_->getVkDevice(), static_cast<std::uint32_t>(writes.size()), writes.data(), 0, nullptr);
+    }
+
+    VkDescriptorPool& DescriptorPool::getVkDescriptorPool() {
+        return pool_;
+    }
+
+    const VkDescriptorPool& DescriptorPool::getVkDescriptorPool() const {
+        return pool_;
     }
 
     PipelineLayout::PipelineLayout(const PipelineLayoutCreateInfo& createInfo)
@@ -95,11 +236,11 @@ namespace renderer {
 
             VkShaderStageFlags flags = 0;
 
-            if (pushConstant.stageFlags & ShaderStageFlags::VERTEX) {
+            if (pushConstant.stageFlags & DescriptorShaderStageFlags::VERTEX) {
                 flags |= VK_SHADER_STAGE_VERTEX_BIT;
             }
 
-            if (pushConstant.stageFlags & ShaderStageFlags::FRAGMENT) {
+            if (pushConstant.stageFlags & DescriptorShaderStageFlags::FRAGMENT) {
                 flags |= VK_SHADER_STAGE_FRAGMENT_BIT;
             }
 

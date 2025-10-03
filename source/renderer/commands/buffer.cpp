@@ -216,11 +216,11 @@ namespace renderer {
 
         VkShaderStageFlags flags = 0;
 
-        if (stageFlags & ShaderStageFlags::VERTEX) {
+        if (stageFlags & DescriptorShaderStageFlags::VERTEX) {
             flags |= VK_SHADER_STAGE_VERTEX_BIT;
         }
 
-        if (stageFlags & ShaderStageFlags::FRAGMENT) {
+        if (stageFlags & DescriptorShaderStageFlags::FRAGMENT) {
             flags |= VK_SHADER_STAGE_FRAGMENT_BIT;
         }
 
@@ -343,6 +343,32 @@ namespace renderer {
         }
 
         vkCmdCopyBuffer(commandBuffer_->getVkCommandBuffer(), source.getVkBuffer(), destination.getVkBuffer(), static_cast<std::uint32_t>(bufferCopies.size()), bufferCopies.data());
+    }
+
+    void CommandBufferCapturePeriod::bindDescriptorSets(DescriptorSetBindPoint bindPoint, PipelineLayout& layout, std::uint32_t firstSet, const std::vector<data::Reference<DescriptorSet>>& sets) {
+        if (!capturing_.get()) {
+            throw std::runtime_error("Call failed: renderer::CommandBufferCapturePeriod::bindDescriptorSets(): Render pass has ended");
+        }
+
+        VkPipelineBindPoint point;
+
+        switch (bindPoint) {
+            case renderer::DescriptorSetBindPoint::RENDER:
+                point = VK_PIPELINE_BIND_POINT_GRAPHICS;
+                break;
+
+            case renderer::DescriptorSetBindPoint::COMPUTE:
+                point = VK_PIPELINE_BIND_POINT_COMPUTE;
+                break;
+        }
+
+        std::vector<VkDescriptorSet> vkSets(sets.size());
+
+        for (std::size_t i = 0; i < vkSets.size(); i++) {
+            vkSets[i] = sets[i]->getVkDescriptorSet();
+        }
+
+        vkCmdBindDescriptorSets(commandBuffer_->getVkCommandBuffer(), point, layout.getVkPipelineLayout(), firstSet, static_cast<std::uint32_t>(vkSets.size()), vkSets.data(), 0, nullptr);
     }
 
     bool CommandBufferCapturePeriod::isRendering() const {

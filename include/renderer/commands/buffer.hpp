@@ -87,6 +87,8 @@ namespace renderer {
 
         void copyBuffer(Buffer& source, Buffer& destination, const std::vector<BufferCopyRegion>& copyRegions);
 
+        void bindDescriptorSets(DescriptorSetBindPoint bindPoint, PipelineLayout& layout, std::uint32_t firstSet, const std::vector<data::Reference<DescriptorSet>>& sets);
+
         // @brief Indicates if command capture is already rendering
         // @return If the command capture is rendering
         [[nodiscard]] bool isRendering() const;

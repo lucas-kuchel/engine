@@ -15,6 +15,7 @@ namespace renderer {
     class ShaderModule;
     class Device;
     class RenderPass;
+    class Buffer;
 
     // TODO: add push constants and descriptor sets for uniform buffers, storage buffers and samplers
 
@@ -133,6 +134,11 @@ namespace renderer {
         FRONT,
         BACK,
         ALWAYS,
+    };
+
+    enum class DescriptorSetBindPoint {
+        RENDER,
+        COMPUTE,
     };
 
     // @brief General-purpose comparison operations
@@ -301,22 +307,20 @@ namespace renderer {
         U32,
     };
 
-    enum class ShaderInputType {
+    enum class DescriptorInputType {
         UNIFORM_BUFFER,
         STORAGE_BUFFER,
-        DYNAMIC_UNIFORM_BUFFER,
-        DYNAMIC_STORAGE_BUFFER,
     };
 
-    struct ShaderStageFlags {
+    struct DescriptorShaderStageFlags {
         enum {
             VERTEX = 1 << 0,
             FRAGMENT = 1 << 1,
         };
     };
 
-    struct ShaderInputInfo {
-        ShaderInputType type;
+    struct DescriptorSetInputInfo {
+        DescriptorInputType type;
 
         std::uint32_t count;
 
@@ -325,22 +329,22 @@ namespace renderer {
         std::uint32_t stageFlags;
     };
 
-    struct ShaderInputLayoutCreateInfo {
+    struct DescriptorSetLayoutCreateInfo {
         Device& device;
 
-        std::vector<ShaderInputInfo> inputs;
+        std::vector<DescriptorSetInputInfo> inputs;
     };
 
-    class ShaderInputLayout {
+    class DescriptorSetLayout {
     public:
-        ShaderInputLayout(const ShaderInputLayoutCreateInfo& createInfo);
-        ~ShaderInputLayout();
+        DescriptorSetLayout(const DescriptorSetLayoutCreateInfo& createInfo);
+        ~DescriptorSetLayout();
 
-        ShaderInputLayout(const ShaderInputLayout&) = delete;
-        ShaderInputLayout(ShaderInputLayout&&) noexcept = default;
+        DescriptorSetLayout(const DescriptorSetLayout&) = delete;
+        DescriptorSetLayout(DescriptorSetLayout&&) noexcept = default;
 
-        ShaderInputLayout& operator=(const ShaderInputLayout&) = delete;
-        ShaderInputLayout& operator=(ShaderInputLayout&&) noexcept = default;
+        DescriptorSetLayout& operator=(const DescriptorSetLayout&) = delete;
+        DescriptorSetLayout& operator=(DescriptorSetLayout&&) noexcept = default;
 
         [[nodiscard]] VkDescriptorSetLayout& getVkDescriptorSetLayout();
 
@@ -352,7 +356,7 @@ namespace renderer {
         data::Reference<Device> device_;
     };
 
-    struct PushConstantInfo {
+    struct PushConstantInputInfo {
         std::uint32_t sizeBytes;
         std::uint32_t stageFlags;
     };
@@ -360,8 +364,93 @@ namespace renderer {
     struct PipelineLayoutCreateInfo {
         Device& device;
 
-        std::vector<data::Reference<ShaderInputLayout>> inputLayouts;
-        std::vector<PushConstantInfo> pushConstants;
+        std::vector<data::Reference<DescriptorSetLayout>> inputLayouts;
+        std::vector<PushConstantInputInfo> pushConstants;
+    };
+
+    struct DescriptorSetBufferBinding {
+        Buffer& buffer;
+
+        std::uint64_t offset;
+        std::uint64_t range;
+    };
+
+    struct DescriptorPoolSize {
+        DescriptorInputType type;
+        std::uint32_t count;
+    };
+
+    struct DescriptorPoolCreateInfo {
+        Device& device;
+
+        std::vector<DescriptorPoolSize> poolSizes;
+        std::uint32_t maximumSetCount;
+    };
+
+    class DescriptorPool;
+
+    struct DescriptorSetCreateInfo {
+        std::vector<data::Reference<DescriptorSetLayout>> layouts;
+    };
+
+    class DescriptorSet {
+    public:
+        ~DescriptorSet();
+
+        DescriptorSet(const DescriptorSet&) = delete;
+        DescriptorSet(DescriptorSet&&) noexcept = default;
+
+        DescriptorSet& operator=(const DescriptorSet&) = delete;
+        DescriptorSet& operator=(DescriptorSet&&) noexcept = default;
+
+        [[nodiscard]] VkDescriptorSet& getVkDescriptorSet();
+
+        [[nodiscard]] const VkDescriptorSet& getVkDescriptorSet() const;
+
+    private:
+        DescriptorSet(Device& device, const DescriptorSetLayout& layout, DescriptorPool& pool);
+
+        VkDescriptorSet set_ = VK_NULL_HANDLE;
+
+        data::Reference<Device> device_;
+        data::Reference<const DescriptorSetLayout> layout_;
+        data::Reference<DescriptorPool> pool_;
+
+        friend class DescriptorPool;
+    };
+
+    struct DescriptorSetUpdateInfo {
+        DescriptorSet& set;
+        std::uint32_t binding;
+        std::uint32_t arrayElement;
+        DescriptorInputType inputType;
+
+        std::vector<DescriptorSetBufferBinding> buffers;
+    };
+
+    class DescriptorPool {
+    public:
+        DescriptorPool(const DescriptorPoolCreateInfo& createInfo);
+        ~DescriptorPool();
+
+        DescriptorPool(const DescriptorPool&) = delete;
+        DescriptorPool(DescriptorPool&&) noexcept = default;
+
+        DescriptorPool& operator=(const DescriptorPool&) = delete;
+        DescriptorPool& operator=(DescriptorPool&&) noexcept = default;
+
+        [[nodiscard]] std::vector<DescriptorSet> allocateDescriptorSets(const DescriptorSetCreateInfo& createInfo);
+
+        void updateDescriptorSets(std::vector<DescriptorSetUpdateInfo> updateInfos);
+
+        [[nodiscard]] VkDescriptorPool& getVkDescriptorPool();
+
+        [[nodiscard]] const VkDescriptorPool& getVkDescriptorPool() const;
+
+    private:
+        VkDescriptorPool pool_ = VK_NULL_HANDLE;
+
+        data::Reference<Device> device_;
     };
 
     class PipelineLayout {

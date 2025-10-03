@@ -189,76 +189,8 @@ void run() {
     renderer::ShaderModule vertexShaderModule(vertexShaderModuleCreateInfo);
     renderer::ShaderModule fragmentShaderModule(fragmentShaderModuleCreateInfo);
 
-    renderer::PipelineLayoutCreateInfo pipelineLayoutCreateInfo = {
-        .device = device,
-        .inputLayouts = {},
-        .pushConstants = {
-            renderer::PushConstantInfo{
-                .sizeBytes = 8,
-                .stageFlags = renderer::ShaderStageFlags::VERTEX,
-            },
-        },
-    };
-
-    renderer::PipelineLayout pipelineLayout(pipelineLayoutCreateInfo);
-
-    renderer::PipelineCreateInfo pipelineCreateInfo = {
-        .renderPass = renderPass,
-        .layout = pipelineLayout,
-        .subpassIndex = 0,
-        .shaderStages = {
-            {
-                vertexShaderModule,
-                renderer::ShaderStage::VERTEX,
-                "main",
-            },
-            {
-                fragmentShaderModule,
-                renderer::ShaderStage::FRAGMENT,
-                "main",
-            },
-        },
-        .vertexInput = {
-            .bindings = {
-                renderer::VertexInputBindingDescription{
-                    .binding = 0,
-                    .strideBytes = sizeof(float[2]) + sizeof(float[3]),
-                    .inputRate = renderer::VertexInputRate::PER_VERTEX,
-                },
-            },
-            .attributes = {
-                renderer::VertexAttributeDescription{
-                    .format = renderer::VertexAttributeFormat::R32G32_FLOAT,
-                    .location = 0,
-                    .binding = 0,
-                },
-                renderer::VertexAttributeDescription{
-                    .format = renderer::VertexAttributeFormat::R32G32B32_FLOAT,
-                    .location = 1,
-                    .binding = 0,
-                },
-            },
-        },
-        .inputAssembly = {
-            .topology = renderer::RasterisationPrimitive::TRIANGLE_STRIP,
-            .primitiveRestart = false,
-        },
-        .viewportCount = 1,
-        .scissorCount = 1,
-        .rasterisation = {},
-        .multisample = {},
-        .colourBlend = {
-            .attachments = {renderer::ColourBlendAttachment{}},
-        },
-    };
-
-    std::vector<renderer::Pipeline> pipelines = device.createPipelines({pipelineCreateInfo});
-
-    renderer::Pipeline& pipeline = pipelines.front();
-
     struct Vertex {
         data::Position2D<float> position;
-        data::ColourRGB colour;
     };
 
     struct Triangle {
@@ -266,15 +198,13 @@ void run() {
     };
 
     std::array<Vertex, 4> vertices = {
-        Vertex({-0.5, -0.5}, {0.0, 1.0, 0.0}),
-        Vertex({-0.5, 0.5}, {0.0, 0.0, 1.0}),
-        Vertex({0.5, -0.5}, {1.0, 0.0, 0.0}),
-        Vertex({0.5, 0.5}, {1.0, 1.0, 1.0}),
+        Vertex({0.0, -0.5}),
+        Vertex({-0.5, 0.5}),
+        Vertex({0.5, 0.5}),
     };
 
     std::array<Triangle, 2> triangles = {
         Triangle{0, 1, 2},
-        Triangle{0, 2, 3},
     };
 
     renderer::BufferCreateInfo vertexBufferCreateInfo = {
@@ -364,6 +294,150 @@ void run() {
 
         device.waitForFences({fence});
     }
+
+    data::ColourRGB materialColour = {
+        .r = 0.64f,
+        .g = 0.21f,
+        .b = 0.85f,
+    };
+
+    renderer::BufferCreateInfo materialBufferCreateInfo = {
+        .device = device,
+        .type = renderer::MemoryType::HOST_VISIBLE,
+        .sizeBytes = sizeof(data::ColourRGB),
+        .usage = renderer::BufferUsageFlags::UNIFORM,
+    };
+
+    renderer::Buffer materialBuffer(materialBufferCreateInfo);
+
+    {
+        auto materialBufferMapping = materialBuffer.map(materialBuffer.getSize(), 0);
+        auto materialMemory = materialBufferMapping.get();
+
+        std::memcpy(materialMemory.data(), &materialColour, materialBuffer.getSize());
+
+        materialBufferMapping.unmap();
+    }
+
+    renderer::DescriptorSetInputInfo inputInfo = {
+        .type = renderer::DescriptorInputType::UNIFORM_BUFFER,
+        .count = 1,
+        .binding = 0,
+        .stageFlags = renderer::DescriptorShaderStageFlags::FRAGMENT,
+    };
+
+    renderer::DescriptorSetLayoutCreateInfo layoutCreateInfo = {
+        .device = device,
+        .inputs = {inputInfo},
+    };
+
+    renderer::DescriptorSetLayout layout(layoutCreateInfo);
+
+    renderer::DescriptorPoolSize size = {
+        .type = renderer::DescriptorInputType::UNIFORM_BUFFER,
+        .count = 1,
+    };
+
+    renderer::DescriptorPoolCreateInfo poolCreateInfo = {
+        .device = device,
+        .poolSizes = {size},
+        .maximumSetCount = 1,
+    };
+
+    renderer::DescriptorPool descriptorPool(poolCreateInfo);
+
+    renderer::DescriptorSetCreateInfo setCreateInfo = {
+        .layouts = {layout},
+    };
+
+    auto descriptorSets = descriptorPool.allocateDescriptorSets(setCreateInfo);
+
+    auto& descriptorSet = descriptorSets.front();
+
+    renderer::DescriptorSetBufferBinding bufferBinding = {
+        .buffer = materialBuffer,
+        .offset = 0,
+        .range = materialBuffer.getSize(),
+    };
+
+    renderer::DescriptorSetUpdateInfo setUpdateInfo = {
+        .set = descriptorSet,
+        .binding = 0,
+        .arrayElement = 0,
+        .inputType = renderer::DescriptorInputType::UNIFORM_BUFFER,
+        .buffers = {bufferBinding},
+    };
+
+    descriptorPool.updateDescriptorSets({setUpdateInfo});
+
+    renderer::PipelineLayoutCreateInfo pipelineLayoutCreateInfo = {
+        .device = device,
+        .inputLayouts = {
+            layout,
+        },
+        .pushConstants = {
+            renderer::PushConstantInputInfo{
+                .sizeBytes = 8,
+                .stageFlags = renderer::DescriptorShaderStageFlags::VERTEX,
+            },
+        },
+    };
+
+    renderer::PipelineLayout pipelineLayout(pipelineLayoutCreateInfo);
+
+    renderer::PipelineCreateInfo pipelineCreateInfo = {
+        .renderPass = renderPass,
+        .layout = pipelineLayout,
+        .subpassIndex = 0,
+        .shaderStages = {
+            {
+                vertexShaderModule,
+                renderer::ShaderStage::VERTEX,
+                "main",
+            },
+            {
+                fragmentShaderModule,
+                renderer::ShaderStage::FRAGMENT,
+                "main",
+            },
+        },
+        .vertexInput = {
+            .bindings = {
+                renderer::VertexInputBindingDescription{
+                    .binding = 0,
+                    .strideBytes = sizeof(Vertex),
+                    .inputRate = renderer::VertexInputRate::PER_VERTEX,
+                },
+            },
+            .attributes = {
+                renderer::VertexAttributeDescription{
+                    .format = renderer::VertexAttributeFormat::R32G32_FLOAT,
+                    .location = 0,
+                    .binding = 0,
+                },
+                renderer::VertexAttributeDescription{
+                    .format = renderer::VertexAttributeFormat::R32G32B32_FLOAT,
+                    .location = 1,
+                    .binding = 0,
+                },
+            },
+        },
+        .inputAssembly = {
+            .topology = renderer::RasterisationPrimitive::TRIANGLE_STRIP,
+            .primitiveRestart = false,
+        },
+        .viewportCount = 1,
+        .scissorCount = 1,
+        .rasterisation = {},
+        .multisample = {},
+        .colourBlend = {
+            .attachments = {renderer::ColourBlendAttachment{}},
+        },
+    };
+
+    std::vector<renderer::Pipeline> pipelines = device.createPipelines({pipelineCreateInfo});
+
+    renderer::Pipeline& pipeline = pipelines.front();
 
     bool running = true;
 
@@ -486,6 +560,9 @@ void run() {
         };
 
         auto capture = commandBuffer.beginCapture();
+
+        capture.bindDescriptorSets(renderer::DescriptorSetBindPoint::RENDER, pipelineLayout, 0, {descriptorSet});
+
         auto render = capture.beginRenderPass(renderPassBeginInfo);
 
         render.bindPipeline(pipeline);
@@ -513,11 +590,11 @@ void run() {
         render.setPipelineViewports({viewport}, 0);
         render.setPipelineScissors({scissor}, 0);
 
-        render.pushConstants(pipelineLayout, renderer::ShaderStageFlags::VERTEX, {reinterpret_cast<std::uint8_t*>(&pushConstant), sizeof(data::Position2D<float>)}, 0);
+        render.pushConstants(pipelineLayout, renderer::DescriptorShaderStageFlags::VERTEX, {reinterpret_cast<std::uint8_t*>(&pushConstant), sizeof(data::Position2D<float>)}, 0);
 
         render.bindVertexBuffers({vertexBuffer}, {0}, 0);
 
-        render.draw(4, 1, 0, 0);
+        render.draw(3, 1, 0, 0);
 
         render.end();
         capture.end();
