@@ -24,7 +24,7 @@ namespace renderer {
         Surface& surface;
         Device& device;
 
-        // @brief Reference to a queue that supports presentation operations
+        // @brief Ref to a queue that supports presentation operations
         Queue& presentQueue;
 
         // @brief How many images you want the swapchain to posess
@@ -78,11 +78,11 @@ namespace renderer {
 
         // @brief Provides the backend-agnostic image format
         // @return The image format of all images in the Swapchain
-        [[nodiscard]] ImageFormat getImageFormat() const;
+        [[nodiscard]] ImageFormat format() const;
 
         // @brief Provides the number of images in the swapchain
         // @return Frame count of the swapchain
-        [[nodiscard]] std::uint32_t getImageCount() const;
+        [[nodiscard]] std::uint32_t imageCount() const;
 
         // @brief Provides the current image index of the swapchain
         // @return Current frame index of the swapchain
@@ -90,11 +90,11 @@ namespace renderer {
 
         // @brief Provides all image views of the swapchain
         // @return Image views of the swapchain
-        [[nodiscard]] std::span<ImageView> getImageViews();
+        [[nodiscard]] std::span<ImageView> images();
 
         // @brief Returns if synchronisation is enabled (VSync)
         // @return Whether synchronisation is enabled
-        [[nodiscard]] bool isSynchronised() const;
+        [[nodiscard]] bool synchronised() const;
 
         // @brief Returns if the swapchain is flagged for recreation
         // @note This flag must be acted upon if true
@@ -103,7 +103,7 @@ namespace renderer {
 
         // @brief Returns the current extent of the swapchain
         // @return The current extent of the swapchain
-        [[nodiscard]] data::Extent2D<std::uint32_t> getExtent() const;
+        [[nodiscard]] data::Extent2D<std::uint32_t> extent() const;
 
         // @brief Provides the Vulkan swapchain handle
         // @return the VkSwapchainKHR handle
@@ -135,10 +135,10 @@ namespace renderer {
         VkSurfaceFormatKHR surfaceFormat_;
         VkExtent2D extent_;
 
-        data::Reference<Instance> instance_;
-        data::Reference<Surface> surface_;
-        data::Reference<Device> device_;
-        data::Reference<Queue> presentQueue_;
+        data::Ref<Instance> instance_;
+        data::Ref<Surface> surface_;
+        data::Ref<Device> device_;
+        data::Ref<Queue> presentQueue_;
 
         std::uint32_t imageCount_;
         std::uint32_t imageIndex_ = 0;

@@ -85,7 +85,7 @@ namespace renderer {
 
         VkCommandBuffer commandBuffer_;
 
-        data::Reference<CommandPool> commandPool_;
+        data::Ref<CommandPool> commandPool_;
 
         bool capturing_ = false;
         bool rendering_ = false;

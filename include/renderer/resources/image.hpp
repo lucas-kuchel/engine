@@ -58,7 +58,7 @@ namespace renderer {
     private:
         Image(Device& device);
 
-        data::Reference<Device> device_;
+        data::Ref<Device> device_;
         data::Extent3D<std::uint32_t> extent_;
 
         std::uint32_t sampleCount_;
@@ -121,7 +121,7 @@ namespace renderer {
         [[nodiscard]] VkImageViewType getVkImageViewType() const;
 
     private:
-        data::Reference<Image> image_;
+        data::Ref<Image> image_;
 
         VkImageView imageView_ = VK_NULL_HANDLE;
         VkImageViewType type_ = VK_IMAGE_VIEW_TYPE_MAX_ENUM;

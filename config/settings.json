@@ -1,0 +1,13 @@
+{
+    "display": {
+        "mode": "windowed",
+        "width": 1280,
+        "height": 720,
+        "resizable": true
+    },
+    "graphics": {
+        "vsync": false,
+        "imageCount": 3,
+        "renderAheadLimit": 3
+    }
+}

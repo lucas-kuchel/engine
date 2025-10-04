@@ -226,7 +226,7 @@ namespace app {
 
         // @brief Gets the window's extent
         // @return The extent of the window
-        [[nodiscard]] const data::Extent2D<std::uint32_t>& getExtent() const;
+        [[nodiscard]] const data::Extent2D<std::uint32_t>& extent() const;
 
         // @brief Gets the window's title
         // @return The title of the window

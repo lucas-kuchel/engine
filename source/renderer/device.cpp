@@ -212,7 +212,7 @@ namespace renderer {
         }
     }
 
-    void Device::waitForFences(const std::vector<data::Reference<Fence>>& fences, bool waitAll, std::uint32_t timeout) {
+    void Device::waitForFences(const std::vector<data::Ref<Fence>>& fences, bool waitAll, std::uint32_t timeout) {
         std::vector<VkFence> vkFences(fences.size());
 
         for (std::size_t i = 0; i < fences.size(); i++) {
@@ -224,7 +224,7 @@ namespace renderer {
         }
     }
 
-    void Device::resetFences(const std::vector<data::Reference<Fence>>& fences) {
+    void Device::resetFences(const std::vector<data::Ref<Fence>>& fences) {
         std::vector<VkFence> vkFences(fences.size());
 
         for (std::size_t i = 0; i < fences.size(); i++) {
@@ -490,11 +490,11 @@ namespace renderer {
         return pipelines;
     }
 
-    std::span<Queue> Device::getQueues() {
+    std::span<Queue> Device::queues() {
         return queues_;
     }
 
-    std::span<const Queue> Device::getQueues() const {
+    std::span<const Queue> Device::queues() const {
         return queues_;
     }
 

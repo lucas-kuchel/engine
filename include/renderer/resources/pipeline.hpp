@@ -220,7 +220,7 @@ namespace renderer {
     private:
         VkDescriptorSetLayout layout_ = VK_NULL_HANDLE;
 
-        data::Reference<Device> device_;
+        data::Ref<Device> device_;
     };
 
     struct PushConstantInputInfo {
@@ -232,7 +232,7 @@ namespace renderer {
     struct PipelineLayoutCreateInfo {
         Device& device;
 
-        std::vector<data::Reference<DescriptorSetLayout>> inputLayouts;
+        std::vector<data::Ref<DescriptorSetLayout>> inputLayouts;
         std::vector<PushConstantInputInfo> pushConstants;
     };
 
@@ -258,7 +258,7 @@ namespace renderer {
     class DescriptorPool;
 
     struct DescriptorSetCreateInfo {
-        std::vector<data::Reference<DescriptorSetLayout>> layouts;
+        std::vector<data::Ref<DescriptorSetLayout>> layouts;
     };
 
     class DescriptorSet {
@@ -280,9 +280,9 @@ namespace renderer {
 
         VkDescriptorSet set_ = VK_NULL_HANDLE;
 
-        data::Reference<Device> device_;
-        data::Reference<const DescriptorSetLayout> layout_;
-        data::Reference<DescriptorPool> pool_;
+        data::Ref<Device> device_;
+        data::Ref<const DescriptorSetLayout> layout_;
+        data::Ref<DescriptorPool> pool_;
 
         friend class DescriptorPool;
     };
@@ -319,7 +319,7 @@ namespace renderer {
     private:
         VkDescriptorPool pool_ = VK_NULL_HANDLE;
 
-        data::Reference<Device> device_;
+        data::Ref<Device> device_;
     };
 
     class PipelineLayout {
@@ -340,7 +340,7 @@ namespace renderer {
     private:
         VkPipelineLayout layout_ = VK_NULL_HANDLE;
 
-        data::Reference<Device> device_;
+        data::Ref<Device> device_;
     };
 
     // @brief Creation information for a pipeline
@@ -393,7 +393,7 @@ namespace renderer {
 
         VkPipeline pipeline_ = VK_NULL_HANDLE;
 
-        data::Reference<Device> device_;
+        data::Ref<Device> device_;
 
         static VkShaderStageFlagBits reverseMapShaderStage(ShaderStage stage);
         static VkVertexInputRate reverseMapVertexInputRate(VertexInputRate rate);

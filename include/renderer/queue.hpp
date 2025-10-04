@@ -15,18 +15,18 @@ namespace renderer {
     class CommandBuffer;
 
     // @brief Creation information for a queue
-    struct QueueCreateInfo {
+    struct QueueInfo {
         Flags flags;
 
         // @note Must provide only if the PRESENT flag is set
-        data::NullableReference<Surface> surface;
+        data::NullableRef<Surface> surface;
     };
 
     struct SubmitInfo {
-        data::NullableReference<Fence> fence;
-        std::vector<data::Reference<CommandBuffer>> commandBuffers;
-        std::vector<data::Reference<Semaphore>> waits;
-        std::vector<data::Reference<Semaphore>> signals;
+        data::NullableRef<Fence> fence;
+        std::vector<data::Ref<CommandBuffer>> commandBuffers;
+        std::vector<data::Ref<Semaphore>> waits;
+        std::vector<data::Ref<Semaphore>> signals;
         std::vector<std::uint32_t> waitFlags;
     };
 

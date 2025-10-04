@@ -41,6 +41,8 @@ namespace renderer {
         // @return The created command buffers
         [[nodiscard]] std::vector<CommandBuffer> allocateCommandBuffers(const CommandBufferCreateInfo& createInfo);
 
+        void destroyCommandBuffers(const std::vector<CommandBuffer>& buffers);
+
         // @brief Resets all command buffers in the pool
         void resetAllCommandBuffers();
 
@@ -55,7 +57,7 @@ namespace renderer {
     private:
         VkCommandPool pool_;
 
-        data::Reference<Device> device_;
-        data::Reference<Queue> queue_;
+        data::Ref<Device> device_;
+        data::Ref<Queue> queue_;
     };
 }

@@ -78,11 +78,11 @@ namespace renderer {
         }
     }
 
-    ImageFormat Swapchain::getImageFormat() const {
+    ImageFormat Swapchain::format() const {
         return Image::reverseMapFormat(surfaceFormat_.format);
     }
 
-    std::uint32_t Swapchain::getImageCount() const {
+    std::uint32_t Swapchain::imageCount() const {
         return imageCount_;
     }
 
@@ -90,11 +90,11 @@ namespace renderer {
         return imageIndex_;
     }
 
-    std::span<ImageView> Swapchain::getImageViews() {
+    std::span<ImageView> Swapchain::images() {
         return imageViews_;
     }
 
-    bool Swapchain::isSynchronised() const {
+    bool Swapchain::synchronised() const {
         return synchronise_;
     }
 
@@ -102,7 +102,7 @@ namespace renderer {
         return recreate_;
     }
 
-    data::Extent2D<std::uint32_t> Swapchain::getExtent() const {
+    data::Extent2D<std::uint32_t> Swapchain::extent() const {
         return {extent_.width, extent_.height};
     }
 
@@ -177,7 +177,7 @@ namespace renderer {
     VkSurfaceCapabilitiesKHR Swapchain::getSurfaceCapabilities() {
         auto& physicalDevice = instance_->getVkPhysicalDevice();
         auto& surface = surface_->getVkSurface();
-        auto extent = surface_->getExtent();
+        auto extent = surface_->extent();
 
         VkSurfaceCapabilitiesKHR surfaceCapabilities;
 

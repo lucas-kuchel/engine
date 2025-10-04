@@ -57,6 +57,16 @@ namespace renderer {
         return buffers;
     }
 
+    void CommandPool::destroyCommandBuffers(const std::vector<CommandBuffer>& buffers) {
+        std::vector<VkCommandBuffer> commandBuffers(buffers.size());
+
+        for (std::size_t i = 0; i < buffers.size(); i++) {
+            commandBuffers[i] = buffers[i].commandBuffer_;
+        }
+
+        vkFreeCommandBuffers(device_->getVkDevice(), pool_, static_cast<std::uint32_t>(commandBuffers.size()), commandBuffers.data());
+    }
+
     void CommandPool::resetAllCommandBuffers() {
         if (vkResetCommandPool(device_->getVkDevice(), pool_, 0) != VK_SUCCESS) {
             throw std::runtime_error("Call failed: renderer::CommandPool::reset(): Failed to reset all command buffers");

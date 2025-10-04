@@ -42,6 +42,6 @@ namespace renderer {
     private:
         VkFramebuffer framebuffer_ = VK_NULL_HANDLE;
 
-        data::Reference<Device> device_;
+        data::Ref<Device> device_;
     };
 }

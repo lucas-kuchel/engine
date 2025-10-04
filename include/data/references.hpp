@@ -10,19 +10,19 @@ namespace data {
     // @note Default bool behaviour is on the underlying type
     // @tparam Any type
     template <typename T>
-    class Reference {
+    class Ref {
     public:
-        Reference(T& ref)
+        Ref(T& ref)
             : raw_(&ref) {
         }
 
-        Reference(const Reference&) = default;
-        Reference(Reference&&) noexcept = default;
+        Ref(const Ref&) = default;
+        Ref(Ref&&) noexcept = default;
 
-        Reference& operator=(const Reference&) = default;
-        Reference& operator=(Reference&&) noexcept = default;
+        Ref& operator=(const Ref&) = default;
+        Ref& operator=(Ref&&) noexcept = default;
 
-        Reference& operator=(T& other) noexcept {
+        Ref& operator=(T& other) noexcept {
             raw_ = &other;
 
             return *this;
@@ -36,7 +36,7 @@ namespace data {
             return raw_;
         }
 
-        bool operator==(Reference<T>& other) const {
+        bool operator==(Ref<T>& other) const {
             return raw_ == other.raw_;
         }
 
@@ -44,7 +44,7 @@ namespace data {
             return raw_ == &other;
         }
 
-        bool operator!=(Reference<T>& other) const {
+        bool operator!=(Ref<T>& other) const {
             return raw_ != other.raw_;
         }
 
@@ -64,7 +64,7 @@ namespace data {
         T* raw_;
 
         template <typename>
-        friend class NullableReference;
+        friend class NullableRef;
     };
 
     // @brief Represents a non-owning reference to a resource
@@ -74,39 +74,39 @@ namespace data {
     // @throws std::runtime_error when accessing a null reference
     // @tparam Any type
     template <typename T>
-    class NullableReference {
+    class NullableRef {
     public:
-        NullableReference()
+        NullableRef()
             : raw_(nullptr) {
         }
 
-        NullableReference(T& ref)
+        NullableRef(T& ref)
             : raw_(&ref) {
         }
 
-        NullableReference(std::nullptr_t null)
+        NullableRef(std::nullptr_t null)
             : raw_(null) {
         }
 
-        NullableReference(const NullableReference&) = default;
-        NullableReference(NullableReference&) noexcept = default;
+        NullableRef(const NullableRef&) = default;
+        NullableRef(NullableRef&) noexcept = default;
 
-        NullableReference& operator=(const NullableReference&) = default;
-        NullableReference& operator=(NullableReference&&) noexcept = default;
+        NullableRef& operator=(const NullableRef&) = default;
+        NullableRef& operator=(NullableRef&&) noexcept = default;
 
-        NullableReference& operator=(T& other) {
+        NullableRef& operator=(T& other) {
             raw_ = &other;
 
             return *this;
         }
 
-        NullableReference& operator=(const Reference<T>& ref) noexcept {
+        NullableRef& operator=(const Ref<T>& ref) noexcept {
             raw_ = ref.raw_;
 
             return *this;
         }
 
-        NullableReference& operator=(std::nullptr_t other) {
+        NullableRef& operator=(std::nullptr_t other) {
             raw_ = other;
 
             return *this;
@@ -114,7 +114,7 @@ namespace data {
 
         T* operator->() {
             if (!raw_) {
-                throw std::runtime_error("Illegal explicit dereference of data::NullableReference: Value is null");
+                throw std::runtime_error("Illegal explicit dereference of data::NullableRef: Value is null");
             }
 
             return raw_;
@@ -122,13 +122,13 @@ namespace data {
 
         const T* operator->() const {
             if (!raw_) {
-                throw std::runtime_error("Illegal explicit dereference of data::NullableReference: Value is null");
+                throw std::runtime_error("Illegal explicit dereference of data::NullableRef: Value is null");
             }
 
             return raw_;
         }
 
-        bool operator==(NullableReference<T>& other) const {
+        bool operator==(NullableRef<T>& other) const {
             return raw_ == other.raw_;
         }
 
@@ -140,7 +140,7 @@ namespace data {
             return raw_ == other;
         }
 
-        bool operator!=(NullableReference<T>& other) const {
+        bool operator!=(NullableRef<T>& other) const {
             return raw_ != other.raw_;
         }
 
@@ -154,7 +154,7 @@ namespace data {
 
         T& get() {
             if (!raw_) {
-                throw std::runtime_error("Illegal explicit dereference of data::NullableReference: Value is null");
+                throw std::runtime_error("Illegal explicit dereference of data::NullableRef: Value is null");
             }
 
             return *raw_;
@@ -162,7 +162,7 @@ namespace data {
 
         const T& get() const {
             if (!raw_) {
-                throw std::runtime_error("Illegal explicit dereference of data::NullableReference: Value is null");
+                throw std::runtime_error("Illegal explicit dereference of data::NullableRef: Value is null");
             }
 
             return *raw_;
@@ -173,8 +173,8 @@ namespace data {
     };
 
     template <typename T>
-    using ReferenceList = std::vector<data::Reference<T>>;
+    using ReferenceList = std::vector<data::Ref<T>>;
 
     template <typename T>
-    using NullableReferenceList = std::vector<data::NullableReference<T>>;
+    using NullableRefList = std::vector<data::NullableRef<T>>;
 }

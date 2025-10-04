@@ -4,6 +4,7 @@
     "dependencies": [
         "glfw3",
         "vulkan-headers",
-        "vulkan-memory-allocator"
+        "vulkan-memory-allocator",
+        "nlohmann-json"
     ]
 }

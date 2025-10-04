@@ -21,8 +21,8 @@ namespace renderer {
         }
     }
 
-    data::Extent2D<std::uint32_t> Surface::getExtent() const {
-        return window_->getExtent();
+    data::Extent2D<std::uint32_t> Surface::extent() const {
+        return window_->extent();
     }
 
     VkSurfaceKHR& Surface::getVkSurface() {

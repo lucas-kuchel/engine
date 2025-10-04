@@ -35,7 +35,7 @@ namespace renderer {
         vkCmdNextSubpass(commandBuffer_, VK_SUBPASS_CONTENTS_INLINE);
     }
 
-    void CommandBuffer::bindVertexBuffers(const std::vector<data::Reference<Buffer>>& buffers, const std::vector<std::uint64_t>& offsets, std::uint32_t first) {
+    void CommandBuffer::bindVertexBuffers(const std::vector<data::Ref<Buffer>>& buffers, const std::vector<std::uint64_t>& offsets, std::uint32_t first) {
         if (!rendering_) {
             throw std::runtime_error("Call failed: renderer::CommandBuffer::bindVertexBuffers(): Render pass has ended");
         }
@@ -297,7 +297,7 @@ namespace renderer {
         vkCmdCopyBuffer(commandBuffer_, source.getVkBuffer(), destination.getVkBuffer(), static_cast<std::uint32_t>(bufferCopies.size()), bufferCopies.data());
     }
 
-    void CommandBuffer::bindDescriptorSets(DeviceOperation operation, PipelineLayout& layout, std::uint32_t firstSet, const std::vector<data::Reference<DescriptorSet>>& sets) {
+    void CommandBuffer::bindDescriptorSets(DeviceOperation operation, PipelineLayout& layout, std::uint32_t firstSet, const std::vector<data::Ref<DescriptorSet>>& sets) {
         if (!capturing_) {
             throw std::runtime_error("Call failed: renderer::CommandBuffer::bindDescriptorSets(): Render pass has ended");
         }

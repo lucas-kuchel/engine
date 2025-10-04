@@ -8,6 +8,7 @@ namespace renderer {
         };
 
         constexpr FlagMap flagMapping[] = {
+            {BufferUsageFlags::VERTEX, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT},
             {BufferUsageFlags::INDEX, VK_BUFFER_USAGE_INDEX_BUFFER_BIT},
             {BufferUsageFlags::STORAGE, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT},
             {BufferUsageFlags::TRANSFER_DESTINATION, VK_BUFFER_USAGE_TRANSFER_DST_BIT},

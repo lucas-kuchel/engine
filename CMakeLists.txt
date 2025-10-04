@@ -5,6 +5,8 @@ project(engine LANGUAGES CXX)
 file(GLOB_RECURSE SOURCES "source/*.cpp")
 
 find_package(glfw3 CONFIG REQUIRED)
+find_package(nlohmann_json CONFIG REQUIRED)
+
 find_package(VulkanHeaders CONFIG REQUIRED)
 find_package(VulkanMemoryAllocator CONFIG REQUIRED)
 
@@ -37,7 +39,12 @@ else()
     target_link_libraries(engine PRIVATE Vulkan::Vulkan)
 endif()
 
-target_link_libraries(engine PRIVATE glfw Vulkan::Headers GPUOpen::VulkanMemoryAllocator)
+target_link_libraries(engine PRIVATE
+    glfw
+    nlohmann_json::nlohmann_json
+    Vulkan::Headers
+    GPUOpen::VulkanMemoryAllocator
+)
 
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
     target_compile_definitions(engine PRIVATE DEBUG_BUILD_TYPE)

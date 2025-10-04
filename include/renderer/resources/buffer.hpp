@@ -61,7 +61,7 @@ namespace renderer {
         bool hostVisible_ = false;
         bool isMapped_ = false;
 
-        data::Reference<Device> device_;
+        data::Ref<Device> device_;
 
         std::uint64_t size_ = 0;
         std::uint64_t mapSize_ = 0;

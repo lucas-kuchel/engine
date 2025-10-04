@@ -124,9 +124,9 @@ namespace app {
         visibility_ = visibility;
     }
 
-    const data::Extent2D<std::uint32_t>& Window::getExtent() const {
+    const data::Extent2D<std::uint32_t>& Window::extent() const {
         if (!handle_) {
-            throw std::runtime_error("Illegal call to app::Window::getExtent(): Window is invalid");
+            throw std::runtime_error("Illegal call to app::Window::extent(): Window is invalid");
         }
 
         return extent_;

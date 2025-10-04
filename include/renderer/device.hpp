@@ -24,7 +24,7 @@ namespace renderer {
     struct DeviceCreateInfo {
         Instance& instance;
 
-        std::vector<QueueCreateInfo> queues;
+        std::vector<QueueInfo> queues;
     };
 
     // @brief Represents the device of the renderer
@@ -63,14 +63,14 @@ namespace renderer {
 
         // @brief Queries the queues from the device
         // @return List of all usable queues
-        [[nodiscard]] std::span<Queue> getQueues();
+        [[nodiscard]] std::span<Queue> queues();
 
         [[nodiscard]] Instance& getInstance();
         [[nodiscard]] const Instance& getInstance() const;
 
         // @brief Queries the queues from the device
         // @return List of all usable queues
-        [[nodiscard]] std::span<const Queue> getQueues() const;
+        [[nodiscard]] std::span<const Queue> queues() const;
 
         // @brief Provides the Vulkan VkDevice
         // @return The VkDevice
@@ -92,7 +92,7 @@ namespace renderer {
         VkDevice device_ = VK_NULL_HANDLE;
         VmaAllocator allocator_ = VK_NULL_HANDLE;
 
-        data::Reference<Instance> instance_;
+        data::Ref<Instance> instance_;
 
         std::vector<Queue> queues_;
     };

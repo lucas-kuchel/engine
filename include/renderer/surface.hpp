@@ -37,7 +37,7 @@ namespace renderer {
 
         // @brief Provides the extent of the surface
         // @return The extent of the surface
-        [[nodiscard]] data::Extent2D<std::uint32_t> getExtent() const;
+        [[nodiscard]] data::Extent2D<std::uint32_t> extent() const;
 
         // @brief Provides the VkSurface
         // @return The VkSurface
@@ -50,7 +50,7 @@ namespace renderer {
     private:
         VkSurfaceKHR surface_ = VK_NULL_HANDLE;
 
-        data::Reference<Instance> instance_;
-        data::Reference<app::Window> window_;
+        data::Ref<Instance> instance_;
+        data::Ref<app::Window> window_;
     };
 }
