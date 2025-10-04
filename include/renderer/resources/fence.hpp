@@ -1,5 +1,7 @@
 #pragma once
 
+#include <renderer/resources/config.hpp>
+
 #include <data/references.hpp>
 
 #include <vulkan/vulkan.h>
@@ -10,7 +12,7 @@ namespace renderer {
     // @brief Creation information for a fence
     struct FenceCreateInfo {
         Device& device;
-        bool startSignaled;
+        Flags createFlags;
     };
 
     // @brief Represents a synchronisation object GPU/CPU operations
@@ -25,9 +27,6 @@ namespace renderer {
 
         Fence& operator=(const Fence&) = delete;
         Fence& operator=(Fence&&) noexcept = default;
-
-        void wait();
-        void reset();
 
         // @brief Provides the Vulkan VkSemaphore
         // @return The VkSemaphore

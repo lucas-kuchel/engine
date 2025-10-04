@@ -177,8 +177,8 @@ namespace renderer {
             for (std::size_t j = 0; j < writes.size(); j++) {
                 bufferInfos[i][j] = {
                     .buffer = updateInfos[i].buffers[i].buffer.getVkBuffer(),
-                    .offset = updateInfos[i].buffers[i].offset,
-                    .range = updateInfos[i].buffers[i].range,
+                    .offset = updateInfos[i].buffers[i].offsetBytes,
+                    .range = updateInfos[i].buffers[i].rangeBytes,
                 };
             }
 
@@ -326,21 +326,21 @@ namespace renderer {
         }
     }
 
-    VkPrimitiveTopology Pipeline::reverseMapPrimitive(RasterisationPrimitive topology) {
+    VkPrimitiveTopology Pipeline::reverseMapPrimitive(PolygonTopology topology) {
         switch (topology) {
-            case RasterisationPrimitive::POINT:
+            case PolygonTopology::POINT:
                 return VK_PRIMITIVE_TOPOLOGY_POINT_LIST;
 
-            case RasterisationPrimitive::LINE:
+            case PolygonTopology::LINE:
                 return VK_PRIMITIVE_TOPOLOGY_LINE_LIST;
 
-            case RasterisationPrimitive::TRIANGLE:
+            case PolygonTopology::TRIANGLE:
                 return VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
 
-            case RasterisationPrimitive::LINE_STRIP:
+            case PolygonTopology::LINE_STRIP:
                 return VK_PRIMITIVE_TOPOLOGY_LINE_STRIP;
 
-            case RasterisationPrimitive::TRIANGLE_STRIP:
+            case PolygonTopology::TRIANGLE_STRIP:
                 return VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP;
 
             default:

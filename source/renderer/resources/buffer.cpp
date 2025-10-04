@@ -4,46 +4,46 @@
 #include <renderer/instance.hpp>
 
 namespace renderer {
-    BufferMemoryMapping::~BufferMemoryMapping() {
-        unmap();
-    }
 
-    std::span<std::uint32_t> BufferMemoryMapping::get() {
-        if (!buffer_->isMapped_) {
-            throw std::runtime_error("Call failed: renderer::BufferMemoryMapping::get(): Memory is no longer mapped");
+    void Buffer::unmap() {
+        if (!hostCoherent_) {
+            vmaFlushAllocation(device_->getVmaAllocator(), memory_, mapOffset_, mapSize_);
         }
 
-        return std::span<std::uint32_t>(reinterpret_cast<std::uint32_t*>(data_) + buffer_->mapOffset_, buffer_->mapSize_);
-    }
+        if (isMapped_) {
+            vmaUnmapMemory(device_->getVmaAllocator(), memory_);
 
-    void BufferMemoryMapping::unmap() {
-        auto& device = buffer_->device_.get();
-
-        if (!buffer_->hostCoherent_) {
-            vmaFlushAllocation(device.getVmaAllocator(), buffer_->memory_, buffer_->mapOffset_, buffer_->mapSize_);
-        }
-
-        if (buffer_->isMapped_) {
-            vmaUnmapMemory(device.getVmaAllocator(), buffer_->memory_);
-
-            buffer_->isMapped_ = false;
+            isMapped_ = false;
         }
     }
 
-    bool BufferMemoryMapping::isMapped() const {
-        return buffer_->isMapped_;
+    bool Buffer::mapped() const {
+        return isMapped_;
     }
 
-    BufferMemoryMapping::BufferMemoryMapping(Buffer& buffer)
-        : buffer_(buffer) {
-
-        auto& device = buffer_->device_.get();
-
-        if (!buffer_->hostCoherent_) {
-            vmaInvalidateAllocation(device.getVmaAllocator(), buffer_->memory_, buffer_->mapOffset_, buffer_->mapSize_);
+    std::span<std::uint8_t> Buffer::map(std::uint64_t size, std::uint64_t offset) {
+        if (!hostVisible_) {
+            throw std::runtime_error("Call failed: renderer::Buffer::map(): Cannot map memory that is not host visible");
         }
 
-        vmaMapMemory(device.getVmaAllocator(), buffer_->memory_, &data_);
+        isMapped_ = true;
+
+        auto& properties = device_->getInstance().getVkPhysicalDeviceProperties();
+
+        VkDeviceSize atomSize = properties.limits.nonCoherentAtomSize;
+
+        mapOffset_ = offset & ~(atomSize - 1);
+        mapSize_ = ((mapOffset_ + size + atomSize - 1) & ~(atomSize - 1)) - mapOffset_;
+
+        if (!hostCoherent_) {
+            vmaInvalidateAllocation(device_->getVmaAllocator(), memory_, mapOffset_, mapSize_);
+        }
+
+        void* data = nullptr;
+
+        vmaMapMemory(device_->getVmaAllocator(), memory_, &data);
+
+        return {reinterpret_cast<std::uint8_t*>(data) + mapOffset_, mapSize_};
     }
 
     Buffer::Buffer(const BufferCreateInfo& createInfo)
@@ -51,7 +51,7 @@ namespace renderer {
         VmaMemoryUsage memoryUsage;
         VkMemoryPropertyFlags memoryProperties;
 
-        switch (createInfo.type) {
+        switch (createInfo.memoryType) {
             case MemoryType::DEVICE_LOCAL:
                 memoryUsage = VMA_MEMORY_USAGE_GPU_ONLY;
                 memoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
@@ -79,7 +79,7 @@ namespace renderer {
             .pNext = nullptr,
             .flags = 0,
             .size = size_,
-            .usage = reverseMapUsage(createInfo.usage),
+            .usage = BufferUsageFlags::mapFrom(createInfo.usageFlags),
             .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
             .queueFamilyIndexCount = 0,
             .pQueueFamilyIndices = nullptr,
@@ -118,23 +118,6 @@ namespace renderer {
         }
     }
 
-    BufferMemoryMapping Buffer::map(std::uint32_t size, std::uint32_t offset) {
-        if (!hostVisible_) {
-            throw std::runtime_error("Call failed: renderer::Buffer::map(): Cannot map memory that is not host visible");
-        }
-
-        isMapped_ = true;
-
-        auto& properties = device_->getInstance().getVkPhysicalDeviceProperties();
-
-        VkDeviceSize atomSize = properties.limits.nonCoherentAtomSize;
-
-        mapOffset_ = offset & ~(atomSize - 1);
-        mapSize_ = ((mapOffset_ + size + atomSize - 1) & ~(atomSize - 1)) - mapOffset_;
-
-        return BufferMemoryMapping(*this);
-    }
-
     VkBuffer& Buffer::getVkBuffer() {
         return buffer_;
     }
@@ -151,39 +134,11 @@ namespace renderer {
         return memory_;
     }
 
-    bool Buffer::isMapped() const {
-        return isMapped_;
-    }
-
-    bool Buffer::isMappable() const {
+    bool Buffer::mappable() const {
         return hostVisible_ || hostCoherent_;
     }
 
-    std::uint32_t Buffer::getSize() const {
+    std::uint64_t Buffer::size() const {
         return size_;
-    }
-
-    VkBufferUsageFlags Buffer::reverseMapUsage(std::uint32_t usage) {
-        VkBufferUsageFlags flags = 0;
-
-        if (usage & BufferUsageFlags::VERTEX)
-            flags |= VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
-
-        if (usage & BufferUsageFlags::INDEX)
-            flags |= VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
-
-        if (usage & BufferUsageFlags::UNIFORM)
-            flags |= VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
-
-        if (usage & BufferUsageFlags::STORAGE)
-            flags |= VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
-
-        if (usage & BufferUsageFlags::TRANSFER_SOURCE)
-            flags |= VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
-
-        if (usage & BufferUsageFlags::TRANSFER_DESTINATION)
-            flags |= VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-
-        return flags;
     }
 }

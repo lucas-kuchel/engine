@@ -12,17 +12,8 @@ namespace renderer {
     class Queue;
     class CommandBuffer;
 
-    // @brief Level of a command buffer
-    // @note Controls if a buffer can be submitted into another buffer
-    enum class CommandBufferLevel {
-        PRIMARY,
-        SECONDARY,
-    };
-
     // @brief Creation information for a command buffer
     struct CommandBufferCreateInfo {
-        CommandBufferLevel level;
-
         std::uint32_t count;
     };
 

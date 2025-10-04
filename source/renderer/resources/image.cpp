@@ -7,8 +7,8 @@
 namespace renderer {
     Image::Image(const ImageCreateInfo& createInfo)
         : device_(createInfo.device), extent_(createInfo.extent), sampleCount_(createInfo.sampleCount),
-          mipLevels_(createInfo.mipLevels), arrayLayers_(createInfo.arrayLayers), type_(mapType(createInfo.type)),
-          format_(mapFormat(createInfo.format)), usageFlags_(mapFlags(createInfo.usageFlags)) {
+          mipLevels_(createInfo.mipLevels), arrayLayers_(createInfo.arrayLayers),
+          type_(mapType(createInfo.type)), format_(mapFormat(createInfo.format)) {
         VkImageCreateInfo imageCreateInfo = {
             .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
             .pNext = nullptr,
@@ -20,7 +20,7 @@ namespace renderer {
             .arrayLayers = createInfo.arrayLayers,
             .samples = static_cast<VkSampleCountFlagBits>(createInfo.sampleCount),
             .tiling = VK_IMAGE_TILING_OPTIMAL,
-            .usage = usageFlags_,
+            .usage = ImageUsageFlags::mapFrom(createInfo.usageFlags),
             .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
             .queueFamilyIndexCount = 0,
             .pQueueFamilyIndices = nullptr,
@@ -38,48 +38,44 @@ namespace renderer {
         }
     }
 
-    ImageFormat Image::getFormat() const {
+    ImageFormat Image::format() const {
         return reverseMapFormat(format_);
     }
 
-    ImageType Image::getType() const {
+    ImageType Image::type() const {
         return reverseMapType(type_);
     }
 
-    data::Extent3D<std::uint32_t> Image::getExtent() const {
+    data::Extent3D<std::uint32_t> Image::extent() const {
         return extent_;
     }
 
-    std::uint32_t Image::getSampleCount() const {
+    Device& Image::device() {
+        return device_.get();
+    }
+
+    const Device& Image::device() const {
+        return device_.get();
+    }
+
+    std::uint32_t Image::sampleCount() const {
         return sampleCount_;
     }
 
-    std::uint32_t Image::getMipLevels() const {
+    std::uint32_t Image::mipLevels() const {
         return mipLevels_;
     }
 
-    std::uint32_t Image::getArrayLayers() const {
+    std::uint32_t Image::arrayLayers() const {
         return arrayLayers_;
-    }
-
-    std::uint32_t Image::getUsageFlags() const {
-        return reverseMapFlags(usageFlags_);
     }
 
     VkImage& Image::getVkImage() {
         return image_;
     }
 
-    VkDeviceMemory& Image::getVkDeviceMemory() {
-        return deviceMemory_;
-    }
-
     const VkImage& Image::getVkImage() const {
         return image_;
-    }
-
-    const VkDeviceMemory& Image::getVkDeviceMemory() const {
-        return deviceMemory_;
     }
 
     VkImageType Image::getVkImageType() const {
@@ -88,10 +84,6 @@ namespace renderer {
 
     VkFormat Image::getVkFormat() const {
         return format_;
-    }
-
-    VkImageUsageFlags Image::getVkImageUsageFlags() const {
-        return usageFlags_;
     }
 
     Image::Image(Device& device)
@@ -180,11 +172,7 @@ namespace renderer {
             flags |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
         }
 
-        if ((usageFlags & ImageUsageFlags::DEPTH_ATTACHMENT) == ImageUsageFlags::DEPTH_ATTACHMENT) {
-            flags |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
-        }
-
-        if ((usageFlags & ImageUsageFlags::STENCIL_ATTACHMENT) == ImageUsageFlags::STENCIL_ATTACHMENT) {
+        if ((usageFlags & ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT) == ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT) {
             flags |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
         }
 
@@ -269,14 +257,14 @@ namespace renderer {
             usageFlags |= ImageUsageFlags::COLOR_ATTACHMENT;
         }
         if (vkFlags & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT) {
-            usageFlags |= ImageUsageFlags::DEPTH_ATTACHMENT | ImageUsageFlags::STENCIL_ATTACHMENT;
+            usageFlags |= ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT;
         }
 
         return usageFlags;
     }
 
     ImageView::ImageView(const ImageViewCreateInfo& createInfo)
-        : image_(createInfo.image), device_(createInfo.device) {
+        : image_(createInfo.image) {
         VkImageViewCreateInfo viewCreateInfo = {
             .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
             .pNext = nullptr,
@@ -294,22 +282,22 @@ namespace renderer {
             },
         };
 
-        if (vkCreateImageView(device_->getVkDevice(), &viewCreateInfo, nullptr, &imageView_) != VK_SUCCESS) {
+        if (vkCreateImageView(image_->device().getVkDevice(), &viewCreateInfo, nullptr, &imageView_) != VK_SUCCESS) {
             throw std::runtime_error("Construction failed: renderer::ImageView: Failed to create image view");
         }
     }
 
     ImageView::~ImageView() {
         if (imageView_ != VK_NULL_HANDLE) {
-            vkDestroyImageView(device_->getVkDevice(), imageView_, nullptr);
+            vkDestroyImageView(image_->device().getVkDevice(), imageView_, nullptr);
         }
     }
 
-    const Image& ImageView::getImage() const {
+    const Image& ImageView::image() const {
         return image_.get();
     }
 
-    ImageViewType ImageView::getImageViewType() const {
+    ImageViewType ImageView::type() const {
         return reverseMapType(type_);
     }
 

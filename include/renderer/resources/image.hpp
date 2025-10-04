@@ -9,57 +9,15 @@
 #include <vulkan/vulkan.h>
 
 namespace renderer {
-    // @brief Image dimensionality
-    enum class ImageType {
-        IMAGE_1D,
-        IMAGE_2D,
-        IMAGE_3D,
-    };
-
-    // @brief Image data format
-    enum class ImageFormat {
-        R8_UNORM,
-        R8G8_UNORM,
-        R8G8B8_UNORM,
-        R8G8B8A8_UNORM,
-        B8G8R8A8_UNORM,
-
-        B8G8R8A8_SRGB,
-
-        R16G16B16A16_SFLOAT,
-        R32G32B32A32_SFLOAT,
-
-        D16_UNORM,
-        D24_UNORM_S8_UINT,
-        D32_SFLOAT,
-        S8_UINT,
-        D32_SFLOAT_S8_UINT,
-    };
-
-    // @brief Image usage flags
-    struct ImageUsageFlags {
-        enum {
-            NONE = 0,
-            TRANSFER_SOURCE = 1 << 0,
-            TRANSFER_DESTINATION = 1 << 1,
-            SAMPLED = 1 << 2,
-            STORAGE = 1 << 3,
-            COLOR_ATTACHMENT = 1 << 4,
-            DEPTH_ATTACHMENT = 1 << 5,
-            STENCIL_ATTACHMENT = 1 << 6,
-        };
-    };
-
     // @brief Creation information for the image
     struct ImageCreateInfo {
         Device& device;
-
         ImageType type;
         ImageFormat format;
+        Flags usageFlags;
 
         data::Extent3D<std::uint32_t> extent;
 
-        std::uint32_t usageFlags;
         std::uint32_t sampleCount;
         std::uint32_t mipLevels;
         std::uint32_t arrayLayers;
@@ -78,31 +36,29 @@ namespace renderer {
         Image& operator=(const Image&) = delete;
         Image& operator=(Image&&) noexcept = default;
 
-        [[nodiscard]] ImageFormat getFormat() const;
-        [[nodiscard]] ImageType getType() const;
+        [[nodiscard]] ImageFormat format() const;
+        [[nodiscard]] ImageType type() const;
 
-        [[nodiscard]] data::Extent3D<std::uint32_t> getExtent() const;
+        [[nodiscard]] data::Extent3D<std::uint32_t> extent() const;
 
-        [[nodiscard]] std::uint32_t getSampleCount() const;
-        [[nodiscard]] std::uint32_t getMipLevels() const;
-        [[nodiscard]] std::uint32_t getArrayLayers() const;
-        [[nodiscard]] std::uint32_t getUsageFlags() const;
+        [[nodiscard]] std::uint32_t sampleCount() const;
+        [[nodiscard]] std::uint32_t mipLevels() const;
+        [[nodiscard]] std::uint32_t arrayLayers() const;
+        [[nodiscard]] std::uint32_t usageFlags() const;
+
+        [[nodiscard]] Device& device();
+        [[nodiscard]] const Device& device() const;
 
         [[nodiscard]] VkImage& getVkImage();
-        [[nodiscard]] VkDeviceMemory& getVkDeviceMemory();
-
         [[nodiscard]] const VkImage& getVkImage() const;
-        [[nodiscard]] const VkDeviceMemory& getVkDeviceMemory() const;
 
         [[nodiscard]] VkImageType getVkImageType() const;
         [[nodiscard]] VkFormat getVkFormat() const;
-        [[nodiscard]] VkImageUsageFlags getVkImageUsageFlags() const;
 
     private:
         Image(Device& device);
 
         data::Reference<Device> device_;
-
         data::Extent3D<std::uint32_t> extent_;
 
         std::uint32_t sampleCount_;
@@ -110,10 +66,8 @@ namespace renderer {
         std::uint32_t arrayLayers_;
 
         VkImage image_ = VK_NULL_HANDLE;
-        VkDeviceMemory deviceMemory_ = VK_NULL_HANDLE;
-        VkImageType type_;
-        VkFormat format_;
-        VkImageUsageFlags usageFlags_;
+        VkImageType type_ = VK_IMAGE_TYPE_MAX_ENUM;
+        VkFormat format_ = VK_FORMAT_MAX_ENUM;
 
         static VkFormat mapFormat(ImageFormat format);
         static ImageFormat reverseMapFormat(VkFormat format);
@@ -128,23 +82,15 @@ namespace renderer {
         friend class RenderPass;
     };
 
-    // @brief Dimensionality of an image view
-    enum class ImageViewType {
-        IMAGE_1D,
-        IMAGE_2D,
-        IMAGE_3D,
-    };
-
     // @brief Creation information for an image view
     struct ImageViewCreateInfo {
-        Device& device;
         Image& image;
         ImageViewType type;
 
-        std::uint32_t baseMipLevel = 0;
-        std::uint32_t levelCount = 1;
-        std::uint32_t baseArrayLayer = 0;
-        std::uint32_t layerCount = 1;
+        std::uint32_t baseMipLevel;
+        std::uint32_t levelCount;
+        std::uint32_t baseArrayLayer;
+        std::uint32_t layerCount;
     };
 
     // @brief Represents a usable view of an image
@@ -160,9 +106,14 @@ namespace renderer {
         ImageView& operator=(const ImageView&) = delete;
         ImageView& operator=(ImageView&&) noexcept = default;
 
-        [[nodiscard]] const Image& getImage() const;
+        [[nodiscard]] const Image& image() const;
 
-        [[nodiscard]] ImageViewType getImageViewType() const;
+        [[nodiscard]] ImageViewType type() const;
+
+        [[nodiscard]] std::uint32_t baseMipLevel() const;
+        [[nodiscard]] std::uint32_t levelCount() const;
+        [[nodiscard]] std::uint32_t baseArrayLayer() const;
+        [[nodiscard]] std::uint32_t layerCount() const;
 
         [[nodiscard]] VkImageView& getVkImageView();
         [[nodiscard]] const VkImageView& getVkImageView() const;
@@ -171,10 +122,14 @@ namespace renderer {
 
     private:
         data::Reference<Image> image_;
-        data::Reference<Device> device_;
 
         VkImageView imageView_ = VK_NULL_HANDLE;
-        VkImageViewType type_;
+        VkImageViewType type_ = VK_IMAGE_VIEW_TYPE_MAX_ENUM;
+
+        std::uint32_t baseMipLevel_ = 0;
+        std::uint32_t levelCount_ = 0;
+        std::uint32_t baseArrayLayer_ = 0;
+        std::uint32_t layerCount_ = 0;
 
         static VkImageViewType mapType(ImageViewType type);
         static ImageViewType reverseMapType(VkImageViewType type);

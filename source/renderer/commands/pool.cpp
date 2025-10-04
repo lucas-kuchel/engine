@@ -30,23 +30,11 @@ namespace renderer {
     std::vector<CommandBuffer> CommandPool::allocateCommandBuffers(const CommandBufferCreateInfo& createInfo) {
         auto& device = device_->getVkDevice();
 
-        VkCommandBufferLevel level = VK_COMMAND_BUFFER_LEVEL_MAX_ENUM;
-
-        switch (createInfo.level) {
-            case CommandBufferLevel::PRIMARY:
-                level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-                break;
-
-            case CommandBufferLevel::SECONDARY:
-                level = VK_COMMAND_BUFFER_LEVEL_SECONDARY;
-                break;
-        }
-
         VkCommandBufferAllocateInfo bufferAllocateInfo = {
             .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
             .pNext = nullptr,
             .commandPool = pool_,
-            .level = level,
+            .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
             .commandBufferCount = static_cast<std::uint32_t>(createInfo.count),
         };
 

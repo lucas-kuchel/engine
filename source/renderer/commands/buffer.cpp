@@ -6,29 +6,38 @@
 #include <renderer/device.hpp>
 
 namespace renderer {
-    CommandBufferRenderPassPeriod::~CommandBufferRenderPassPeriod() {
-        end();
+    CommandBuffer::~CommandBuffer() {
+        endRenderPass();
+        endCapture();
     }
 
-    void CommandBufferRenderPassPeriod::end() {
-        if (rendering_.get()) {
-            rendering_.get() = false;
+    void CommandBuffer::endRenderPass() {
+        if (rendering_) {
+            rendering_ = false;
 
-            vkCmdEndRenderPass(commandBuffer_->getVkCommandBuffer());
+            vkCmdEndRenderPass(commandBuffer_);
         }
     }
 
-    void CommandBufferRenderPassPeriod::bindPipeline(Pipeline& pipeline) {
-        if (!rendering_.get()) {
-            throw std::runtime_error("Call failed: renderer::CommandBufferRenderPassPeriod::bindPipeline(): Render pass has ended");
+    void CommandBuffer::bindPipeline(Pipeline& pipeline) {
+        if (!rendering_) {
+            throw std::runtime_error("Call failed: renderer::CommandBuffer::bindPipeline(): Render pass has ended");
         }
 
-        vkCmdBindPipeline(commandBuffer_->getVkCommandBuffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.getVkPipeline());
+        vkCmdBindPipeline(commandBuffer_, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.getVkPipeline());
     }
 
-    void CommandBufferRenderPassPeriod::bindVertexBuffers(const std::vector<data::Reference<Buffer>>& buffers, const std::vector<std::uint64_t>& offsets, std::uint32_t first) {
-        if (!rendering_.get()) {
-            throw std::runtime_error("Call failed: renderer::CommandBufferRenderPassPeriod::bindVertexBuffers(): Render pass has ended");
+    void CommandBuffer::nextSubpass() {
+        if (!rendering_) {
+            throw std::runtime_error("Call failed: renderer::CommandBuffer::nextSubpass(): Render pass has ended");
+        }
+
+        vkCmdNextSubpass(commandBuffer_, VK_SUBPASS_CONTENTS_INLINE);
+    }
+
+    void CommandBuffer::bindVertexBuffers(const std::vector<data::Reference<Buffer>>& buffers, const std::vector<std::uint64_t>& offsets, std::uint32_t first) {
+        if (!rendering_) {
+            throw std::runtime_error("Call failed: renderer::CommandBuffer::bindVertexBuffers(): Render pass has ended");
         }
 
         std::vector<VkBuffer> vulkanBuffers(buffers.size());
@@ -37,32 +46,32 @@ namespace renderer {
             vulkanBuffers[i] = buffers[i]->getVkBuffer();
         }
 
-        vkCmdBindVertexBuffers(commandBuffer_->getVkCommandBuffer(), first, static_cast<std::uint32_t>(vulkanBuffers.size()), vulkanBuffers.data(), offsets.data());
+        vkCmdBindVertexBuffers(commandBuffer_, first, static_cast<std::uint32_t>(vulkanBuffers.size()), vulkanBuffers.data(), offsets.data());
     }
 
-    void CommandBufferRenderPassPeriod::bindIndexBuffer(Buffer& buffer, std::uint64_t offset, IndexType indexType) {
-        if (!rendering_.get()) {
-            throw std::runtime_error("Call failed: renderer::CommandBufferRenderPassPeriod::bindIndexBuffer(): Render pass has ended");
+    void CommandBuffer::bindIndexBuffer(Buffer& buffer, std::uint64_t offset, IndexType indexType) {
+        if (!rendering_) {
+            throw std::runtime_error("Call failed: renderer::CommandBuffer::bindIndexBuffer(): Render pass has ended");
         }
 
         VkIndexType type;
 
         switch (indexType) {
-            case IndexType::U16:
+            case IndexType::UINT16:
                 type = VK_INDEX_TYPE_UINT16;
                 break;
 
-            case IndexType::U32:
+            case IndexType::UINT32:
                 type = VK_INDEX_TYPE_UINT32;
                 break;
         }
 
-        vkCmdBindIndexBuffer(commandBuffer_->getVkCommandBuffer(), buffer.getVkBuffer(), offset, type);
+        vkCmdBindIndexBuffer(commandBuffer_, buffer.getVkBuffer(), offset, type);
     }
 
-    void CommandBufferRenderPassPeriod::setPipelineViewports(const std::vector<renderer::Viewport>& viewports, std::uint32_t offset) {
-        if (!rendering_.get()) {
-            throw std::runtime_error("Call failed: renderer::CommandBufferRenderPassPeriod::setPipelineViewports(): Render pass has ended");
+    void CommandBuffer::setPipelineViewports(const std::vector<renderer::Viewport>& viewports, std::uint32_t offset) {
+        if (!rendering_) {
+            throw std::runtime_error("Call failed: renderer::CommandBuffer::setPipelineViewports(): Render pass has ended");
         }
 
         std::vector<VkViewport> vulkanViewports(viewports.size());
@@ -81,12 +90,12 @@ namespace renderer {
             vulkanViewport.maxDepth = viewport.depth.max;
         }
 
-        vkCmdSetViewport(commandBuffer_->getVkCommandBuffer(), offset, static_cast<std::uint32_t>(vulkanViewports.size()), vulkanViewports.data());
+        vkCmdSetViewport(commandBuffer_, offset, static_cast<std::uint32_t>(vulkanViewports.size()), vulkanViewports.data());
     }
 
-    void CommandBufferRenderPassPeriod::setPipelineScissors(const std::vector<renderer::Scissor>& scissors, std::uint32_t offset) {
-        if (!rendering_.get()) {
-            throw std::runtime_error("Call failed: renderer::CommandBufferRenderPassPeriod::setPipelineScissors(): Render pass has ended");
+    void CommandBuffer::setPipelineScissors(const std::vector<renderer::Scissor>& scissors, std::uint32_t offset) {
+        if (!rendering_) {
+            throw std::runtime_error("Call failed: renderer::CommandBuffer::setPipelineScissors(): Render pass has ended");
         }
 
         std::vector<VkRect2D> vulkanScissors(scissors.size());
@@ -102,116 +111,68 @@ namespace renderer {
             vulkanScissor.extent.height = scissor.extent.height;
         }
 
-        vkCmdSetScissor(commandBuffer_->getVkCommandBuffer(), offset, static_cast<std::uint32_t>(vulkanScissors.size()), vulkanScissors.data());
+        vkCmdSetScissor(commandBuffer_, offset, static_cast<std::uint32_t>(vulkanScissors.size()), vulkanScissors.data());
     }
 
-    void CommandBufferRenderPassPeriod::setPipelineLineWidth(float width) {
-        if (!rendering_.get()) {
-            throw std::runtime_error("Call failed: renderer::CommandBufferRenderPassPeriod::setPipelineLineWidth(): Render pass has ended");
+    void CommandBuffer::setPipelineLineWidth(float width) {
+        if (!rendering_) {
+            throw std::runtime_error("Call failed: renderer::CommandBuffer::setPipelineLineWidth(): Render pass has ended");
         }
 
-        vkCmdSetLineWidth(commandBuffer_->getVkCommandBuffer(), width);
+        vkCmdSetLineWidth(commandBuffer_, width);
     }
 
-    void CommandBufferRenderPassPeriod::setPipelineDepthBias(float depthBiasConstantFactor, float depthBiasClamp, float depthBiasSlopeFactor) {
-        if (!rendering_.get()) {
-            throw std::runtime_error("Call failed: renderer::CommandBufferRenderPassPeriod::setPipelineDepthBias(): Render pass has ended");
+    void CommandBuffer::setPipelineDepthBias(float depthBiasConstantFactor, float depthBiasClamp, float depthBiasSlopeFactor) {
+        if (!rendering_) {
+            throw std::runtime_error("Call failed: renderer::CommandBuffer::setPipelineDepthBias(): Render pass has ended");
         }
 
-        vkCmdSetDepthBias(commandBuffer_->getVkCommandBuffer(), depthBiasConstantFactor, depthBiasClamp, depthBiasSlopeFactor);
+        vkCmdSetDepthBias(commandBuffer_, depthBiasConstantFactor, depthBiasClamp, depthBiasSlopeFactor);
     }
 
-    void CommandBufferRenderPassPeriod::setPipelineBlendConstants(BlendConstants blend) {
-        if (!rendering_.get()) {
-            throw std::runtime_error("Call failed: renderer::CommandBufferRenderPassPeriod::setPipelineBlendConstants(): Render pass has ended");
+    void CommandBuffer::setPipelineBlendConstants(BlendConstants blend) {
+        if (!rendering_) {
+            throw std::runtime_error("Call failed: renderer::CommandBuffer::setPipelineBlendConstants(): Render pass has ended");
         }
 
-        vkCmdSetBlendConstants(commandBuffer_->getVkCommandBuffer(), &blend.r);
+        vkCmdSetBlendConstants(commandBuffer_, &blend.r);
     }
 
-    void CommandBufferRenderPassPeriod::setPipelineDepthBounds(data::Range<float> range) {
-        if (!rendering_.get()) {
-            throw std::runtime_error("Call failed: renderer::CommandBufferRenderPassPeriod::setPipelineDepthBounds(): Render pass has ended");
+    void CommandBuffer::setPipelineDepthBounds(data::Range<float> range) {
+        if (!rendering_) {
+            throw std::runtime_error("Call failed: renderer::CommandBuffer::setPipelineDepthBounds(): Render pass has ended");
         }
 
-        vkCmdSetDepthBounds(commandBuffer_->getVkCommandBuffer(), range.min, range.max);
+        vkCmdSetDepthBounds(commandBuffer_, range.min, range.max);
     }
 
-    void CommandBufferRenderPassPeriod::setPipelineStencilCompareMask(StencilFaces faces, std::uint32_t compareMask) {
-        if (!rendering_.get()) {
-            throw std::runtime_error("Call failed: renderer::CommandBufferRenderPassPeriod::setPipelineStencilCompareMask(): Render pass has ended");
+    void CommandBuffer::setPipelineStencilCompareMask(Flags faceFlags, std::uint32_t compareMask) {
+        if (!rendering_) {
+            throw std::runtime_error("Call failed: renderer::CommandBuffer::setPipelineStencilCompareMask(): Render pass has ended");
         }
 
-        VkStencilFaceFlags face = 0;
-
-        switch (faces) {
-            case StencilFaces::FRONT:
-                face = VK_STENCIL_FACE_FRONT_BIT;
-                break;
-
-            case StencilFaces::BACK:
-                face = VK_STENCIL_FACE_BACK_BIT;
-                break;
-
-            case StencilFaces::BOTH:
-                face = VK_STENCIL_FACE_FRONT_AND_BACK;
-                break;
-        }
-
-        vkCmdSetStencilCompareMask(commandBuffer_->getVkCommandBuffer(), face, compareMask);
+        vkCmdSetStencilCompareMask(commandBuffer_, StencilFaceFlags::mapFrom(faceFlags), compareMask);
     }
 
-    void CommandBufferRenderPassPeriod::setPipelineStencilWriteMask(StencilFaces faces, std::uint32_t writeMask) {
-        if (!rendering_.get()) {
-            throw std::runtime_error("Call failed: renderer::CommandBufferRenderPassPeriod::setPipelineStencilWriteMask(): Render pass has ended");
+    void CommandBuffer::setPipelineStencilWriteMask(Flags faceFlags, std::uint32_t writeMask) {
+        if (!rendering_) {
+            throw std::runtime_error("Call failed: renderer::CommandBuffer::setPipelineStencilWriteMask(): Render pass has ended");
         }
 
-        VkStencilFaceFlags face = 0;
-
-        switch (faces) {
-            case StencilFaces::FRONT:
-                face = VK_STENCIL_FACE_FRONT_BIT;
-                break;
-
-            case StencilFaces::BACK:
-                face = VK_STENCIL_FACE_BACK_BIT;
-                break;
-
-            case StencilFaces::BOTH:
-                face = VK_STENCIL_FACE_FRONT_AND_BACK;
-                break;
-        }
-
-        vkCmdSetStencilWriteMask(commandBuffer_->getVkCommandBuffer(), face, writeMask);
+        vkCmdSetStencilWriteMask(commandBuffer_, StencilFaceFlags::mapFrom(faceFlags), writeMask);
     }
 
-    void CommandBufferRenderPassPeriod::setPipelineStencilReferenceMask(StencilFaces faces, std::uint32_t reference) {
-        if (!rendering_.get()) {
-            throw std::runtime_error("Call failed: renderer::CommandBufferRenderPassPeriod::setPipelineStencilReferenceMask(): Render pass has ended");
+    void CommandBuffer::setPipelineStencilReferenceMask(Flags faceFlags, std::uint32_t reference) {
+        if (!rendering_) {
+            throw std::runtime_error("Call failed: renderer::CommandBuffer::setPipelineStencilReferenceMask(): Render pass has ended");
         }
 
-        VkStencilFaceFlags face = 0;
-
-        switch (faces) {
-            case StencilFaces::FRONT:
-                face = VK_STENCIL_FACE_FRONT_BIT;
-                break;
-
-            case StencilFaces::BACK:
-                face = VK_STENCIL_FACE_BACK_BIT;
-                break;
-
-            case StencilFaces::BOTH:
-                face = VK_STENCIL_FACE_FRONT_AND_BACK;
-                break;
-        }
-
-        vkCmdSetStencilReference(commandBuffer_->getVkCommandBuffer(), face, reference);
+        vkCmdSetStencilReference(commandBuffer_, StencilFaceFlags::mapFrom(faceFlags), reference);
     }
 
-    void CommandBufferRenderPassPeriod::pushConstants(PipelineLayout& layout, std::uint32_t stageFlags, std::span<std::uint8_t> data, std::uint32_t offset) {
-        if (!rendering_.get()) {
-            throw std::runtime_error("Call failed: renderer::CommandBufferRenderPassPeriod::pushConstants(): Render pass has ended");
+    void CommandBuffer::pushConstants(PipelineLayout& layout, std::uint32_t stageFlags, std::span<std::uint8_t> data, std::uint32_t offset) {
+        if (!rendering_) {
+            throw std::runtime_error("Call failed: renderer::CommandBuffer::pushConstants(): Render pass has ended");
         }
 
         VkShaderStageFlags flags = 0;
@@ -224,31 +185,32 @@ namespace renderer {
             flags |= VK_SHADER_STAGE_FRAGMENT_BIT;
         }
 
-        vkCmdPushConstants(commandBuffer_->getVkCommandBuffer(), layout.getVkPipelineLayout(), flags, offset, static_cast<std::uint32_t>(data.size()), data.data());
+        vkCmdPushConstants(commandBuffer_, layout.getVkPipelineLayout(), flags, offset, static_cast<std::uint32_t>(data.size()), data.data());
     }
 
-    void CommandBufferRenderPassPeriod::draw(std::uint32_t vertexCount, std::uint32_t instances, std::uint32_t firstVertex, std::uint32_t firstInstance) {
-        if (!rendering_.get()) {
-            throw std::runtime_error("Call failed: renderer::CommandBufferRenderPassPeriod::draw(): Render pass has ended");
+    void CommandBuffer::draw(std::uint32_t vertexCount, std::uint32_t instances, std::uint32_t firstVertex, std::uint32_t firstInstance) {
+        if (!rendering_) {
+            throw std::runtime_error("Call failed: renderer::CommandBuffer::draw(): Render pass has ended");
         }
 
-        vkCmdDraw(commandBuffer_->getVkCommandBuffer(), vertexCount, instances, firstVertex, firstInstance);
+        vkCmdDraw(commandBuffer_, vertexCount, instances, firstVertex, firstInstance);
     }
 
-    void CommandBufferRenderPassPeriod::drawIndexed(std::uint32_t indexCount, std::uint32_t instanceCount, std::uint32_t firstIndex, std::uint32_t firstInstance, std::int32_t vertexOffset) {
-        if (!rendering_.get()) {
-            throw std::runtime_error("Call failed: renderer::CommandBufferRenderPassPeriod::drawIndexed(): Render pass has ended");
+    void CommandBuffer::drawIndexed(std::uint32_t indexCount, std::uint32_t instanceCount, std::uint32_t firstIndex, std::uint32_t firstInstance, std::int32_t vertexOffset) {
+        if (!rendering_) {
+            throw std::runtime_error("Call failed: renderer::CommandBuffer::drawIndexed(): Render pass has ended");
         }
 
-        vkCmdDrawIndexed(commandBuffer_->getVkCommandBuffer(), indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
+        vkCmdDrawIndexed(commandBuffer_, indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
     }
 
-    bool CommandBufferRenderPassPeriod::renderEnded() const {
-        return !rendering_.get();
+    bool CommandBuffer::rendering() const {
+        return rendering_;
     }
 
-    CommandBufferRenderPassPeriod::CommandBufferRenderPassPeriod(CommandBufferCapturePeriod& period, RenderPassBeginInfo& beginInfo)
-        : commandBuffer_(period.commandBuffer_), rendering_(period.rendering_) {
+    void CommandBuffer::beginRenderPass(RenderPassBeginInfo& beginInfo) {
+        rendering_ = true;
+
         std::uint32_t clearValueCount = static_cast<std::uint32_t>(beginInfo.clearValues.size());
 
         if (beginInfo.depthClearValue || beginInfo.stencilClearValue) {
@@ -301,32 +263,22 @@ namespace renderer {
             .pClearValues = clearValues.data(),
         };
 
-        vkCmdBeginRenderPass(commandBuffer_->getVkCommandBuffer(), &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+        vkCmdBeginRenderPass(commandBuffer_, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
     }
 
-    CommandBufferRenderPassPeriod CommandBufferCapturePeriod::beginRenderPass(RenderPassBeginInfo& beginInfo) {
-        rendering_ = true;
+    void CommandBuffer::endCapture() {
+        if (capturing_ && !rendering_) {
+            capturing_ = false;
 
-        return CommandBufferRenderPassPeriod(*this, beginInfo);
-    }
-
-    CommandBufferCapturePeriod::~CommandBufferCapturePeriod() {
-        end();
-    }
-
-    void CommandBufferCapturePeriod::end() {
-        if (capturing_.get() && !rendering_) {
-            capturing_.get() = false;
-
-            if (vkEndCommandBuffer(commandBuffer_->commandBuffer_) != VK_SUCCESS) {
-                throw std::runtime_error("Call failed: renderer::CommandBufferCapturePeriod::end(): Failed to end command buffer capture");
+            if (vkEndCommandBuffer(commandBuffer_) != VK_SUCCESS) {
+                throw std::runtime_error("Call failed: renderer::CommandBuffer::end(): Failed to end command buffer capture");
             }
         }
     }
 
-    void CommandBufferCapturePeriod::copyBuffer(Buffer& source, Buffer& destination, const std::vector<BufferCopyRegion>& copyRegions) {
-        if (!capturing_.get()) {
-            throw std::runtime_error("Call failed: renderer::CommandBufferCapturePeriod::copyBuffer(): Render pass has ended");
+    void CommandBuffer::copyBuffer(Buffer& source, Buffer& destination, const std::vector<BufferCopyRegion>& copyRegions) {
+        if (!capturing_) {
+            throw std::runtime_error("Call failed: renderer::CommandBuffer::copyBuffer(): Render pass has ended");
         }
 
         std::vector<VkBufferCopy> bufferCopies(copyRegions.size());
@@ -336,28 +288,28 @@ namespace renderer {
             auto& copyRegion = copyRegions[i];
 
             bufferCopy = {
-                .srcOffset = copyRegion.sourceOffset,
-                .dstOffset = copyRegion.destinationOffset,
-                .size = copyRegion.size,
+                .srcOffset = copyRegion.sourceOffsetBytes,
+                .dstOffset = copyRegion.destinationOffsetBytes,
+                .size = copyRegion.sizeBytes,
             };
         }
 
-        vkCmdCopyBuffer(commandBuffer_->getVkCommandBuffer(), source.getVkBuffer(), destination.getVkBuffer(), static_cast<std::uint32_t>(bufferCopies.size()), bufferCopies.data());
+        vkCmdCopyBuffer(commandBuffer_, source.getVkBuffer(), destination.getVkBuffer(), static_cast<std::uint32_t>(bufferCopies.size()), bufferCopies.data());
     }
 
-    void CommandBufferCapturePeriod::bindDescriptorSets(DescriptorSetBindPoint bindPoint, PipelineLayout& layout, std::uint32_t firstSet, const std::vector<data::Reference<DescriptorSet>>& sets) {
-        if (!capturing_.get()) {
-            throw std::runtime_error("Call failed: renderer::CommandBufferCapturePeriod::bindDescriptorSets(): Render pass has ended");
+    void CommandBuffer::bindDescriptorSets(DeviceOperation operation, PipelineLayout& layout, std::uint32_t firstSet, const std::vector<data::Reference<DescriptorSet>>& sets) {
+        if (!capturing_) {
+            throw std::runtime_error("Call failed: renderer::CommandBuffer::bindDescriptorSets(): Render pass has ended");
         }
 
         VkPipelineBindPoint point;
 
-        switch (bindPoint) {
-            case renderer::DescriptorSetBindPoint::RENDER:
+        switch (operation) {
+            case renderer::DeviceOperation::GRAPHICS:
                 point = VK_PIPELINE_BIND_POINT_GRAPHICS;
                 break;
 
-            case renderer::DescriptorSetBindPoint::COMPUTE:
+            case renderer::DeviceOperation::COMPUTE:
                 point = VK_PIPELINE_BIND_POINT_COMPUTE;
                 break;
         }
@@ -368,19 +320,16 @@ namespace renderer {
             vkSets[i] = sets[i]->getVkDescriptorSet();
         }
 
-        vkCmdBindDescriptorSets(commandBuffer_->getVkCommandBuffer(), point, layout.getVkPipelineLayout(), firstSet, static_cast<std::uint32_t>(vkSets.size()), vkSets.data(), 0, nullptr);
+        vkCmdBindDescriptorSets(commandBuffer_, point, layout.getVkPipelineLayout(), firstSet, static_cast<std::uint32_t>(vkSets.size()), vkSets.data(), 0, nullptr);
     }
 
-    bool CommandBufferCapturePeriod::isRendering() const {
-        return rendering_;
+    bool CommandBuffer::capturing() const {
+        return capturing_;
     }
 
-    bool CommandBufferCapturePeriod::captureEnded() const {
-        return !capturing_.get();
-    }
+    void CommandBuffer::beginCapture() {
+        capturing_ = true;
 
-    CommandBufferCapturePeriod::CommandBufferCapturePeriod(CommandBuffer& commandBuffer)
-        : commandBuffer_(commandBuffer), capturing_(commandBuffer.capturing_) {
         VkCommandBufferBeginInfo commandBufferBeginInfo = {
             .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
             .pNext = nullptr,
@@ -388,26 +337,13 @@ namespace renderer {
             .pInheritanceInfo = nullptr,
         };
 
-        if (vkBeginCommandBuffer(commandBuffer_->commandBuffer_, &commandBufferBeginInfo) != VK_SUCCESS) {
-            throw std::runtime_error("Construction failed: renderer::CommandBufferCapturePeriod: Failed to start command buffer capture");
+        if (vkBeginCommandBuffer(commandBuffer_, &commandBufferBeginInfo) != VK_SUCCESS) {
+            throw std::runtime_error("Construction failed: renderer::CommandBuffer: Failed to start command buffer capture");
         }
-    }
-
-    CommandBuffer::~CommandBuffer() {
     }
 
     void CommandBuffer::reset() {
         vkResetCommandBuffer(commandBuffer_, 0);
-    }
-
-    CommandBufferCapturePeriod CommandBuffer::beginCapture() {
-        capturing_ = true;
-
-        return CommandBufferCapturePeriod(*this);
-    }
-
-    bool CommandBuffer::isCapturing() const {
-        return capturing_;
     }
 
     VkCommandBuffer& CommandBuffer::getVkCommandBuffer() {

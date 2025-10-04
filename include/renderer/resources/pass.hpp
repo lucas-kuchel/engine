@@ -1,12 +1,13 @@
 #pragma once
 
+#include <renderer/resources/config.hpp>
+
 #include <data/colour.hpp>
 #include <data/extent.hpp>
 #include <data/optional.hpp>
 #include <data/rect.hpp>
 #include <data/references.hpp>
 
-#include <cstdint>
 #include <vector>
 
 #include <vulkan/vulkan.h>
@@ -15,47 +16,55 @@ namespace renderer {
     class Framebuffer;
     class Device;
 
-    enum class ImageFormat : int;
-
-    // @brief What to do when loading a frame attachment
-    enum class LoadOperation {
-        LOAD,
-        CLEAR,
-        DONT_CARE,
-    };
-
-    // @brief What to do when storing a frame attachment
-    enum class StoreOperation {
-        STORE,
-        DONT_CARE,
+    struct FrameAttachmentOperationInfo {
+        LoadOperation load;
+        StoreOperation store;
     };
 
     // @brief Information for a frame attachment
-    struct FrameAttachmentInfo {
+    struct ColourAttachmentInfo {
         ImageFormat format;
+        ImageLayout initialLayout;
+        ImageLayout finalLayout;
+        FrameAttachmentOperationInfo operations;
+    };
 
-        LoadOperation loadOperation;
-        StoreOperation storeOperation;
+    struct DepthStencilInfo {
+        ImageFormat format;
+        ImageLayout initialLayout;
+        ImageLayout finalLayout;
+        FrameAttachmentOperationInfo depthOperations;
+        FrameAttachmentOperationInfo stencilOperations;
+    };
 
-        // @brief How many samples should be taken of the image
-        std::uint32_t sampleCount;
+    struct SubpassInfo {
+        std::vector<std::uint32_t> colourAttachmentInputIndices;
+        std::vector<std::uint32_t> colourAttachmentOutputIndices;
+
+        data::Optional<std::uint32_t> depthStencilIndex;
+    };
+
+    struct SubpassDependencyInfo {
+        Flags stageSourceFlags;
+        Flags stageDestinationFlags;
+
+        Flags accessSourceFlags;
+        Flags accessDestinationFlags;
+
+        data::Optional<std::uint32_t> subpassSourceIndex;
+        data::Optional<std::uint32_t> subpassDestinationIndex;
     };
 
     // @brief Creation information for a render pass
     struct RenderPassCreateInfo {
         Device& device;
 
-        // @brief All colour frame attachments to be used by the render pass
-        // @note Do not put the depth/stencil attachments here
-        std::vector<FrameAttachmentInfo> colourAttachments;
+        std::vector<DepthStencilInfo> depthStencilAttachments;
+        std::vector<ColourAttachmentInfo> colourAttachments;
+        std::vector<SubpassInfo> subpasses;
+        std::vector<SubpassDependencyInfo> subpassDependencies;
 
-        // @brief Optional frame attachment for the depth buffer
-        // @note If format is a depth-stencil pair the stencil attachment must have the same format
-        data::Optional<FrameAttachmentInfo> depthAttachment;
-
-        // @brief Optional frame attachment for the stencil buffer
-        // @note If format is a depth-stencil pair the depth attachment must have the same format
-        data::Optional<FrameAttachmentInfo> stencilAttachment;
+        std::uint32_t sampleCount;
     };
 
     // @brief Describes the requirements of a rendering session

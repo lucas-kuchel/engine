@@ -47,12 +47,12 @@ namespace renderer {
         // @param List of fences to wait for
         // @param If all fences should be waited for. Defaults to true
         // @param Timeout period. Defaults to UINT32_MAX
-        void waitForFences(const std::vector<data::Reference<Fence>>& fences, bool waitAll = true, std::uint32_t timeout = std::numeric_limits<std::uint32_t>::max());
+        void waitForFences(const data::ReferenceList<Fence>& fences, bool waitAll = true, std::uint32_t timeout = std::numeric_limits<std::uint32_t>::max());
 
         // @brief Resets all fences to be unsignalled
         // @param List of fences to reset
         // @note Must be called when all fences are not pending
-        void resetFences(const std::vector<data::Reference<Fence>>& fences);
+        void resetFences(const data::ReferenceList<Fence>& fences);
 
         // @brief Creates pipelines based on provided infos
         // @note In the future, pipeline cache systems will be added to this

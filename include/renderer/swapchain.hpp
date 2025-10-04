@@ -21,11 +21,11 @@ namespace renderer {
 
     // @brief Creation information for a swapchain
     struct SwapchainCreateInfo {
-        Instance& instance;
         Surface& surface;
         Device& device;
+
+        // @brief Reference to a queue that supports presentation operations
         Queue& presentQueue;
-        Queue& renderQueue;
 
         // @brief How many images you want the swapchain to posess
         // @note This may be disregarded as the driver has the final say
@@ -38,7 +38,7 @@ namespace renderer {
 
     // @brief Recreation information for a swapchain
     struct SwapchainRecreateInfo {
-        // @brief How many images you want the swapchain to posess
+        // @brief How many images you want the swapchain to possess
         // @note This may be disregarded as the driver has the final say
         std::uint32_t imageCount;
 
@@ -139,7 +139,6 @@ namespace renderer {
         data::Reference<Surface> surface_;
         data::Reference<Device> device_;
         data::Reference<Queue> presentQueue_;
-        data::Reference<Queue> renderQueue_;
 
         std::uint32_t imageCount_;
         std::uint32_t imageIndex_ = 0;
@@ -151,8 +150,8 @@ namespace renderer {
         bool recreate_ = false;
 
         VkSurfaceCapabilitiesKHR getSurfaceCapabilities();
-        void createImageResources(const VkSwapchainCreateInfoKHR& swapchainCreateInfo);
 
+        void createImageResources();
         void selectSurfaceFormat();
         void selectPresentMode();
         void recreateSwapchain();

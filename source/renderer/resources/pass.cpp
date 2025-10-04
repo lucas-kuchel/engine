@@ -6,129 +6,160 @@
 namespace renderer {
     RenderPass::RenderPass(const RenderPassCreateInfo& createInfo)
         : device_(createInfo.device) {
-        std::vector<VkAttachmentDescription> attachments;
-        std::vector<VkAttachmentReference> colourAttachmentReferences;
+        std::vector<VkAttachmentDescription> attachments(createInfo.colourAttachments.size() + createInfo.depthStencilAttachments.size());
+        std::vector<VkSubpassDescription> subpasses(createInfo.subpasses.size());
+        std::vector<VkSubpassDependency> dependencies(createInfo.subpassDependencies.size());
 
-        for (std::size_t i = 0; i < createInfo.colourAttachments.size(); ++i) {
-            const auto& colourAttachment = createInfo.colourAttachments[i];
+        const std::uint32_t colourBaseIndex = 0;
+        const std::uint32_t depthBaseIndex = static_cast<std::uint32_t>(createInfo.colourAttachments.size());
 
-            VkAttachmentDescription attachmentDescription = {
-                .flags = 0,
-                .format = Image::mapFormat(colourAttachment.format),
-                .samples = static_cast<VkSampleCountFlagBits>(colourAttachment.sampleCount),
-                .loadOp = static_cast<VkAttachmentLoadOp>(colourAttachment.loadOperation),
-                .storeOp = static_cast<VkAttachmentStoreOp>(colourAttachment.storeOperation),
-                .stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-                .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
-                .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-                .finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+        for (std::size_t i = 0; i < createInfo.colourAttachments.size(); i++) {
+            struct FlagMap {
+                ImageLayout layout;
+                VkImageLayout vkLayout;
             };
 
-            attachments.push_back(attachmentDescription);
-
-            VkAttachmentReference reference = {
-                .attachment = static_cast<std::uint32_t>(i),
-                .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+            constexpr FlagMap flagMapping[] = {
+                {ImageLayout::UNDEFINED, VK_IMAGE_LAYOUT_UNDEFINED},
+                {ImageLayout::PREINITIALIZED, VK_IMAGE_LAYOUT_PREINITIALIZED},
+                {ImageLayout::COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL},
+                {ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL},
+                {ImageLayout::SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL},
+                {ImageLayout::TRANSFER_SOURCE_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL},
+                {ImageLayout::TRANSFER_DESTINATION_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL},
+                {ImageLayout::GENERAL, VK_IMAGE_LAYOUT_GENERAL},
+                {ImageLayout::PRESENT_SOURCE, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR},
             };
 
-            colourAttachmentReferences.push_back(reference);
-        }
+            VkImageLayout initial;
+            VkImageLayout final;
 
-        VkAttachmentReference depthStencilReference;
-        VkAttachmentReference* depthStencilReferencePtr = nullptr;
+            for (auto& mapping : flagMapping) {
+                if (createInfo.colourAttachments[i].initialLayout == mapping.layout) {
+                    initial = mapping.vkLayout;
+                }
 
-        VkSubpassDescription subpass = {
-            .flags = 0,
-            .pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
-            .inputAttachmentCount = 0,
-            .pInputAttachments = nullptr,
-            .colorAttachmentCount = static_cast<std::uint32_t>(colourAttachmentReferences.size()),
-            .pColorAttachments = colourAttachmentReferences.data(),
-            .pResolveAttachments = nullptr,
-            .pDepthStencilAttachment = nullptr,
-            .preserveAttachmentCount = 0,
-            .pPreserveAttachments = nullptr,
-        };
-
-        if (createInfo.depthAttachment && createInfo.stencilAttachment) {
-            const FrameAttachmentInfo& depthAttachment = createInfo.depthAttachment.get();
-            const FrameAttachmentInfo& stencilAttachment = createInfo.stencilAttachment.get();
-
-            if (depthAttachment.format != stencilAttachment.format || depthAttachment.sampleCount != stencilAttachment.sampleCount) {
-                throw std::runtime_error("Construction failed: renderer::RenderPass: Mismatched depth and stencil attachments");
+                if (createInfo.colourAttachments[i].finalLayout == mapping.layout) {
+                    final = mapping.vkLayout;
+                }
             }
 
-            VkAttachmentDescription depthStencilDescription = {
+            attachments[i] = {
                 .flags = 0,
-                .format = Image::mapFormat(stencilAttachment.format),
-                .samples = static_cast<VkSampleCountFlagBits>(depthAttachment.sampleCount),
-                .loadOp = static_cast<VkAttachmentLoadOp>(depthAttachment.loadOperation),
-                .storeOp = static_cast<VkAttachmentStoreOp>(depthAttachment.storeOperation),
-                .stencilLoadOp = static_cast<VkAttachmentLoadOp>(stencilAttachment.loadOperation),
-                .stencilStoreOp = static_cast<VkAttachmentStoreOp>(stencilAttachment.storeOperation),
-                .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-                .finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-            };
-
-            attachments.push_back(depthStencilDescription);
-
-            depthStencilReference = {
-                .attachment = static_cast<std::uint32_t>(attachments.size() - 1),
-                .layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-            };
-
-            depthStencilReferencePtr = &depthStencilReference;
-        }
-        else if (createInfo.depthAttachment) {
-            const FrameAttachmentInfo& depthAttachment = createInfo.depthAttachment.get();
-
-            VkAttachmentDescription depthStencilDescription = {
-                .flags = 0,
-                .format = Image::mapFormat(depthAttachment.format),
-                .samples = static_cast<VkSampleCountFlagBits>(depthAttachment.sampleCount),
-                .loadOp = static_cast<VkAttachmentLoadOp>(depthAttachment.loadOperation),
-                .storeOp = static_cast<VkAttachmentStoreOp>(depthAttachment.storeOperation),
+                .format = Image::mapFormat(createInfo.colourAttachments[i].format),
+                .samples = static_cast<VkSampleCountFlagBits>(createInfo.sampleCount),
+                .loadOp = static_cast<VkAttachmentLoadOp>(createInfo.colourAttachments[i].operations.load),
+                .storeOp = static_cast<VkAttachmentStoreOp>(createInfo.colourAttachments[i].operations.store),
                 .stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
                 .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
-                .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-                .finalLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+                .initialLayout = initial,
+                .finalLayout = final,
             };
-
-            attachments.push_back(depthStencilDescription);
-
-            depthStencilReference = {
-                .attachment = static_cast<std::uint32_t>(attachments.size() - 1),
-                .layout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
-            };
-
-            depthStencilReferencePtr = &depthStencilReference;
         }
-        else if (createInfo.stencilAttachment) {
-            const FrameAttachmentInfo& stencilAttachment = createInfo.stencilAttachment.get();
 
-            VkAttachmentDescription depthStencilDescription = {
+        for (std::size_t i = createInfo.colourAttachments.size(); i < attachments.size(); i++) {
+            struct FlagMap {
+                ImageLayout layout;
+                VkImageLayout vkLayout;
+            };
+
+            constexpr FlagMap flagMapping[] = {
+                {ImageLayout::UNDEFINED, VK_IMAGE_LAYOUT_UNDEFINED},
+                {ImageLayout::PREINITIALIZED, VK_IMAGE_LAYOUT_PREINITIALIZED},
+                {ImageLayout::COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL},
+                {ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL},
+                {ImageLayout::SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL},
+                {ImageLayout::TRANSFER_SOURCE_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL},
+                {ImageLayout::TRANSFER_DESTINATION_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL},
+                {ImageLayout::GENERAL, VK_IMAGE_LAYOUT_GENERAL},
+                {ImageLayout::PRESENT_SOURCE, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR},
+            };
+
+            VkImageLayout initial;
+            VkImageLayout final;
+
+            for (auto& mapping : flagMapping) {
+                if (createInfo.depthStencilAttachments[i].initialLayout == mapping.layout) {
+                    initial = mapping.vkLayout;
+                }
+
+                if (createInfo.depthStencilAttachments[i].finalLayout == mapping.layout) {
+                    final = mapping.vkLayout;
+                }
+            }
+
+            attachments[i] = {
                 .flags = 0,
-                .format = Image::mapFormat(stencilAttachment.format),
-                .samples = static_cast<VkSampleCountFlagBits>(stencilAttachment.sampleCount),
-                .loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-                .storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
-                .stencilLoadOp = static_cast<VkAttachmentLoadOp>(stencilAttachment.loadOperation),
-                .stencilStoreOp = static_cast<VkAttachmentStoreOp>(stencilAttachment.storeOperation),
-                .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-                .finalLayout = VK_IMAGE_LAYOUT_STENCIL_ATTACHMENT_OPTIMAL,
+                .format = Image::mapFormat(createInfo.depthStencilAttachments[i].format),
+                .samples = static_cast<VkSampleCountFlagBits>(createInfo.sampleCount),
+                .loadOp = static_cast<VkAttachmentLoadOp>(createInfo.depthStencilAttachments[i].depthOperations.load),
+                .storeOp = static_cast<VkAttachmentStoreOp>(createInfo.depthStencilAttachments[i].depthOperations.store),
+                .stencilLoadOp = static_cast<VkAttachmentLoadOp>(createInfo.depthStencilAttachments[i].stencilOperations.load),
+                .stencilStoreOp = static_cast<VkAttachmentStoreOp>(createInfo.depthStencilAttachments[i].stencilOperations.store),
+                .initialLayout = initial,
+                .finalLayout = final,
             };
-
-            attachments.push_back(depthStencilDescription);
-
-            depthStencilReference = {
-                .attachment = static_cast<std::uint32_t>(attachments.size() - 1),
-                .layout = VK_IMAGE_LAYOUT_STENCIL_ATTACHMENT_OPTIMAL,
-            };
-
-            depthStencilReferencePtr = &depthStencilReference;
         }
 
-        subpass.pDepthStencilAttachment = depthStencilReferencePtr;
+        std::vector<std::vector<VkAttachmentReference>> inputReferences(createInfo.subpasses.size());
+        std::vector<std::vector<VkAttachmentReference>> colourReferences(createInfo.subpasses.size());
+        std::vector<VkAttachmentReference> depthReferences(createInfo.subpasses.size());
+
+        for (std::size_t i = 0; i < createInfo.subpasses.size(); i++) {
+            const auto& subpassInfo = createInfo.subpasses[i];
+
+            for (auto inputIndex : subpassInfo.colourAttachmentInputIndices) {
+                inputReferences[i].push_back({
+                    .attachment = static_cast<std::uint32_t>(colourBaseIndex + inputIndex),
+                    .layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                });
+            }
+
+            for (auto outputIndex : subpassInfo.colourAttachmentOutputIndices) {
+                colourReferences[i].push_back({
+                    .attachment = static_cast<std::uint32_t>(colourBaseIndex + outputIndex),
+                    .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+                });
+            }
+
+            VkAttachmentReference* depthReferencePointer = nullptr;
+
+            if (subpassInfo.depthStencilIndex) {
+                auto idx = static_cast<uint32_t>(depthBaseIndex + subpassInfo.depthStencilIndex.get());
+
+                depthReferences[i] = {
+                    .attachment = idx,
+                    .layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+                };
+
+                depthReferencePointer = &depthReferences[i];
+            }
+
+            subpasses[i] = {
+                .flags = 0,
+                .pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
+                .inputAttachmentCount = static_cast<std::uint32_t>(inputReferences[i].size()),
+                .pInputAttachments = inputReferences[i].data(),
+                .colorAttachmentCount = static_cast<std::uint32_t>(colourReferences[i].size()),
+                .pColorAttachments = colourReferences[i].data(),
+                .pResolveAttachments = nullptr,
+                .pDepthStencilAttachment = depthReferencePointer,
+                .preserveAttachmentCount = 0,
+                .pPreserveAttachments = nullptr,
+            };
+        }
+
+        for (std::size_t i = 0; i < dependencies.size(); i++) {
+            dependencies[i] = {
+                .srcSubpass = createInfo.subpassDependencies[i].subpassSourceIndex ? createInfo.subpassDependencies[i].subpassSourceIndex.get() : VK_SUBPASS_EXTERNAL,
+                .dstSubpass = createInfo.subpassDependencies[i].subpassDestinationIndex ? createInfo.subpassDependencies[i].subpassDestinationIndex.get() : VK_SUBPASS_EXTERNAL,
+                .srcStageMask = PipelineStageFlags::mapFrom(createInfo.subpassDependencies[i].stageSourceFlags),
+                .dstStageMask = PipelineStageFlags::mapFrom(createInfo.subpassDependencies[i].stageDestinationFlags),
+                .srcAccessMask = AccessFlags::mapFrom(createInfo.subpassDependencies[i].accessSourceFlags),
+                .dstAccessMask = AccessFlags::mapFrom(createInfo.subpassDependencies[i].accessDestinationFlags),
+                .dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT,
+            };
+        }
 
         VkRenderPassCreateInfo renderPassCreateInfo = {
             .sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
@@ -136,10 +167,10 @@ namespace renderer {
             .flags = 0,
             .attachmentCount = static_cast<uint32_t>(attachments.size()),
             .pAttachments = attachments.data(),
-            .subpassCount = 1,
-            .pSubpasses = &subpass,
-            .dependencyCount = 0,
-            .pDependencies = nullptr,
+            .subpassCount = static_cast<std::uint32_t>(subpasses.size()),
+            .pSubpasses = subpasses.data(),
+            .dependencyCount = static_cast<std::uint32_t>(dependencies.size()),
+            .pDependencies = dependencies.data(),
         };
 
         if (vkCreateRenderPass(device_->getVkDevice(), &renderPassCreateInfo, nullptr, &renderPass_) != VK_SUCCESS) {

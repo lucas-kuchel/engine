@@ -12,8 +12,8 @@
 
 namespace renderer {
     Swapchain::Swapchain(const SwapchainCreateInfo& createInfo)
-        : instance_(createInfo.instance), surface_(createInfo.surface),
-          device_(createInfo.device), presentQueue_(createInfo.presentQueue), renderQueue_(createInfo.renderQueue),
+        : instance_(createInfo.device.getInstance()), surface_(createInfo.surface),
+          device_(createInfo.device), presentQueue_(createInfo.presentQueue),
           imageCount_(createInfo.imageCount), synchronise_(createInfo.synchronise) {
         recreateSwapchain();
     }
@@ -130,7 +130,7 @@ namespace renderer {
         return surfaceFormat_;
     }
 
-    void Swapchain::createImageResources(const VkSwapchainCreateInfoKHR& swapchainCreateInfo) {
+    void Swapchain::createImageResources() {
         auto& device = device_->getVkDevice();
 
         std::uint32_t actualImageCount = 0;
@@ -153,7 +153,6 @@ namespace renderer {
 
             Image& image = images_.back();
 
-            image.deviceMemory_ = VK_NULL_HANDLE;
             image.image_ = queriedImages[i];
             image.extent_ = {extent_.width, extent_.height, 1};
             image.format_ = surfaceFormat_.format;
@@ -161,10 +160,8 @@ namespace renderer {
             image.arrayLayers_ = 1;
             image.mipLevels_ = 1;
             image.sampleCount_ = 1;
-            image.usageFlags_ = swapchainCreateInfo.imageUsage;
 
             ImageViewCreateInfo viewCreateInfo = {
-                .device = device_.get(),
                 .image = image,
                 .type = ImageViewType::IMAGE_2D,
                 .baseMipLevel = 0,
@@ -320,22 +317,6 @@ namespace renderer {
             .oldSwapchain = oldSwapchain,
         };
 
-        std::vector<std::uint32_t> familyIndices = {
-            renderQueue_->getVkQueueIndex(),
-            presentQueue_->getVkQueueIndex(),
-        };
-
-        if (renderQueue_->getVkFamilyIndex() != presentQueue_->getVkFamilyIndex()) {
-            swapchainCreateInfo.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
-            swapchainCreateInfo.queueFamilyIndexCount = static_cast<std::uint32_t>(familyIndices.size());
-            swapchainCreateInfo.pQueueFamilyIndices = familyIndices.data();
-        }
-        else {
-            swapchainCreateInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
-            swapchainCreateInfo.queueFamilyIndexCount = 0;
-            swapchainCreateInfo.pQueueFamilyIndices = nullptr;
-        }
-
         if (vkCreateSwapchainKHR(device, &swapchainCreateInfo, nullptr, &swapchain_) != VK_SUCCESS) {
             throw std::runtime_error("Construction failed: renderer::Swapchain: Failed to create swapchain");
         }
@@ -344,6 +325,6 @@ namespace renderer {
             vkDestroySwapchainKHR(device, oldSwapchain, nullptr);
         }
 
-        createImageResources(swapchainCreateInfo);
+        createImageResources();
     }
 }

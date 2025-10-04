@@ -1,8 +1,9 @@
 #pragma once
 
+#include <renderer/resources/config.hpp>
+
 #include <data/references.hpp>
 
-#include <cstdint>
 #include <vector>
 
 #include <vulkan/vulkan.h>
@@ -13,40 +14,11 @@ namespace renderer {
     class Fence;
     class CommandBuffer;
 
-    // @brief Queue capabilites required
-    struct QueueFlags {
-        enum {
-            PRESENT = 1 << 0,
-            TRANSFER = 1 << 1,
-            COMPUTE = 1 << 2,
-            RENDER = 1 << 3,
-            PREFER_UNIQUE = 1 << 4,
-        };
-    };
-
-    struct SubmitWaitFlags {
-        enum {
-            TOP_OF_PIPE = 1 << 0,
-            DRAW_INDIRECT = 1 << 1,
-            VERTEX_INPUT = 1 << 2,
-            VERTEX_SHADER = 1 << 3,
-            FRAGMENT_SHADER = 1 << 4,
-            EARLY_FRAGMENT_TESTS = 1 << 5,
-            LATE_FRAGMENT_TESTS = 1 << 6,
-            COLOR_ATTACHMENT_OUTPUT = 1 << 7,
-            TRANSFER = 1 << 8,
-            BOTTOM_OF_PIPE = 1 << 9,
-            HOST = 1 << 10,
-            ALL_GRAPHICS = 1 << 11,
-            ALL_COMMANDS = 1 << 12,
-        };
-    };
-
     // @brief Creation information for a queue
     struct QueueCreateInfo {
-        std::uint32_t flags;
+        Flags flags;
 
-        // @note Only needs to be filled in if the PRESENT flag is set
+        // @note Must provide only if the PRESENT flag is set
         data::NullableReference<Surface> surface;
     };
 

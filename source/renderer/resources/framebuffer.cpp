@@ -24,8 +24,8 @@ namespace renderer {
             .renderPass = createInfo.renderPass.getVkRenderPass(),
             .attachmentCount = static_cast<std::uint32_t>(createInfo.imageViews.size()),
             .pAttachments = imageViews.data(),
-            .width = defactoImage->getImage().getExtent().width,
-            .height = defactoImage->getImage().getExtent().height,
+            .width = defactoImage->image().extent().width,
+            .height = defactoImage->image().extent().height,
             .layers = 1,
         };
 

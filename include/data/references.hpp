@@ -1,6 +1,7 @@
 #pragma once
 
 #include <stdexcept>
+#include <vector>
 
 namespace data {
     // @brief Represents a non-owning reference to a resource
@@ -170,4 +171,10 @@ namespace data {
     private:
         T* raw_;
     };
+
+    template <typename T>
+    using ReferenceList = std::vector<data::Reference<T>>;
+
+    template <typename T>
+    using NullableReferenceList = std::vector<data::NullableReference<T>>;
 }

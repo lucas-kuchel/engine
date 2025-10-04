@@ -1,5 +1,7 @@
 #pragma once
 
+#include <renderer/resources/config.hpp>
+
 #include <data/colour.hpp>
 #include <data/range.hpp>
 #include <data/rect.hpp>
@@ -17,84 +19,43 @@ namespace renderer {
     class RenderPass;
     class Buffer;
 
-    // TODO: add push constants and descriptor sets for uniform buffers, storage buffers and samplers
-
-    enum class ShaderStage {
-        VERTEX = 0,
-        FRAGMENT = 1 << 0,
-    };
-
     // @brief Describes a shader stage of a pipeline
     struct ShaderStageInfo {
         ShaderModule& module;
-
         ShaderStage stage;
 
         // @brief Entry point for this shader stage
-        // @note This is commonly "main"
+        // @note This is most commonly "main", particularly with SPIR-V compiled from GLSL
         std::string entry;
     };
 
-    // @brief Determines if a vertex buffer's data is read per-vertex or per-instance
-    enum class VertexInputRate {
-        PER_VERTEX,
-        PER_INSTANCE,
-    };
-
     struct VertexInputBindingDescription {
+        // @ brief If the buffer data is read per-vertex or per-instance
+        VertexInputRate inputRate;
+
         // @brief What index to bind the buffer to
         std::uint32_t binding;
 
         // @brief How long each vertex data segment is
         std::uint32_t strideBytes;
-
-        // @ brief If the buffer data is read per-vertex or per-instance
-        VertexInputRate inputRate;
-    };
-
-    // @brief The format to read a vertex attribute as
-    enum class VertexAttributeFormat {
-        R32_FLOAT,
-        R32G32_FLOAT,
-        R32G32B32_FLOAT,
-        R32G32B32A32_FLOAT,
-
-        R32_INT,
-        R32G32_INT,
-        R32G32B32_INT,
-        R32G32B32A32_INT,
-
-        R32_UINT,
-        R32G32_UINT,
-        R32G32B32_UINT,
-        R32G32B32A32_UINT,
     };
 
     struct VertexAttributeDescription {
         // @brief The format to read the vertex attribute in
         VertexAttributeFormat format;
 
-        // @brief Location to bind the attribute to in the shader
-        std::uint32_t location;
-
         // @brief The buffer index to read the data from
         // @note Maps to a VertexInputBindingDescription's binding
         std::uint32_t binding;
-    };
 
-    // @brief The primitive topology to render
-    enum class RasterisationPrimitive {
-        POINT,
-        LINE,
-        TRIANGLE,
-        LINE_STRIP,
-        TRIANGLE_STRIP,
+        // @brief Location to bind the attribute to in the shader
+        std::uint32_t location;
     };
 
     // @brief Describes the input assembly stage of the fixed-function pipeline
     struct PipelineInputAssemblyState {
         // @brief What topology to assemble vertices into
-        RasterisationPrimitive topology = RasterisationPrimitive::TRIANGLE;
+        PolygonTopology topology = PolygonTopology::TRIANGLE;
 
         // @brief If strip-type primitives should be restarted when a certain value is seen
         // @note The restart value should be in the index buffer. 0xFFFF for 16-bit indices, OxFFFFFFFF for 32-bit indices
@@ -120,49 +81,6 @@ namespace renderer {
 
         // @brief The depth range of the region
         data::Range<float> depth = {};
-    };
-
-    // @brief Defines the winding order for points of a polygon
-    enum class PolygonFaceWinding {
-        CLOCKWISE,
-        ANTICLOCKWISE,
-    };
-
-    // @brief Defines the culling mode of a polygon
-    enum class PolygonCullMode {
-        NEVER,
-        FRONT,
-        BACK,
-        ALWAYS,
-    };
-
-    enum class DescriptorSetBindPoint {
-        RENDER,
-        COMPUTE,
-    };
-
-    // @brief General-purpose comparison operations
-    enum class CompareOperation {
-        EQUAL,
-        NOT_EQUAL,
-        GREATER,
-        GREATER_EQUAL,
-        LESS,
-        LESS_EQUAL,
-        ALWAYS,
-        NEVER,
-    };
-
-    // @brief General-purpose value-setting operations
-    enum class ValueOperation {
-        KEEP,
-        ZERO,
-        REPLACE,
-        INCREMENT_AND_CLAMP,
-        DECREMENT_AND_CLAMP,
-        INVERT,
-        INCREMENT_AND_WRAP,
-        DECREMENT_AND_WRAP,
     };
 
     struct PerFaceRasterisationState {
@@ -237,34 +155,6 @@ namespace renderer {
         float minSampleShading = 0.0;
     };
 
-    // @brief Possible blend factors used for combining source and destination values
-    enum class BlendFactor {
-        ZERO,
-        ONE,
-        SOURCE_COLOUR,
-        ONE_MINUS_SOURCE_COLOUR,
-        DESTINATION_COLOUR,
-        ONE_MINUS_DESTINATION_COLOUR,
-        SOURCE_ALPHA,
-        ONE_MINUS_SOURCE_ALPHA,
-        DESTINATION_ALPHA,
-        ONE_MINUS_DESTINATION_ALPHA,
-        CONSTANT_COLOUR,
-        ONE_MINUS_CONSTANT_COLOUR,
-        CONSTANT_ALPHA,
-        ONE_MINUS_CONSTANT_ALPHA,
-        SOURCE_ALPHA_SATURATE,
-    };
-
-    // @brief Operations used when blending colour or alpha channels
-    enum class BlendOperation {
-        ADD,
-        SUBTRACT,
-        REVERSE_SUBTRACT,
-        MIN,
-        MAX,
-    };
-
     // @brief Describes how a single render target should blend fragments
     struct ColourBlendAttachment {
         // @brief If blending is enabled for this attachment
@@ -296,37 +186,14 @@ namespace renderer {
         std::vector<ColourBlendAttachment> attachments;
     };
 
-    enum class StencilFaces {
-        FRONT,
-        BACK,
-        BOTH,
-    };
-
-    enum class IndexType {
-        U16,
-        U32,
-    };
-
-    enum class DescriptorInputType {
-        UNIFORM_BUFFER,
-        STORAGE_BUFFER,
-    };
-
-    struct DescriptorShaderStageFlags {
-        enum {
-            VERTEX = 1 << 0,
-            FRAGMENT = 1 << 1,
-        };
-    };
-
     struct DescriptorSetInputInfo {
         DescriptorInputType type;
+        Flags stageFlags;
 
         std::uint32_t count;
 
         // @brief The buffer binding index that the data comes from
         std::uint32_t binding;
-        std::uint32_t stageFlags;
     };
 
     struct DescriptorSetLayoutCreateInfo {
@@ -358,7 +225,8 @@ namespace renderer {
 
     struct PushConstantInputInfo {
         std::uint32_t sizeBytes;
-        std::uint32_t stageFlags;
+
+        Flags stageFlags;
     };
 
     struct PipelineLayoutCreateInfo {
@@ -371,8 +239,8 @@ namespace renderer {
     struct DescriptorSetBufferBinding {
         Buffer& buffer;
 
-        std::uint64_t offset;
-        std::uint64_t range;
+        std::uint64_t offsetBytes;
+        std::uint64_t rangeBytes;
     };
 
     struct DescriptorPoolSize {
@@ -421,9 +289,10 @@ namespace renderer {
 
     struct DescriptorSetUpdateInfo {
         DescriptorSet& set;
+        DescriptorInputType inputType;
+
         std::uint32_t binding;
         std::uint32_t arrayElement;
-        DescriptorInputType inputType;
 
         std::vector<DescriptorSetBufferBinding> buffers;
     };
@@ -522,16 +391,18 @@ namespace renderer {
     private:
         Pipeline(Device& device);
 
-        data::Reference<Device> device_;
-
         VkPipeline pipeline_ = VK_NULL_HANDLE;
+
+        data::Reference<Device> device_;
 
         static VkShaderStageFlagBits reverseMapShaderStage(ShaderStage stage);
         static VkVertexInputRate reverseMapVertexInputRate(VertexInputRate rate);
-        static VkPrimitiveTopology reverseMapPrimitive(RasterisationPrimitive topology);
-        static VkFormat reverseMapVertexAttributeFormat(VertexAttributeFormat format);
+
+        static VkPrimitiveTopology reverseMapPrimitive(PolygonTopology topology);
         static VkCullModeFlags reverseMapCullMode(PolygonCullMode cullMode);
         static VkFrontFace reverseMapFrontFace(PolygonFaceWinding winding);
+
+        static VkFormat reverseMapVertexAttributeFormat(VertexAttributeFormat format);
         static VkSampleCountFlagBits reverseMapSampleCount(std::uint32_t sampleCount);
         static VkCompareOp reverseMapCompareOperation(CompareOperation compare);
         static VkStencilOpState reverseMapStencilOperationState(PerFaceRasterisationState perFaceState);

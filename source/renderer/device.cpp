@@ -24,13 +24,12 @@ namespace renderer {
 
             VkQueueFlags queueTypeNeeded = 0;
             bool isPresentType = false;
-            bool preferUnique = false;
 
             if (queueCreateInfo.flags & QueueFlags::COMPUTE) {
                 queueTypeNeeded |= VK_QUEUE_COMPUTE_BIT;
             }
 
-            if (queueCreateInfo.flags & QueueFlags::RENDER) {
+            if (queueCreateInfo.flags & QueueFlags::GRAPHICS) {
                 queueTypeNeeded |= VK_QUEUE_GRAPHICS_BIT;
             }
 
@@ -42,19 +41,16 @@ namespace renderer {
                 isPresentType = true;
             }
 
-            if (queueCreateInfo.flags & QueueFlags::PREFER_UNIQUE) {
-                preferUnique = true;
-            }
-
             auto& queueFamilyProperties = instance_->queueFamilyProperties_;
             auto& queueFamilyOccupations = instance_->queueFamilyOccupations_;
 
+            bool foundQueue = false;
+
             for (std::uint32_t i = 0; i < queueFamilyProperties.size(); i++) {
                 const auto& family = queueFamilyProperties[i];
+                VkBool32 presentSupported = VK_FALSE;
 
                 if (isPresentType) {
-                    VkBool32 presentSupported = VK_FALSE;
-
                     if (queueCreateInfo.surface == nullptr) {
                         throw std::runtime_error("Construction failed: renderer::Queue inside renderer::Device: Present queues require a surface to be created");
                     }
@@ -65,40 +61,29 @@ namespace renderer {
                         throw std::runtime_error("Construction failed: renderer::Queue inside renderer::Device: Failed to query surface presentation support");
                     }
 
-                    if (presentSupported) {
-                        queue.familyIndex_ = i;
-                        queue.queueIndex_ = 0;
-
-                        if (preferUnique) {
-                            if (queueFamilyOccupations[i] == family.queueCount) {
-                                queueFamilyOccupations[i] = 0;
-                            }
-
-                            queue.queueIndex_ = queueFamilyOccupations[i];
-                            queueFamilyOccupations[i]++;
-                        }
-
-                        break;
+                    if (!presentSupported) {
+                        continue;
                     }
                 }
-                else if (family.queueFlags & static_cast<std::uint32_t>(queueTypeNeeded)) {
-                    queue.familyIndex_ = i;
-                    queue.queueIndex_ = 0;
 
-                    if (preferUnique) {
-                        if (queueFamilyOccupations[i] == family.queueCount) {
-                            queueFamilyOccupations[i] = 0;
-                        }
+                bool supportsType = (family.queueFlags & static_cast<std::uint32_t>(queueTypeNeeded)) != 0;
 
-                        queue.queueIndex_ = queueFamilyOccupations[i];
-                        queueFamilyOccupations[i]++;
-                    }
-
-                    break;
+                if (!supportsType && !presentSupported) {
+                    continue;
                 }
+
+                if (queueFamilyOccupations[i] >= family.queueCount) {
+                    continue;
+                }
+
+                queue.familyIndex_ = i;
+                queue.queueIndex_ = queueFamilyOccupations[i]++;
+                foundQueue = true;
+
+                break;
             }
 
-            if (queue.familyIndex_ == std::numeric_limits<std::uint32_t>::max()) {
+            if (!foundQueue) {
                 throw std::runtime_error("Construction failed: renderer::Queue inside renderer::Device: Failed to find queue family for requested queue");
             }
 

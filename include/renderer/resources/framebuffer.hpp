@@ -3,8 +3,6 @@
 #include <data/extent.hpp>
 #include <data/references.hpp>
 
-#include <vector>
-
 #include <vulkan/vulkan.h>
 
 namespace renderer {
@@ -16,7 +14,8 @@ namespace renderer {
     struct FramebufferCreateInfo {
         Device& device;
         RenderPass& renderPass;
-        std::vector<data::Reference<ImageView>> imageViews;
+
+        data::ReferenceList<ImageView> imageViews;
     };
 
     // @brief Represents the images provided to a render pass
