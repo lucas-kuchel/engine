@@ -1,14 +1,44 @@
 #include <renderer/resources/image.hpp>
 
 #include <renderer/device.hpp>
+#include <renderer/instance.hpp>
 
 #include <stdexcept>
+
+#define STB_IMAGE_IMPLEMENTATION
+#include <stb_image.h>
 
 namespace renderer {
     Image::Image(const ImageCreateInfo& createInfo)
         : device_(createInfo.device), extent_(createInfo.extent), sampleCount_(createInfo.sampleCount),
           mipLevels_(createInfo.mipLevels), arrayLayers_(createInfo.arrayLayers),
           type_(mapType(createInfo.type)), format_(mapFormat(createInfo.format)) {
+        VmaMemoryUsage memoryUsage;
+        VkMemoryPropertyFlags memoryProperties;
+
+        switch (createInfo.memoryType) {
+            case MemoryType::DEVICE_LOCAL:
+                memoryUsage = VMA_MEMORY_USAGE_GPU_ONLY;
+                memoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+                break;
+
+            case MemoryType::HOST_VISIBLE:
+                memoryUsage = VMA_MEMORY_USAGE_CPU_TO_GPU;
+                memoryProperties = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+                break;
+        }
+
+        VmaAllocationCreateInfo allocationCreateInfo = {
+            .flags = 0,
+            .usage = memoryUsage,
+            .requiredFlags = 0,
+            .preferredFlags = memoryProperties,
+            .memoryTypeBits = 0,
+            .pool = nullptr,
+            .pUserData = nullptr,
+            .priority = 0.0,
+        };
+
         VkImageCreateInfo imageCreateInfo = {
             .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
             .pNext = nullptr,
@@ -27,15 +57,88 @@ namespace renderer {
             .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
         };
 
-        if (vkCreateImage(device_->getVkDevice(), &imageCreateInfo, nullptr, &image_) != VK_SUCCESS) {
+        VmaAllocationInfo allocationInfo = {};
+
+        if (vmaCreateImage(device_->getVmaAllocator(), &imageCreateInfo, &allocationCreateInfo, &image_, &memory_, &allocationInfo) != VK_SUCCESS) {
             throw std::runtime_error("Construction failed: renderer::Image: Failed to create image");
         }
+
+        auto& deviceMemoryProperties = device_->getInstance().getVkPhysicalDeviceMemoryProperties();
+
+        VkMemoryPropertyFlags properties = deviceMemoryProperties.memoryTypes[allocationInfo.memoryType].propertyFlags;
+
+        hostVisible_ = (properties & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) != 0;
+        hostCoherent_ = (properties & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) != 0;
+
+        size_ = allocationInfo.size;
     }
 
     Image::~Image() {
-        if (image_ != VK_NULL_HANDLE) {
-            vkDestroyImage(device_->getVkDevice(), image_, nullptr);
+        auto& device = device_.get();
+
+        if (mapped_) {
+
+            if (hostCoherent_) {
+                vmaFlushAllocation(device.getVmaAllocator(), memory_, mapOffset_, mapSize_);
+            }
+
+            vmaUnmapMemory(device.getVmaAllocator(), memory_);
+
+            mapped_ = false;
         }
+
+        if (image_ != VK_NULL_HANDLE) {
+            vmaDestroyImage(device.getVmaAllocator(), image_, memory_);
+        }
+    }
+
+    std::span<std::uint8_t> Image::map(std::uint64_t sizeBytes, std::uint64_t offsetBytes) {
+        if (!hostVisible_) {
+            throw std::runtime_error("Call failed: renderer::Image::map(): Cannot map memory that is not host visible");
+        }
+
+        if (mapped_) {
+            throw std::runtime_error("Call failed: renderer::Image::map(): Memory is already mapped");
+        }
+
+        mapped_ = true;
+
+        auto& properties = device_->getInstance().getVkPhysicalDeviceProperties();
+
+        VkDeviceSize atomSize = properties.limits.nonCoherentAtomSize;
+
+        mapOffset_ = offsetBytes & ~(atomSize - 1);
+        mapSize_ = ((mapOffset_ + sizeBytes + atomSize - 1) & ~(atomSize - 1)) - mapOffset_;
+
+        if (!hostCoherent_) {
+            vmaInvalidateAllocation(device_->getVmaAllocator(), memory_, mapOffset_, mapSize_);
+        }
+
+        void* data = nullptr;
+
+        vmaMapMemory(device_->getVmaAllocator(), memory_, &data);
+
+        return {reinterpret_cast<std::uint8_t*>(data) + mapOffset_, mapSize_};
+    }
+
+    void Image::unmap() {
+        if (!hostCoherent_) {
+            vmaFlushAllocation(device_->getVmaAllocator(), memory_, mapOffset_, mapSize_);
+        }
+
+        if (mapped_) {
+            vmaUnmapMemory(device_->getVmaAllocator(), memory_);
+
+            mapped_ = false;
+        }
+    }
+
+    bool Image::mapped() const {
+        return mapped_;
+    }
+
+    bool Image::mappable() const {
+        return hostVisible_ || hostCoherent_;
     }
 
     ImageFormat Image::format() const {
@@ -48,6 +151,10 @@ namespace renderer {
 
     data::Extent3D<std::uint32_t> Image::extent() const {
         return extent_;
+    }
+
+    std::uint64_t Image::size() const {
+        return size_;
     }
 
     Device& Image::device() {
@@ -149,36 +256,6 @@ namespace renderer {
         }
     }
 
-    VkImageUsageFlags Image::mapFlags(std::uint32_t usageFlags) {
-        VkImageUsageFlags flags = 0;
-
-        if ((usageFlags & ImageUsageFlags::TRANSFER_SOURCE) == ImageUsageFlags::TRANSFER_SOURCE) {
-            flags |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
-        }
-
-        if ((usageFlags & ImageUsageFlags::TRANSFER_DESTINATION) == ImageUsageFlags::TRANSFER_DESTINATION) {
-            flags |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
-        }
-
-        if ((usageFlags & ImageUsageFlags::SAMPLED) == ImageUsageFlags::SAMPLED) {
-            flags |= VK_IMAGE_USAGE_SAMPLED_BIT;
-        }
-
-        if ((usageFlags & ImageUsageFlags::STORAGE) == ImageUsageFlags::STORAGE) {
-            flags |= VK_IMAGE_USAGE_STORAGE_BIT;
-        }
-
-        if ((usageFlags & ImageUsageFlags::COLOR_ATTACHMENT) == ImageUsageFlags::COLOR_ATTACHMENT) {
-            flags |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-        }
-
-        if ((usageFlags & ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT) == ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT) {
-            flags |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
-        }
-
-        return flags;
-    }
-
     ImageFormat Image::reverseMapFormat(VkFormat format) {
         switch (format) {
             case VK_FORMAT_R8_UNORM:
@@ -236,31 +313,6 @@ namespace renderer {
             default:
                 throw std::runtime_error("Call failed: renderer::ImageView::reverseMapType(): Invalid image view type");
         }
-    }
-
-    std::uint32_t Image::reverseMapFlags(VkImageUsageFlags vkFlags) {
-        std::uint32_t usageFlags = 0;
-
-        if (vkFlags & VK_IMAGE_USAGE_TRANSFER_SRC_BIT) {
-            usageFlags |= ImageUsageFlags::TRANSFER_SOURCE;
-        }
-        if (vkFlags & VK_IMAGE_USAGE_TRANSFER_DST_BIT) {
-            usageFlags |= ImageUsageFlags::TRANSFER_DESTINATION;
-        }
-        if (vkFlags & VK_IMAGE_USAGE_SAMPLED_BIT) {
-            usageFlags |= ImageUsageFlags::SAMPLED;
-        }
-        if (vkFlags & VK_IMAGE_USAGE_STORAGE_BIT) {
-            usageFlags |= ImageUsageFlags::STORAGE;
-        }
-        if (vkFlags & VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT) {
-            usageFlags |= ImageUsageFlags::COLOR_ATTACHMENT;
-        }
-        if (vkFlags & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT) {
-            usageFlags |= ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT;
-        }
-
-        return usageFlags;
     }
 
     ImageView::ImageView(const ImageViewCreateInfo& createInfo)

@@ -3,6 +3,7 @@
 #include <data/references.hpp>
 
 #include <renderer/resources/buffer.hpp>
+#include <renderer/resources/image.hpp>
 #include <renderer/resources/pipeline.hpp>
 
 #include <vulkan/vulkan.h>
@@ -41,8 +42,11 @@ namespace renderer {
         void endRenderPass();
 
         void copyBuffer(Buffer& source, Buffer& destination, const std::vector<BufferCopyRegion>& copyRegions);
+        void copyBufferToImage(Buffer& source, Image& destination, ImageLayout imageLayout, const std::vector<BufferImageCopyRegion>& copyRegions);
 
         void nextSubpass();
+
+        void pipelineBarrier(Flags sourcePipelineStage, Flags destinationPipelineStage, const std::vector<ImageMemoryBarrier>& memoryBarriers);
 
         void bindDescriptorSets(DeviceOperation operation, PipelineLayout& layout, std::uint32_t firstSet, const data::ReferenceList<DescriptorSet>& sets);
         void bindPipeline(Pipeline& pipeline);

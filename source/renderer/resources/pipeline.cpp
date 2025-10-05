@@ -1,4 +1,6 @@
+#include <renderer/resources/buffer.hpp>
 #include <renderer/resources/pipeline.hpp>
+#include <renderer/resources/sampler.hpp>
 
 #include <renderer/device.hpp>
 
@@ -32,6 +34,10 @@ namespace renderer {
                 case DescriptorInputType::STORAGE_BUFFER:
                     descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
                     break;
+
+                case DescriptorInputType::IMAGE_SAMPLER:
+                    descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+                    break;
             }
 
             binding = {
@@ -52,7 +58,7 @@ namespace renderer {
         };
 
         if (vkCreateDescriptorSetLayout(device_->getVkDevice(), &layoutCreateInfo, nullptr, &layout_) != VK_SUCCESS) {
-            throw std::runtime_error("Construction failed: renderer::ShaderInputLayout: Failed to create shader input layout");
+            throw std::runtime_error("Construction failed: renderer::DescriptorSetLayout: Failed to create shader input layout");
         }
     }
 
@@ -99,6 +105,10 @@ namespace renderer {
 
                 case DescriptorInputType::STORAGE_BUFFER:
                     descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+                    break;
+
+                case DescriptorInputType::IMAGE_SAMPLER:
+                    descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
                     break;
             }
 
@@ -170,15 +180,51 @@ namespace renderer {
         std::vector<VkWriteDescriptorSet> writes(updateInfos.size());
 
         std::vector<std::vector<VkDescriptorBufferInfo>> bufferInfos(updateInfos.size());
+        std::vector<std::vector<VkDescriptorImageInfo>> imageInfos(updateInfos.size());
 
         for (std::size_t i = 0; i < writes.size(); i++) {
             bufferInfos[i].resize(updateInfos[i].buffers.size());
+            imageInfos[i].resize(updateInfos[i].images.size());
 
-            for (std::size_t j = 0; j < writes.size(); j++) {
+            for (std::size_t j = 0; j < bufferInfos[i].size(); j++) {
                 bufferInfos[i][j] = {
-                    .buffer = updateInfos[i].buffers[i].buffer.getVkBuffer(),
-                    .offset = updateInfos[i].buffers[i].offsetBytes,
-                    .range = updateInfos[i].buffers[i].rangeBytes,
+                    .buffer = updateInfos[i].buffers[j].buffer.getVkBuffer(),
+                    .offset = updateInfos[i].buffers[j].offsetBytes,
+                    .range = updateInfos[i].buffers[j].rangeBytes,
+                };
+            }
+
+            for (std::size_t j = 0; j < imageInfos[i].size(); j++) {
+                struct FlagMap {
+                    ImageLayout layout;
+                    VkImageLayout vkLayout;
+                };
+
+                constexpr FlagMap flagMapping[] = {
+                    {ImageLayout::UNDEFINED, VK_IMAGE_LAYOUT_UNDEFINED},
+                    {ImageLayout::PREINITIALIZED, VK_IMAGE_LAYOUT_PREINITIALIZED},
+                    {ImageLayout::COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL},
+                    {ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL},
+                    {ImageLayout::SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL},
+                    {ImageLayout::TRANSFER_SOURCE_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL},
+                    {ImageLayout::TRANSFER_DESTINATION_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL},
+                    {ImageLayout::GENERAL, VK_IMAGE_LAYOUT_GENERAL},
+                    {ImageLayout::PRESENT_SOURCE, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR},
+                };
+
+                VkImageLayout layout;
+
+                for (auto& mapping : flagMapping) {
+                    if (updateInfos[i].images[j].layout == mapping.layout) {
+                        layout = mapping.vkLayout;
+                        break;
+                    }
+                }
+
+                imageInfos[i][j] = {
+                    .sampler = updateInfos[i].images[j].sampler.getVkSampler(),
+                    .imageView = updateInfos[i].images[j].image.getVkImageView(),
+                    .imageLayout = layout,
                 };
             }
 
@@ -192,6 +238,10 @@ namespace renderer {
                 case DescriptorInputType::STORAGE_BUFFER:
                     descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
                     break;
+
+                case DescriptorInputType::IMAGE_SAMPLER:
+                    descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+                    break;
             }
 
             writes[i] = {
@@ -200,9 +250,9 @@ namespace renderer {
                 .dstSet = updateInfos[i].set.getVkDescriptorSet(),
                 .dstBinding = updateInfos[i].binding,
                 .dstArrayElement = updateInfos[i].arrayElement,
-                .descriptorCount = static_cast<std::uint32_t>(bufferInfos[i].size()),
+                .descriptorCount = static_cast<std::uint32_t>(bufferInfos[i].size() + imageInfos[i].size()),
                 .descriptorType = descriptorType,
-                .pImageInfo = nullptr,
+                .pImageInfo = imageInfos[i].data(),
                 .pBufferInfo = bufferInfos[i].data(),
                 .pTexelBufferView = nullptr,
             };

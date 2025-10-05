@@ -5,6 +5,7 @@
         "glfw3",
         "vulkan-headers",
         "vulkan-memory-allocator",
-        "nlohmann-json"
+        "nlohmann-json",
+        "stb"
     ]
 }

@@ -278,7 +278,7 @@ namespace renderer {
 
     void CommandBuffer::copyBuffer(Buffer& source, Buffer& destination, const std::vector<BufferCopyRegion>& copyRegions) {
         if (!capturing_) {
-            throw std::runtime_error("Call failed: renderer::CommandBuffer::copyBuffer(): Render pass has ended");
+            throw std::runtime_error("Call failed: renderer::CommandBuffer::copyBuffer(): Capture has ended");
         }
 
         std::vector<VkBufferCopy> bufferCopies(copyRegions.size());
@@ -295,6 +295,180 @@ namespace renderer {
         }
 
         vkCmdCopyBuffer(commandBuffer_, source.getVkBuffer(), destination.getVkBuffer(), static_cast<std::uint32_t>(bufferCopies.size()), bufferCopies.data());
+    }
+
+    void CommandBuffer::pipelineBarrier(Flags sourcePipelineStage, Flags destinationPipelineStage, const std::vector<ImageMemoryBarrier>& memoryBarriers) {
+        if (!capturing_) {
+            throw std::runtime_error("Call failed: renderer::CommandBuffer::transitionImage(): Capture has ended");
+        }
+
+        std::vector<VkImageMemoryBarrier> barriers(memoryBarriers.size());
+
+        for (std::size_t i = 0; i < barriers.size(); i++) {
+
+            VkImageLayout oldLayout;
+            VkImageLayout newLayout;
+
+            switch (memoryBarriers[i].oldLayout) {
+                case ImageLayout::UNDEFINED:
+                    oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+                    break;
+
+                case ImageLayout::GENERAL:
+                    oldLayout = VK_IMAGE_LAYOUT_GENERAL;
+                    break;
+
+                case ImageLayout::COLOR_ATTACHMENT_OPTIMAL:
+                    oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+                    break;
+
+                case ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
+                    oldLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+                    break;
+
+                case ImageLayout::SHADER_READ_ONLY_OPTIMAL:
+                    oldLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+                    break;
+
+                case ImageLayout::TRANSFER_SOURCE_OPTIMAL:
+                    oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+                    break;
+
+                case ImageLayout::TRANSFER_DESTINATION_OPTIMAL:
+                    oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+                    break;
+
+                case ImageLayout::PRESENT_SOURCE:
+                    oldLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+                    break;
+
+                case ImageLayout::PREINITIALIZED:
+                    oldLayout = VK_IMAGE_LAYOUT_PREINITIALIZED;
+                    break;
+            }
+
+            switch (memoryBarriers[i].newLayout) {
+                case ImageLayout::UNDEFINED:
+                    newLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+                    break;
+
+                case ImageLayout::GENERAL:
+                    newLayout = VK_IMAGE_LAYOUT_GENERAL;
+                    break;
+
+                case ImageLayout::COLOR_ATTACHMENT_OPTIMAL:
+                    newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+                    break;
+
+                case ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
+                    newLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+                    break;
+
+                case ImageLayout::SHADER_READ_ONLY_OPTIMAL:
+                    newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+                    break;
+
+                case ImageLayout::TRANSFER_SOURCE_OPTIMAL:
+                    newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+                    break;
+
+                case ImageLayout::TRANSFER_DESTINATION_OPTIMAL:
+                    newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+                    break;
+
+                case ImageLayout::PRESENT_SOURCE:
+                    newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+                    break;
+
+                case ImageLayout::PREINITIALIZED:
+                    newLayout = VK_IMAGE_LAYOUT_PREINITIALIZED;
+                    break;
+            }
+
+            barriers[i] = {
+                .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+                .pNext = nullptr,
+                .srcAccessMask = AccessFlags::mapFrom(memoryBarriers[i].sourceAccessFlags),
+                .dstAccessMask = AccessFlags::mapFrom(memoryBarriers[i].destinationAccessFlags),
+                .oldLayout = oldLayout,
+                .newLayout = newLayout,
+                .srcQueueFamilyIndex = memoryBarriers[i].sourceQueue != nullptr ? memoryBarriers[i].sourceQueue->getVkFamilyIndex() : VK_QUEUE_FAMILY_IGNORED,
+                .dstQueueFamilyIndex = memoryBarriers[i].destinationQueue != nullptr ? memoryBarriers[i].destinationQueue->getVkFamilyIndex() : VK_QUEUE_FAMILY_IGNORED,
+                .image = memoryBarriers[i].image.getVkImage(),
+                .subresourceRange = {
+                    .aspectMask = memoryBarriers[i].aspectMask,
+                    .baseMipLevel = memoryBarriers[i].baseMipLevel,
+                    .levelCount = memoryBarriers[i].mipLevelCount,
+                    .baseArrayLayer = memoryBarriers[i].baseArrayLayer,
+                    .layerCount = memoryBarriers[i].arrayLayerCount,
+                },
+            };
+        }
+
+        vkCmdPipelineBarrier(commandBuffer_, PipelineStageFlags::mapFrom(sourcePipelineStage), PipelineStageFlags::mapFrom(destinationPipelineStage), 0, 0, nullptr, 0, nullptr, static_cast<std::uint32_t>(barriers.size()), barriers.data());
+    }
+
+    void CommandBuffer::copyBufferToImage(Buffer& source, Image& destination, ImageLayout imageLayout, const std::vector<BufferImageCopyRegion>& copyRegions) {
+        if (!capturing_) {
+            throw std::runtime_error("Call failed: renderer::CommandBuffer::copyBufferToImage(): Capture has ended");
+        }
+
+        std::vector<VkBufferImageCopy> copies(copyRegions.size());
+
+        for (std::size_t i = 0; i < copies.size(); i++) {
+            auto& copy = copies[i];
+            auto& copyRegion = copyRegions[i];
+
+            copy = {
+                .bufferOffset = copyRegion.bufferOffset,
+                .bufferRowLength = copyRegion.bufferRowLength,
+                .bufferImageHeight = copyRegion.bufferImageHeight,
+                .imageSubresource = {
+                    .aspectMask = ImageAspectFlags::mapFrom(copyRegion.imageAspectMask),
+                    .mipLevel = copyRegion.mipLevel,
+                    .baseArrayLayer = copyRegion.baseArrayLayer,
+                    .layerCount = copyRegion.arrayLayerCount,
+                },
+                .imageOffset = {
+                    copyRegion.imageOffset.width,
+                    copyRegion.imageOffset.height,
+                    copyRegion.imageOffset.depth,
+                },
+                .imageExtent = {
+                    copyRegion.imageExtent.width,
+                    copyRegion.imageExtent.height,
+                    copyRegion.imageExtent.depth,
+                },
+            };
+        }
+
+        struct FlagMap {
+            ImageLayout layout;
+            VkImageLayout vkLayout;
+        };
+
+        constexpr FlagMap flagMapping[] = {
+            {ImageLayout::UNDEFINED, VK_IMAGE_LAYOUT_UNDEFINED},
+            {ImageLayout::PREINITIALIZED, VK_IMAGE_LAYOUT_PREINITIALIZED},
+            {ImageLayout::COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL},
+            {ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL},
+            {ImageLayout::SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL},
+            {ImageLayout::TRANSFER_SOURCE_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL},
+            {ImageLayout::TRANSFER_DESTINATION_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL},
+            {ImageLayout::GENERAL, VK_IMAGE_LAYOUT_GENERAL},
+            {ImageLayout::PRESENT_SOURCE, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR},
+        };
+
+        VkImageLayout layout;
+
+        for (auto& mapping : flagMapping) {
+            if (imageLayout == mapping.layout) {
+                layout = mapping.vkLayout;
+                break;
+            }
+        }
+
+        vkCmdCopyBufferToImage(commandBuffer_, source.getVkBuffer(), destination.getVkImage(), layout, static_cast<std::uint32_t>(copies.size()), copies.data());
     }
 
     void CommandBuffer::bindDescriptorSets(DeviceOperation operation, PipelineLayout& layout, std::uint32_t firstSet, const std::vector<data::Ref<DescriptorSet>>& sets) {

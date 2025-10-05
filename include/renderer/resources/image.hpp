@@ -1,19 +1,26 @@
 #pragma once
 
-#include <renderer/commands/buffer.hpp>
+#include <renderer/resources/config.hpp>
 
 #include <data/extent.hpp>
+#include <data/references.hpp>
 
 #include <cstdint>
+#include <span>
 
+#include <vk_mem_alloc.h>
 #include <vulkan/vulkan.h>
 
 namespace renderer {
+    class Queue;
+    class Device;
+
     // @brief Creation information for the image
     struct ImageCreateInfo {
         Device& device;
         ImageType type;
         ImageFormat format;
+        MemoryType memoryType;
         Flags usageFlags;
 
         data::Extent3D<std::uint32_t> extent;
@@ -36,8 +43,15 @@ namespace renderer {
         Image& operator=(const Image&) = delete;
         Image& operator=(Image&&) noexcept = default;
 
+        std::span<std::uint8_t> map(std::uint64_t sizeBytes, std::uint64_t offsetBytes);
+        void unmap();
+
+        [[nodiscard]] bool mapped() const;
+        [[nodiscard]] bool mappable() const;
+
         [[nodiscard]] ImageFormat format() const;
         [[nodiscard]] ImageType type() const;
+        [[nodiscard]] std::uint64_t size() const;
 
         [[nodiscard]] data::Extent3D<std::uint32_t> extent() const;
 
@@ -66,8 +80,17 @@ namespace renderer {
         std::uint32_t arrayLayers_;
 
         VkImage image_ = VK_NULL_HANDLE;
+        VmaAllocation memory_ = VK_NULL_HANDLE;
         VkImageType type_ = VK_IMAGE_TYPE_MAX_ENUM;
         VkFormat format_ = VK_FORMAT_MAX_ENUM;
+
+        bool hostVisible_ = false;
+        bool hostCoherent_ = false;
+        bool mapped_ = false;
+
+        std::uint64_t mapSize_ = 0;
+        std::uint64_t mapOffset_ = 0;
+        std::uint64_t size_ = 0;
 
         static VkFormat mapFormat(ImageFormat format);
         static ImageFormat reverseMapFormat(VkFormat format);
@@ -75,11 +98,40 @@ namespace renderer {
         static VkImageType mapType(ImageType type);
         static ImageType reverseMapType(VkImageType type);
 
-        static VkImageUsageFlags mapFlags(std::uint32_t usageFlags);
-        static std::uint32_t reverseMapFlags(VkImageUsageFlags usageFlags);
-
         friend class Swapchain;
         friend class RenderPass;
+    };
+
+    struct BufferImageCopyRegion {
+        std::uint64_t bufferOffset;
+        std::uint32_t bufferRowLength;
+        std::uint32_t bufferImageHeight;
+        std::uint32_t mipLevel;
+        std::uint32_t baseArrayLayer;
+        std::uint32_t arrayLayerCount;
+
+        Flags imageAspectMask;
+
+        data::Extent3D<std::int32_t> imageOffset;
+        data::Extent3D<std::uint32_t> imageExtent;
+    };
+
+    struct ImageMemoryBarrier {
+        Image& image;
+        data::NullableRef<Queue> sourceQueue;
+        data::NullableRef<Queue> destinationQueue;
+
+        ImageLayout oldLayout;
+        ImageLayout newLayout;
+
+        std::uint32_t baseMipLevel;
+        std::uint32_t mipLevelCount;
+        std::uint32_t baseArrayLayer;
+        std::uint32_t arrayLayerCount;
+
+        Flags aspectMask;
+        Flags sourceAccessFlags;
+        Flags destinationAccessFlags;
     };
 
     // @brief Creation information for an image view

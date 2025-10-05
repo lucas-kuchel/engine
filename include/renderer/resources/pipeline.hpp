@@ -18,6 +18,8 @@ namespace renderer {
     class Device;
     class RenderPass;
     class Buffer;
+    class ImageView;
+    class Sampler;
 
     // @brief Describes a shader stage of a pipeline
     struct ShaderStageInfo {
@@ -192,7 +194,7 @@ namespace renderer {
 
         std::uint32_t count;
 
-        // @brief The buffer binding index that the data comes from
+        // @brief The binding index that the data comes from
         std::uint32_t binding;
     };
 
@@ -241,6 +243,12 @@ namespace renderer {
 
         std::uint64_t offsetBytes;
         std::uint64_t rangeBytes;
+    };
+
+    struct DescriptorSetImageBinding {
+        ImageView& image;
+        Sampler& sampler;
+        ImageLayout layout;
     };
 
     struct DescriptorPoolSize {
@@ -295,6 +303,7 @@ namespace renderer {
         std::uint32_t arrayElement;
 
         std::vector<DescriptorSetBufferBinding> buffers;
+        std::vector<DescriptorSetImageBinding> images;
     };
 
     class DescriptorPool {

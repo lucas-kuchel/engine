@@ -6,6 +6,7 @@ file(GLOB_RECURSE SOURCES "source/*.cpp")
 
 find_package(glfw3 CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
+find_package(Stb REQUIRED)
 
 find_package(VulkanHeaders CONFIG REQUIRED)
 find_package(VulkanMemoryAllocator CONFIG REQUIRED)
@@ -27,8 +28,7 @@ elseif(MSVC)
     )
 endif()
 
-
-target_include_directories(engine PRIVATE "include")
+target_include_directories(engine PRIVATE "include" ${Stb_INCLUDE_DIR})
 
 if(APPLE)
     find_library(MOLTENVK_LIB MoltenVK REQUIRED)

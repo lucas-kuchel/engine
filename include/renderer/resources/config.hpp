@@ -35,6 +35,16 @@ namespace renderer {
         static VkFlags mapFrom(Flags flags);
     };
 
+    struct ImageAspectFlags {
+        enum {
+            COLOUR = 1 << 0,
+            DEPTH = 1 << 1,
+            STENCIL = 1 << 2,
+        };
+
+        static VkFlags mapFrom(Flags flags);
+    };
+
     // @brief Flags for fence creation
     struct FenceCreateFlags {
         enum : std::uint32_t {
@@ -111,15 +121,6 @@ namespace renderer {
 
             // @brief Queue must support rendering and general-purpose graphics operations
             GRAPHICS = 1 << 3,
-
-            // @brief Prefer a unique queue index within the selected family
-            // @note This does not guarantee that a unique index will be used, this depends on your GPU's capabilities
-            PREFER_UNIQUE_INDEX = 1 << 4,
-
-            // @brief Reqiure a unique queue index within the selected family
-            // @note Will cause renderer::Queue to throw std::runtime_error if no more indices are available
-            // @note Use only if you strictly need independent queues
-            REQUIRE_UNIQUE_INDEX = 1 << 5,
         };
 
         static VkFlags mapFrom(Flags flags);
@@ -182,6 +183,33 @@ namespace renderer {
         DEVICE_LOCAL,
     };
 
+    enum class Filter {
+        LINEAR,
+        NEAREST,
+    };
+
+    enum class AddressMode {
+        REPEAT,
+        MIRRORED_REPEAT,
+        CLAMP_TO_EDGE,
+        CLAMP_TO_BORDER,
+        MIRROR_CLAMP_TO_EDGE,
+    };
+
+    enum class BorderColour {
+        FLOAT_TRANSPARENT_BLACK,
+        FLOAT_OPAQUE_BLACK,
+        FLOAT_OPAQUE_WHITE,
+        INT_TRANSPARENT_BLACK,
+        INT_OPAQUE_BLACK,
+        INT_OPAQUE_WHITE,
+    };
+
+    enum class MipmapMode {
+        NEAREST,
+        LINEAR,
+    };
+
     // @brief Image dimensionality
     enum class ImageType : std::uint32_t {
         IMAGE_1D,
@@ -239,6 +267,7 @@ namespace renderer {
     enum class DescriptorInputType : std::uint32_t {
         UNIFORM_BUFFER,
         STORAGE_BUFFER,
+        IMAGE_SAMPLER,
     };
 
     // @brief Possible blend factors used for combining source and destination values

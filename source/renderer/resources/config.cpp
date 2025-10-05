@@ -50,6 +50,29 @@ namespace renderer {
         return vkFlags;
     }
 
+    VkFlags ImageAspectFlags::mapFrom(Flags flags) {
+        struct FlagMap {
+            uint32_t flag;
+            VkFlags vkFlag;
+        };
+
+        constexpr FlagMap flagMapping[] = {
+            {ImageAspectFlags::COLOUR, VK_IMAGE_ASPECT_COLOR_BIT},
+            {ImageAspectFlags::DEPTH, VK_IMAGE_ASPECT_DEPTH_BIT},
+            {ImageAspectFlags::STENCIL, VK_IMAGE_ASPECT_STENCIL_BIT},
+        };
+
+        VkFlags vkFlags = 0;
+
+        for (auto& flag : flagMapping) {
+            if (flags & flag.flag) {
+                vkFlags |= flag.vkFlag;
+            }
+        }
+
+        return vkFlags;
+    }
+
     VkFlags AccessFlags::mapFrom(Flags flags) {
         struct FlagMap {
             uint32_t flag;
