@@ -18,6 +18,25 @@ namespace data {
         inline SparseSet(SparseSet&&) noexcept = default;
         inline SparseSet& operator=(SparseSet&&) noexcept = default;
 
+        inline T& insert(std::size_t index, const T& element) {
+            if (index >= sparse_.size()) {
+                sparse_.resize(index + 1, std::numeric_limits<std::size_t>::max());
+            }
+
+            if (sparse_[index] != std::numeric_limits<std::size_t>::max()) {
+                dense_[sparse_[index]] = std::forward<T>(element);
+
+                return dense_[sparse_[index]];
+            }
+
+            sparse_[index] = dense_.size();
+
+            dense_.emplace_back(element);
+            reverseMapping_.push_back(index);
+
+            return dense_[sparse_[index]];
+        }
+
         // @brief Inserts an element at the provided index
         // @param The index to insert to
         // @param The element to insert
@@ -153,6 +172,22 @@ namespace data {
 
         [[nodiscard]] inline auto cend() const noexcept {
             return dense_.cend();
+        }
+
+        std::vector<T>& dense() {
+            return dense_;
+        }
+
+        const std::vector<T>& dense() const {
+            return dense_;
+        }
+
+        std::vector<std::size_t>& sparse() {
+            return sparse_;
+        }
+
+        const std::vector<std::size_t>& sparse() const {
+            return sparse_;
         }
 
     private:

@@ -2,8 +2,6 @@
 
 #include <data/unique.hpp>
 
-#include <game/instance.hpp>
-
 #include <app/context.hpp>
 #include <app/window.hpp>
 
@@ -15,17 +13,24 @@
 #include <renderer/commands/buffer.hpp>
 #include <renderer/commands/pool.hpp>
 
+#include <renderer/resources/buffer.hpp>
+#include <renderer/resources/framebuffer.hpp>
+#include <renderer/resources/image.hpp>
+#include <renderer/resources/pass.hpp>
+#include <renderer/resources/pipeline.hpp>
+#include <renderer/resources/sampler.hpp>
+#include <renderer/resources/shader.hpp>
+
+#include <game/camera.hpp>
+#include <game/player.hpp>
+#include <game/settings.hpp>
+
+#include <glm/glm.hpp>
+
 namespace app {
-    struct SettingsConfig {
-        data::Extent2D<std::uint32_t> displaySize;
-
-        WindowVisibility displayMode;
-
-        bool vsync;
-        bool resizable;
-
-        std::uint32_t imageCount;
-        std::uint32_t renderAheadLimit;
+    struct Counter {
+        std::uint32_t count = 0;
+        std::uint32_t index = 0;
     };
 
     class Program {
@@ -33,30 +38,19 @@ namespace app {
         Program();
         ~Program();
 
-        void run();
-
-        SettingsConfig loadSettings();
-        void applySettings(const SettingsConfig& config);
-
-        renderer::Device& device();
-        renderer::Swapchain& swapchain();
-        renderer::RenderPass& renderPass();
-        renderer::CommandPool& transferCommandPool();
-        renderer::Queue& transferQueue();
-        renderer::Queue& graphicsQueue();
-
-        renderer::CommandBuffer& currentCommandBuffer();
-        renderer::Framebuffer& currentFramebuffer();
-        renderer::Semaphore& currentAcquireSemaphore();
-        renderer::Semaphore& currentPresentSemaphore();
-        renderer::Fence& currentFence();
-
     private:
-        void manageBindings(const WindowKeyPressedEventInfo& pressEvent);
-
         void manageEvents(bool& running);
         void acquireImage(bool& resized);
         void presentImage();
+
+        void run();
+
+        void start();
+        void update();
+        void render();
+        void close();
+
+        void createBasicPipelineResources();
 
         data::Unique<Context> context_;
         data::Unique<Window> window_;
@@ -68,27 +62,33 @@ namespace app {
         data::Unique<renderer::RenderPass> renderPass_;
         data::Unique<renderer::CommandPool> graphicsCommandPool_;
         data::Unique<renderer::CommandPool> transferCommandPool_;
+        data::Unique<renderer::PipelineLayout> basicPipelineLayout_;
 
         data::NullableRef<renderer::Queue> graphicsQueue_;
         data::NullableRef<renderer::Queue> transferQueue_;
         data::NullableRef<renderer::Queue> presentQueue_;
+        data::NullableRef<renderer::Pipeline> basicPipeline_;
+        data::NullableRef<renderer::CommandBuffer> transferCommandBuffer_;
 
         std::vector<renderer::Fence> inFlightFences_;
         std::vector<renderer::Semaphore> acquireSemaphores_;
         std::vector<renderer::Semaphore> presentSemaphores_;
         std::vector<renderer::Framebuffer> framebuffers_;
         std::vector<renderer::CommandBuffer> commandBuffers_;
+        std::vector<renderer::Pipeline> pipelines_;
+        std::vector<renderer::CommandBuffer> transferCommandBuffers_;
 
-        data::Unique<game::Instance> gameInstance_;
+        Counter imageCounter_;
+        Counter frameCounter_;
 
-        std::uint32_t imageCount_;
-        std::uint32_t imageIndex_;
-        std::uint32_t frameCount_;
-        std::uint32_t frameIndex_;
-        std::uint32_t swapchainRecreateImageCount_;
-        std::uint32_t swapchainRecreateFrameCount_;
-
-        bool swapchainRecreateSynchronise_;
         bool explicitSwapchainRecreate_ = false;
+
+        data::Unique<game::SettingsManager> settingsManager_;
+        data::Unique<game::Player> player_;
+        data::Unique<game::Camera> camera_;
+
+        game::SettingsConfig settings_;
+
+        std::chrono::time_point<std::chrono::high_resolution_clock> lastFrameTime_;
     };
 }

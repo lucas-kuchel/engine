@@ -6,6 +6,7 @@
         "vulkan-headers",
         "vulkan-memory-allocator",
         "nlohmann-json",
-        "stb"
+        "stb",
+        "glm"
     ]
 }

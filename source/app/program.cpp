@@ -2,395 +2,222 @@
 
 #include <fstream>
 
-#include <nlohmann/json.hpp>
+#include <stb_image.h>
 
 namespace app {
-    Program::Program() {
-        SettingsConfig settingsConfig = loadSettings();
-
-        gameInstance_ = data::makeUnique<game::Instance>(*this);
-
-        context_ = data::makeUnique<Context>();
-
-        WindowCreateInfo windowCreateInfo = {
-            .context = context_.ref(),
-            .extent = settingsConfig.displaySize,
-            .title = "Game",
-            .visibility = settingsConfig.displayMode,
-            .resizable = settingsConfig.resizable,
+    void Program::start() {
+        renderer::CommandBufferCreateInfo transferCommandBuffersCreateInfo = {
+            .count = 1,
         };
 
-        window_ = data::makeUnique<Window>(windowCreateInfo);
+        transferCommandBuffers_ = transferCommandPool_->allocateCommandBuffers(transferCommandBuffersCreateInfo);
+        transferCommandBuffer_ = transferCommandBuffers_.front();
 
-        renderer::InstanceCreateInfo instanceCreateInfo = {
-            .applicationName = window_->getTitle(),
-            .applicationVersion = data::Version(0, 0, 1),
-            .engineName = "engine",
-            .engineVersion = data::Version(0, 0, 1),
-            .requestDebug = true,
+        camera_ = data::makeUnique<game::Camera>(settings_, device_.ref(), transferCommandBuffer_.get(), transferQueue_.get(), swapchain_.ref());
+        player_ = data::makeUnique<game::Player>(settings_, device_.ref(), transferCommandBuffer_.get(), transferQueue_.get());
+
+        createBasicPipelineResources();
+
+        lastFrameTime_ = std::chrono::high_resolution_clock::now();
+    }
+
+    void Program::update() {
+        std::chrono::time_point<std::chrono::high_resolution_clock> currentTime = std::chrono::high_resolution_clock::now();
+
+        std::chrono::duration<float> delta = currentTime - lastFrameTime_;
+
+        float deltaTime = delta.count();
+
+        lastFrameTime_ = currentTime;
+
+        player_->update(deltaTime);
+
+        camera_->slowMoveToPlayer(deltaTime, player_.ref());
+        camera_->update();
+    }
+
+    void Program::render() {
+        auto& commandBuffer = commandBuffers_[frameCounter_.index];
+        auto& framebuffer = framebuffers_[imageCounter_.index];
+        auto& inFlightFence = inFlightFences_[frameCounter_.index];
+        auto& acquireSemaphore = acquireSemaphores_[frameCounter_.index];
+        auto& presentSemaphore = presentSemaphores_[imageCounter_.index];
+
+        commandBuffer.beginCapture();
+
+        data::Rect2D<std::int32_t, std::uint32_t> renderArea = {
+            .offset = {0, 0},
+            .extent = swapchain_->extent(),
         };
 
-        instance_ = data::makeUnique<renderer::Instance>(instanceCreateInfo);
-
-        renderer::SurfaceCreateInfo surfaceCreateInfo = {
-            .instance = instance_.ref(),
-            .window = window_.ref(),
+        data::ColourRGBA clearColour = {
+            .r = 0.0f,
+            .g = 0.2f,
+            .b = 0.9f,
+            .a = 1.0f,
         };
 
-        surface_ = data::makeUnique<renderer::Surface>(surfaceCreateInfo);
-
-        renderer::QueueInfo graphicsQueueInfo = {
-            .flags = renderer::QueueFlags::GRAPHICS,
-            .surface = nullptr,
+        renderer::RenderPassBeginInfo renderPassBeginInfo = {
+            .renderPass = renderPass_.ref(),
+            .framebuffer = framebuffer,
+            .renderArea = renderArea,
+            .clearValues = {
+                clearColour,
+            },
+            .depthClearValue = {},
+            .stencilClearValue = {},
         };
 
-        renderer::QueueInfo transferQueueInfo = {
-            .flags = renderer::QueueFlags::TRANSFER,
-            .surface = nullptr,
-        };
+        commandBuffer.beginRenderPass(renderPassBeginInfo);
 
-        renderer::QueueInfo presentQueueInfo = {
-            .flags = renderer::QueueFlags::PRESENT,
-            .surface = surface_.ref(),
-        };
-
-        renderer::DeviceCreateInfo deviceCreateInfo = {
-            .instance = instance_.ref(),
-            .queues = {
-                graphicsQueueInfo,
-                transferQueueInfo,
-                presentQueueInfo,
+        renderer::Viewport viewport = {
+            .position = {
+                .x = 0.0,
+                .y = 0.0,
+            },
+            .extent = {
+                .width = static_cast<float>(swapchain_->extent().width),
+                .height = static_cast<float>(swapchain_->extent().height),
+            },
+            .depth = {
+                .min = 0.0,
+                .max = 1.0,
             },
         };
 
-        device_ = data::makeUnique<renderer::Device>(deviceCreateInfo);
+        renderer::Scissor scissor = {
+            .offset = {0, 0},
+            .extent = swapchain_->extent(),
+        };
 
-        std::span<renderer::Queue> queues = device_->queues();
+        commandBuffer.bindPipeline(basicPipeline_.get());
 
-        graphicsQueue_ = queues[0];
-        transferQueue_ = queues[1];
-        presentQueue_ = queues[2];
+        commandBuffer.setPipelineViewports({viewport}, 0);
+        commandBuffer.setPipelineScissors({scissor}, 0);
 
-        renderer::SwapchainCreateInfo swapchainCreateInfo = {
-            .surface = surface_.ref(),
+        data::ReferenceList<renderer::DescriptorSet> sets = {
+            player_->descriptorSet(),
+            camera_->descriptorSet(),
+        };
+
+        commandBuffer.bindDescriptorSets(renderer::DeviceOperation::GRAPHICS, basicPipelineLayout_.ref(), 0, sets);
+
+        player_->render(commandBuffer, basicPipelineLayout_.ref());
+
+        commandBuffer.endRenderPass();
+        commandBuffer.endCapture();
+
+        renderer::SubmitInfo submitInfo = {
+            .fence = inFlightFence,
+            .commandBuffers = {commandBuffer},
+            .waits = {acquireSemaphore},
+            .signals = {presentSemaphore},
+            .waitFlags = {
+                renderer::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
+            },
+        };
+
+        graphicsQueue_->submit(submitInfo);
+    }
+
+    void Program::close() {
+    }
+
+    void Program::createBasicPipelineResources() {
+        std::ifstream vertexShader("assets/shaders/basic.vert.spv", std::ios::binary | std::ios::ate);
+        std::ifstream fragmentShader("assets/shaders/basic.frag.spv", std::ios::binary | std::ios::ate);
+
+        std::uint64_t vertexShaderSize = static_cast<std::uint64_t>(vertexShader.tellg());
+        std::uint64_t fragmentShaderSize = static_cast<std::uint64_t>(fragmentShader.tellg());
+
+        vertexShader.seekg(0, std::ios::beg);
+        fragmentShader.seekg(0, std::ios::beg);
+
+        std::vector<std::uint32_t> vertexShaderBinary(vertexShaderSize / sizeof(std::uint32_t));
+        std::vector<std::uint32_t> fragmentShaderBinary(fragmentShaderSize / sizeof(std::uint32_t));
+
+        vertexShader.read(reinterpret_cast<char*>(vertexShaderBinary.data()), static_cast<std::uint32_t>(vertexShaderSize));
+        fragmentShader.read(reinterpret_cast<char*>(fragmentShaderBinary.data()), static_cast<std::uint32_t>(fragmentShaderSize));
+
+        renderer::ShaderModuleCreateInfo vertexShaderModuleCreateInfo = {
             .device = device_.ref(),
-            .presentQueue = presentQueue_.get(),
-            .imageCount = settingsConfig.imageCount,
-            .synchronise = settingsConfig.vsync,
+            .data = vertexShaderBinary,
         };
 
-        swapchain_ = data::makeUnique<renderer::Swapchain>(swapchainCreateInfo);
-
-        renderer::CommandPoolCreateInfo graphicsCommandPoolCreateInfo = {
+        renderer::ShaderModuleCreateInfo fragmentShaderModuleCreateInfo = {
             .device = device_.ref(),
-            .queue = graphicsQueue_.get(),
+            .data = fragmentShaderBinary,
         };
 
-        renderer::CommandPoolCreateInfo transferCommandPoolCreateInfo = {
+        renderer::ShaderModule vertexShaderModule(vertexShaderModuleCreateInfo);
+        renderer::ShaderModule fragmentShaderModule(fragmentShaderModuleCreateInfo);
+
+        renderer::PipelineLayoutCreateInfo pipelineLayoutCreateInfo = {
             .device = device_.ref(),
-            .queue = transferQueue_.get(),
+            .inputLayouts = {
+                player_->descriptorSetLayout(),
+                camera_->descriptorSetLayout(),
+            },
+            .pushConstants = {
+                player_->pushConstant(),
+            },
         };
 
-        graphicsCommandPool_ = data::makeUnique<renderer::CommandPool>(graphicsCommandPoolCreateInfo);
-        transferCommandPool_ = data::makeUnique<renderer::CommandPool>(transferCommandPoolCreateInfo);
+        basicPipelineLayout_ = data::makeUnique<renderer::PipelineLayout>(pipelineLayoutCreateInfo);
 
-        renderer::RenderPassCreateInfo renderPassCreateInfo = gameInstance_->makeRequiredRenderPass();
+        renderer::PipelineCreateInfo pipelineCreateInfo = {
+            .renderPass = renderPass_.ref(),
+            .layout = basicPipelineLayout_.ref(),
+            .subpassIndex = 0,
+            .shaderStages = {
+                {
+                    vertexShaderModule,
+                    renderer::ShaderStage::VERTEX,
+                    "main",
+                },
+                {
+                    fragmentShaderModule,
+                    renderer::ShaderStage::FRAGMENT,
+                    "main",
+                },
+            },
+            .vertexInput = {
+                .bindings = {
+                    renderer::VertexInputBindingDescription{
+                        .inputRate = renderer::VertexInputRate::PER_VERTEX,
+                        .binding = 0,
+                        .strideBytes = sizeof(game::Vertex),
+                    },
+                },
+                .attributes = {
+                    renderer::VertexAttributeDescription{
+                        .format = renderer::VertexAttributeFormat::R32G32_FLOAT,
+                        .binding = 0,
+                        .location = 0,
 
-        renderPass_ = data::makeUnique<renderer::RenderPass>(renderPassCreateInfo);
-
-        imageCount_ = swapchain_->imageCount();
-        imageIndex_ = 0;
-
-        frameCount_ = std::min(imageCount_, settingsConfig.renderAheadLimit);
-        frameIndex_ = 0;
-
-        renderer::SemaphoreCreateInfo semaphoreCreateInfo = {
-            .device = device_.ref(),
+                    },
+                    renderer::VertexAttributeDescription{
+                        .format = renderer::VertexAttributeFormat::R32G32_FLOAT,
+                        .binding = 0,
+                        .location = 1,
+                    },
+                },
+            },
+            .inputAssembly = {
+                .topology = renderer::PolygonTopology::TRIANGLE_STRIP,
+                .primitiveRestart = false,
+            },
+            .viewportCount = 1,
+            .scissorCount = 1,
+            .rasterisation = {},
+            .multisample = {},
+            .colourBlend = {
+                .attachments = {renderer::ColourBlendAttachment{}},
+            },
         };
 
-        renderer::FenceCreateInfo fenceCreateInfo = {
-            .device = device_.ref(),
-            .createFlags = renderer::FenceCreateFlags::START_SIGNALED,
-        };
+        pipelines_ = device_->createPipelines({pipelineCreateInfo});
 
-        std::span<renderer::ImageView> swapchainImages = swapchain_->images();
-
-        presentSemaphores_.reserve(imageCount_);
-        framebuffers_.reserve(imageCount_);
-
-        for (std::size_t i = 0; i < imageCount_; i++) {
-            renderer::FramebufferCreateInfo framebufferCreateInfo = {
-                .device = device_.ref(),
-                .renderPass = renderPass_.ref(),
-                .imageViews = {swapchainImages[i]},
-            };
-
-            framebuffers_.emplace_back(framebufferCreateInfo);
-            presentSemaphores_.emplace_back(semaphoreCreateInfo);
-        }
-
-        acquireSemaphores_.reserve(frameCount_);
-        inFlightFences_.reserve(frameCount_);
-
-        for (std::size_t i = 0; i < frameCount_; i++) {
-            acquireSemaphores_.emplace_back(semaphoreCreateInfo);
-            inFlightFences_.emplace_back(fenceCreateInfo);
-        }
-
-        renderer::CommandBufferCreateInfo commandBufferCreateInfo = {
-            .count = frameCount_,
-        };
-
-        commandBuffers_ = graphicsCommandPool_->allocateCommandBuffers(commandBufferCreateInfo);
-    }
-
-    Program::~Program() {
-        if (device_) {
-            device_->waitIdle();
-        }
-    }
-
-    void Program::run() {
-        gameInstance_->start();
-
-        bool running = true;
-        bool resized = false;
-
-        while (running) {
-            manageEvents(running);
-            acquireImage(resized);
-
-            gameInstance_->update();
-            gameInstance_->render();
-
-            presentImage();
-        }
-
-        gameInstance_->close();
-    }
-
-    SettingsConfig Program::loadSettings() {
-        SettingsConfig settingsConfig;
-
-        std::ifstream settingsFile("config/settings.json");
-        std::string settingsSource(std::istreambuf_iterator<char>(settingsFile), {});
-
-        nlohmann::json settings = nlohmann::json::parse(settingsSource);
-
-        settingsConfig.displaySize.width = settings["display"]["width"].get<std::uint32_t>();
-        settingsConfig.displaySize.height = settings["display"]["height"].get<std::uint32_t>();
-        settingsConfig.imageCount = settings["graphics"]["imageCount"].get<std::uint32_t>();
-        settingsConfig.renderAheadLimit = settings["graphics"]["renderAheadLimit"].get<std::uint32_t>();
-        settingsConfig.resizable = settings["display"]["resizable"].get<bool>();
-        settingsConfig.vsync = settings["graphics"]["vsync"].get<bool>();
-
-        std::string displayMode = settings["display"]["mode"].get<std::string>();
-
-        if (displayMode == "windowed") {
-            settingsConfig.displayMode = WindowVisibility::WINDOWED;
-        }
-        else if (displayMode == "fullscreen") {
-            settingsConfig.displayMode = WindowVisibility::FULLSCREEN;
-        }
-        else {
-            throw std::runtime_error("Bad value for \"display.mode\" in file \"config/settings.json\"");
-        }
-
-        return settingsConfig;
-    }
-
-    void Program::applySettings(const SettingsConfig& config) {
-        device_->waitIdle();
-
-        window_->setExtent(config.displaySize);
-        window_->setVisibility(config.displayMode);
-
-        swapchainRecreateImageCount_ = config.imageCount;
-        swapchainRecreateFrameCount_ = config.renderAheadLimit;
-        swapchainRecreateSynchronise_ = config.vsync;
-        explicitSwapchainRecreate_ = true;
-    }
-
-    renderer::Device& Program::device() {
-        return device_.ref();
-    }
-
-    renderer::Swapchain& Program::swapchain() {
-        return swapchain_.ref();
-    }
-
-    renderer::RenderPass& Program::renderPass() {
-        return renderPass_.ref();
-    }
-
-    renderer::CommandPool& Program::transferCommandPool() {
-        return transferCommandPool_.ref();
-    }
-
-    renderer::Queue& Program::transferQueue() {
-        return transferQueue_.get();
-    }
-
-    renderer::Queue& Program::graphicsQueue() {
-        return graphicsQueue_.get();
-    }
-
-    renderer::CommandBuffer& Program::currentCommandBuffer() {
-        return commandBuffers_[frameIndex_];
-    }
-
-    renderer::Framebuffer& Program::currentFramebuffer() {
-        return framebuffers_[imageIndex_];
-    }
-
-    renderer::Semaphore& Program::currentAcquireSemaphore() {
-        return acquireSemaphores_[frameIndex_];
-    }
-
-    renderer::Semaphore& Program::currentPresentSemaphore() {
-        return presentSemaphores_[imageIndex_];
-    }
-
-    renderer::Fence& Program::currentFence() {
-        return inFlightFences_[frameIndex_];
-    }
-
-    void Program::manageBindings(const WindowKeyPressedEventInfo& pressEvent) {
-        switch (pressEvent.key) {
-            case Key::GRAVE_ACCENT:
-                applySettings(loadSettings());
-                break;
-
-            default:
-                break;
-        }
-    }
-
-    void Program::manageEvents(bool& running) {
-        context_->pollEvents();
-
-        while (window_->hasEvents()) {
-            WindowEvent event = window_->getNextEvent();
-
-            switch (event.type) {
-                case WindowEventType::CLOSED:
-                    running = false;
-                    break;
-
-                case WindowEventType::KEY_PRESSED:
-                    manageBindings(event.info.keyPress);
-                    break;
-
-                default:
-                    break;
-            }
-        }
-    }
-
-    void Program::acquireImage(bool& resized) {
-        resized = false;
-
-        if (explicitSwapchainRecreate_) {
-            explicitSwapchainRecreate_ = false;
-
-            renderer::SwapchainRecreateInfo swapchainRecreateInfo = {
-                .imageCount = swapchainRecreateImageCount_,
-                .synchronise = swapchainRecreateSynchronise_,
-            };
-
-            device_->waitIdle();
-            swapchain_->recreate(swapchainRecreateInfo);
-
-            resized = true;
-
-            frameCount_ = std::min(imageCount_, swapchainRecreateFrameCount_);
-            frameIndex_ = std::min(frameIndex_, frameCount_ - 1);
-
-            acquireSemaphores_.clear();
-            inFlightFences_.clear();
-
-            renderer::SemaphoreCreateInfo semaphoreCreateInfo = {
-                .device = device_.ref(),
-            };
-
-            renderer::FenceCreateInfo fenceCreateInfo = {
-                .device = device_.ref(),
-                .createFlags = renderer::FenceCreateFlags::START_SIGNALED,
-            };
-
-            acquireSemaphores_.reserve(frameCount_);
-            inFlightFences_.reserve(frameCount_);
-
-            for (std::size_t i = 0; i < frameCount_; i++) {
-                acquireSemaphores_.emplace_back(semaphoreCreateInfo);
-                inFlightFences_.emplace_back(fenceCreateInfo);
-            }
-
-            graphicsCommandPool_->destroyCommandBuffers(commandBuffers_);
-
-            renderer::CommandBufferCreateInfo commandBufferCreateInfo = {
-                .count = frameCount_,
-            };
-
-            commandBuffers_ = graphicsCommandPool_->allocateCommandBuffers(commandBufferCreateInfo);
-        }
-
-        renderer::Semaphore& acquireSemaphore = acquireSemaphores_[frameIndex_];
-        renderer::Fence& inFlightFence = inFlightFences_[frameIndex_];
-
-        device_->waitForFences({inFlightFence});
-        device_->resetFences({inFlightFence});
-
-        while (true) {
-            if (swapchain_->shouldRecreate()) {
-                renderer::SwapchainRecreateInfo swapchainRecreateInfo = {
-                    .imageCount = swapchain_->imageCount(),
-                    .synchronise = swapchain_->synchronised(),
-                };
-
-                device_->waitIdle();
-                swapchain_->recreate(swapchainRecreateInfo);
-
-                resized = true;
-            }
-
-            imageIndex_ = swapchain_->acquireNextImage(acquireSemaphore);
-
-            if (!swapchain_->shouldRecreate()) {
-                break;
-            }
-        }
-
-        if (resized) {
-            framebuffers_.clear();
-            presentSemaphores_.clear();
-
-            imageCount_ = swapchain_->imageCount();
-
-            renderer::SemaphoreCreateInfo semaphoreCreateInfo = {
-                .device = device_.ref(),
-            };
-
-            std::span<renderer::ImageView> swapchainImages = swapchain_->images();
-
-            for (std::size_t i = 0; i < imageCount_; i++) {
-                renderer::FramebufferCreateInfo framebufferCreateInfo = {
-                    .device = device_.ref(),
-                    .renderPass = renderPass_.ref(),
-                    .imageViews = {swapchainImages[i]},
-                };
-
-                framebuffers_.emplace_back(framebufferCreateInfo);
-                presentSemaphores_.emplace_back(semaphoreCreateInfo);
-            }
-        }
-    }
-
-    void Program::presentImage() {
-        renderer::Semaphore& presentSemaphore = presentSemaphores_[imageIndex_];
-
-        swapchain_->presentNextImage(presentSemaphore);
-
-        frameIndex_ = (frameIndex_ + 1) % frameCount_;
+        basicPipeline_ = pipelines_.front();
     }
 }

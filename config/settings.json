@@ -9,5 +9,12 @@
         "vsync": false,
         "imageCount": 3,
         "renderAheadLimit": 3
+    },
+    "controls": {
+        "speed": 4.0
+    },
+    "camera": {
+        "zoom": 2.0,
+        "ease": 0.8
     }
 }
