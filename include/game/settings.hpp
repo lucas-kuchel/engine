@@ -4,12 +4,8 @@
 
 #include <glm/glm.hpp>
 
-#include <string>
-
-#include <nlohmann/json.hpp>
-
 namespace game {
-    struct SettingsConfig {
+    struct Settings {
         struct Display {
             glm::uvec2 size;
 
@@ -31,20 +27,11 @@ namespace game {
         } controls;
 
         struct Camera {
-            float zoom;
+            float scale;
             float ease;
         } camera;
     };
 
-    class SettingsManager {
-    public:
-        SettingsManager(const std::string& path);
-        ~SettingsManager() = default;
-
-        void load(SettingsConfig& config);
-        void save(const SettingsConfig& config);
-
-    private:
-        std::string path_;
-    };
+    void loadSettings(Settings& settings);
+    void saveSettings(const Settings& settings);
 }

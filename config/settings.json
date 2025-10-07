@@ -11,10 +11,10 @@
         "renderAheadLimit": 3
     },
     "controls": {
-        "speed": 4.0
+        "speed": 2.0
     },
     "camera": {
-        "zoom": 2.0,
+        "scale": 20.0,
         "ease": 0.8
     }
 }

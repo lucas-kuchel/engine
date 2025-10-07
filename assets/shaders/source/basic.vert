@@ -5,7 +5,7 @@ layout(push_constant) uniform PushConstants {
 }
 pushConstants;
 
-layout(set = 1, binding = 0) uniform Camera {
+layout(set = 0, binding = 0) uniform Camera {
     mat4 projection;
     mat4 view;
 }

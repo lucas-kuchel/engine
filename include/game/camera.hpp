@@ -13,43 +13,23 @@
 #include <glm/glm.hpp>
 
 namespace game {
-    struct SettingsConfig;
-    class Player;
+    struct Character;
 
-    class Camera {
-    public:
-        Camera(SettingsConfig& settings, renderer::Device& device, renderer::CommandBuffer& transferCommandBuffer, renderer::Queue& transferQueue, renderer::Swapchain& swapchain);
-        ~Camera();
+    struct Camera {
+        float ease = 1.0f;
+        float rotation = 0.0f;
+        float scale = 20.0f;
 
-        void update();
+        glm::vec2 position = {0.0f, 0.0f};
+        glm::mat4 projection = {1.0f};
+        glm::mat4 view = {1.0f};
+        glm::uvec2 extent;
 
-        void slowMoveToPlayer(float deltaTime, const Player& player);
-
-        renderer::DescriptorSet& descriptorSet();
-        renderer::DescriptorSetLayout& descriptorSetLayout();
-
-    private:
-        float rotation_ = 0.0f;
-        float screenSizeWorldUnits_ = 20.0f;
-
-        glm::vec2 position_ = {0.0f, 0.0f};
-        glm::mat4 projection_ = {1.0f};
-        glm::mat4 view_ = {1.0f};
-
-        data::Unique<renderer::DescriptorSetLayout> descriptorSetLayout_;
-        data::Unique<renderer::DescriptorPool> descriptorPool_;
-
-        data::Unique<renderer::Buffer> cameraBuffer_;
-
-        data::NullableRef<renderer::DescriptorSet> descriptorSet_;
-
-        std::vector<renderer::DescriptorSet> descriptorSets_;
-
-        renderer::Device& device_;
-        renderer::CommandBuffer& transferCommandBuffer_;
-        renderer::Queue& transferQueue_;
-        renderer::Swapchain& swapchain_;
-
-        SettingsConfig& settings_;
+        data::Unique<renderer::Buffer> buffer;
     };
+
+    void createCamera(Camera& camera, renderer::Device& device, renderer::Buffer& stagingBuffer, std::uint64_t& stagingBufferOffset, renderer::CommandBuffer& transferBuffer);
+    void updateCamera(Camera& camera, renderer::Buffer& stagingBuffer, std::uint64_t& stagingBufferOffset, renderer::CommandBuffer& transferBuffer);
+
+    void easeCameraTowardsCharacter(Camera& camera, Character& character, float deltaTime);
 }

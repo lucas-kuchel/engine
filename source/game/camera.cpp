@@ -1,5 +1,5 @@
 #include <game/camera.hpp>
-#include <game/player.hpp>
+#include <game/character.hpp>
 #include <game/settings.hpp>
 
 #include <renderer/resources/fence.hpp>
@@ -7,200 +7,87 @@
 #include <renderer/device.hpp>
 #include <renderer/queue.hpp>
 
+#include <cstring>
+
 #include <glm/gtc/matrix_transform.hpp>
 
 namespace game {
-    Camera::Camera(SettingsConfig& settings, renderer::Device& device, renderer::CommandBuffer& transferCommandBuffer, renderer::Queue& transferQueue, renderer::Swapchain& swapchain)
-        : device_(device), transferCommandBuffer_(transferCommandBuffer), transferQueue_(transferQueue), swapchain_(swapchain), settings_(settings) {
-        transferCommandBuffer_.beginCapture();
-
+    void createCamera(Camera& camera, renderer::Device& device, renderer::Buffer& stagingBuffer, std::uint64_t& stagingBufferOffset, renderer::CommandBuffer& transferBuffer) {
         std::array<glm::mat4, 2> matrices = {
-            projection_,
-            view_,
+            camera.projection,
+            camera.view,
         };
 
-        renderer::BufferCreateInfo cameraBufferCreateInfo = {
+        renderer::BufferCreateInfo bufferCreateInfo = {
             .device = device,
             .memoryType = renderer::MemoryType::DEVICE_LOCAL,
             .usageFlags = renderer::BufferUsageFlags::UNIFORM | renderer::BufferUsageFlags::TRANSFER_DESTINATION,
             .sizeBytes = matrices.size() * sizeof(glm::mat4),
         };
 
-        cameraBuffer_ = data::makeUnique<renderer::Buffer>(cameraBufferCreateInfo);
+        camera.buffer = data::makeUnique<renderer::Buffer>(bufferCreateInfo);
 
-        renderer::BufferCreateInfo cameraStagingBufferCreateInfo = {
-            .device = device,
-            .memoryType = renderer::MemoryType::HOST_VISIBLE,
-            .usageFlags = renderer::BufferUsageFlags::TRANSFER_SOURCE,
-            .sizeBytes = cameraBuffer_->size(),
-        };
+        auto stagingBufferData = stagingBuffer.map(camera.buffer->size(), stagingBufferOffset);
 
-        renderer::Buffer cameraStagingBuffer(cameraStagingBufferCreateInfo);
+        std::memcpy(stagingBufferData.data(), matrices.data(), camera.buffer->size());
 
-        auto cameraStagingBufferData = cameraStagingBuffer.map();
+        stagingBuffer.unmap();
 
-        std::memcpy(cameraStagingBufferData.data(), matrices.data(), cameraStagingBuffer.size());
-
-        cameraStagingBuffer.unmap();
-
-        renderer::BufferCopyRegion cameraBufferCopyRegion = {
-            .sourceOffsetBytes = 0,
+        renderer::BufferCopyRegion bufferCopyRegion = {
+            .sourceOffsetBytes = stagingBufferOffset,
             .destinationOffsetBytes = 0,
-            .sizeBytes = cameraStagingBuffer.size(),
+            .sizeBytes = camera.buffer->size(),
         };
 
-        transferCommandBuffer.copyBuffer(cameraStagingBuffer, cameraBuffer_.ref(), {cameraBufferCopyRegion});
+        stagingBufferOffset += camera.buffer->size();
 
-        renderer::DescriptorSetInputInfo bufferInputInfo = {
-            .type = renderer::DescriptorInputType::UNIFORM_BUFFER,
-            .stageFlags = renderer::DescriptorShaderStageFlags::VERTEX,
-            .count = 1,
-            .binding = 0,
-        };
-
-        renderer::DescriptorSetLayoutCreateInfo layoutCreateInfo = {
-            .device = device,
-            .inputs = {bufferInputInfo},
-        };
-
-        descriptorSetLayout_ = data::makeUnique<renderer::DescriptorSetLayout>(layoutCreateInfo);
-
-        renderer::DescriptorPoolSize bufferSize = {
-            .type = renderer::DescriptorInputType::UNIFORM_BUFFER,
-            .count = 1,
-        };
-
-        renderer::DescriptorPoolCreateInfo poolCreateInfo = {
-            .device = device,
-            .poolSizes = {bufferSize},
-            .maximumSetCount = 1,
-        };
-
-        descriptorPool_ = data::makeUnique<renderer::DescriptorPool>(poolCreateInfo);
-
-        renderer::DescriptorSetCreateInfo setCreateInfo = {
-            .layouts = {descriptorSetLayout_.ref()},
-        };
-
-        descriptorSets_ = descriptorPool_->allocateDescriptorSets(setCreateInfo);
-        descriptorSet_ = descriptorSets_.front();
-
-        renderer::DescriptorSetBufferBinding bufferBinding = {
-            .buffer = cameraBuffer_.ref(),
-            .offsetBytes = 0,
-            .rangeBytes = cameraBuffer_->size(),
-        };
-
-        renderer::DescriptorSetUpdateInfo imageSetUpdateInfo = {
-            .set = descriptorSet_.get(),
-            .inputType = renderer::DescriptorInputType::UNIFORM_BUFFER,
-            .binding = 0,
-            .arrayElement = 0,
-            .buffers = {bufferBinding},
-            .images = {},
-        };
-
-        descriptorPool_->updateDescriptorSets({imageSetUpdateInfo});
-
-        transferCommandBuffer_.endCapture();
-
-        renderer::Fence fence({device_, 0});
-
-        renderer::SubmitInfo submitInfo = {
-            .fence = fence,
-            .commandBuffers = {transferCommandBuffer_},
-            .waits = {},
-            .signals = {},
-            .waitFlags = {},
-        };
-
-        transferQueue_.submit(submitInfo);
-
-        device_.waitForFences({fence});
+        transferBuffer.copyBuffer(stagingBuffer, camera.buffer.ref(), {bufferCopyRegion});
     }
 
-    Camera::~Camera() {
-    }
+    void updateCamera(Camera& camera, renderer::Buffer& stagingBuffer, std::uint64_t& stagingBufferOffset, renderer::CommandBuffer& transferBuffer) {
+        float minExtent = static_cast<float>(std::min(camera.extent.x, camera.extent.y));
 
-    void Camera::slowMoveToPlayer(float deltaTime, const Player& player) {
-        glm::vec2 delta = player.position() - position_;
-        position_ += delta * settings_.camera.ease * deltaTime;
-    }
+        float halfSize = camera.scale * 0.5f;
 
-    void Camera::update() {
-        transferCommandBuffer_.beginCapture();
-
-        auto extent = swapchain_.extent();
-
-        float minExtent = static_cast<float>(std::min(extent.width, extent.height));
-
-        float halfSize = (screenSizeWorldUnits_ * 0.5f) / settings_.camera.zoom;
-
-        float halfWidth = halfSize * (static_cast<float>(extent.width) / minExtent);
-        float halfHeight = halfSize * (static_cast<float>(extent.height) / minExtent);
+        float halfWidth = halfSize * (static_cast<float>(camera.extent.x) / minExtent);
+        float halfHeight = halfSize * (static_cast<float>(camera.extent.y) / minExtent);
 
         float left = -halfWidth;
         float right = +halfWidth;
         float bottom = -halfHeight;
         float top = +halfHeight;
 
-        projection_ = glm::ortho(left, right, bottom, top);
+        camera.projection = glm::ortho(left, right, bottom, top);
 
-        glm::mat4 translation = glm::translate(glm::mat4(1.0f), glm::vec3(-position_, 0.0f));
-        glm::mat4 rotation = glm::rotate(glm::mat4(1.0f), rotation_, glm::vec3(0.0f, 0.0f, 1.0f));
+        glm::mat4 translation = glm::translate(glm::mat4(1.0f), glm::vec3(-camera.position, 0.0f));
+        glm::mat4 rotation = glm::rotate(glm::mat4(1.0f), camera.rotation, glm::vec3(0.0f, 0.0f, 1.0f));
 
-        view_ = rotation * translation;
+        camera.view = rotation * translation;
 
         std::array<glm::mat4, 2> matrices = {
-            projection_,
-            view_,
+            camera.projection,
+            camera.view,
         };
 
-        renderer::BufferCreateInfo cameraStagingBufferCreateInfo = {
-            .device = device_,
-            .memoryType = renderer::MemoryType::HOST_VISIBLE,
-            .usageFlags = renderer::BufferUsageFlags::TRANSFER_SOURCE,
-            .sizeBytes = cameraBuffer_->size(),
-        };
+        auto stagingBufferData = stagingBuffer.map(camera.buffer->size(), stagingBufferOffset);
 
-        renderer::Buffer cameraStagingBuffer(cameraStagingBufferCreateInfo);
+        std::memcpy(stagingBufferData.data(), matrices.data(), camera.buffer->size());
 
-        auto cameraStagingBufferData = cameraStagingBuffer.map();
+        stagingBuffer.unmap();
 
-        std::memcpy(cameraStagingBufferData.data(), matrices.data(), cameraStagingBuffer.size());
-
-        cameraStagingBuffer.unmap();
-
-        renderer::BufferCopyRegion cameraBufferCopyRegion = {
-            .sourceOffsetBytes = 0,
+        renderer::BufferCopyRegion bufferCopyRegion = {
+            .sourceOffsetBytes = stagingBufferOffset,
             .destinationOffsetBytes = 0,
-            .sizeBytes = cameraStagingBuffer.size(),
+            .sizeBytes = camera.buffer->size(),
         };
 
-        transferCommandBuffer_.copyBuffer(cameraStagingBuffer, cameraBuffer_.ref(), {cameraBufferCopyRegion});
+        stagingBufferOffset += camera.buffer->size();
 
-        transferCommandBuffer_.endCapture();
-
-        renderer::Fence fence({device_, 0});
-
-        renderer::SubmitInfo submitInfo = {
-            .fence = fence,
-            .commandBuffers = {transferCommandBuffer_},
-            .waits = {},
-            .signals = {},
-            .waitFlags = {},
-        };
-
-        transferQueue_.submit(submitInfo);
-
-        device_.waitForFences({fence});
+        transferBuffer.copyBuffer(stagingBuffer, camera.buffer.ref(), {bufferCopyRegion});
     }
 
-    renderer::DescriptorSet& Camera::descriptorSet() {
-        return descriptorSet_.get();
-    }
-
-    renderer::DescriptorSetLayout& Camera::descriptorSetLayout() {
-        return descriptorSetLayout_.ref();
+    void easeCameraTowardsCharacter(Camera& camera, Character& character, float deltaTime) {
+        glm::vec2 delta = character.position - camera.position;
+        camera.position += delta * camera.ease * deltaTime;
     }
 }

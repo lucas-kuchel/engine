@@ -13,10 +13,98 @@ namespace app {
         transferCommandBuffers_ = transferCommandPool_->allocateCommandBuffers(transferCommandBuffersCreateInfo);
         transferCommandBuffer_ = transferCommandBuffers_.front();
 
-        camera_ = data::makeUnique<game::Camera>(settings_, device_.ref(), transferCommandBuffer_.get(), transferQueue_.get(), swapchain_.ref());
-        player_ = data::makeUnique<game::Player>(settings_, device_.ref(), transferCommandBuffer_.get(), transferQueue_.get());
+        renderer::DescriptorSetInputInfo bufferInputInfo = {
+            .type = renderer::DescriptorInputType::UNIFORM_BUFFER,
+            .stageFlags = renderer::DescriptorShaderStageFlags::VERTEX,
+            .count = 1,
+            .binding = 0,
+        };
+
+        renderer::DescriptorSetLayoutCreateInfo layoutCreateInfo = {
+            .device = device_.ref(),
+            .inputs = {bufferInputInfo},
+        };
+
+        cameraDescriptorSetLayout_ = data::makeUnique<renderer::DescriptorSetLayout>(layoutCreateInfo);
+
+        renderer::DescriptorPoolSize bufferSize = {
+            .type = renderer::DescriptorInputType::UNIFORM_BUFFER,
+            .count = 1,
+        };
+
+        renderer::DescriptorPoolCreateInfo poolCreateInfo = {
+            .device = device_.ref(),
+            .poolSizes = {bufferSize},
+            .maximumSetCount = 1,
+        };
+
+        descriptorPool_ = data::makeUnique<renderer::DescriptorPool>(poolCreateInfo);
+
+        renderer::DescriptorSetCreateInfo setCreateInfo = {
+            .layouts = {cameraDescriptorSetLayout_.ref()},
+        };
+
+        descriptorSets_ = descriptorPool_->allocateDescriptorSets(setCreateInfo);
+        basicDescriptorSet_ = descriptorSets_[0];
+
+        renderer::BufferCreateInfo stagingBufferCreateInfo = {
+            .device = device_.ref(),
+            .memoryType = renderer::MemoryType::HOST_VISIBLE,
+            .usageFlags = renderer::BufferUsageFlags::TRANSFER_SOURCE,
+            .sizeBytes = 2048,
+        };
+
+        renderer::Buffer stagingBuffer(stagingBufferCreateInfo);
+
+        std::uint64_t stagingBufferOffset = 0;
+
+        transferCommandBuffer_->beginCapture();
+
+        playerCharacter_.speed = settings_.controls.speed;
+
+        playerController_.leftBinding = app::Key::A;
+        playerController_.rightBinding = app::Key::D;
+
+        playerCamera_.ease = settings_.camera.ease;
+        playerCamera_.scale = settings_.camera.scale;
+
+        game::createCharacter(playerCharacter_, device_.ref(), stagingBuffer, stagingBufferOffset, transferCommandBuffer_.get());
+        game::createCamera(playerCamera_, device_.ref(), stagingBuffer, stagingBufferOffset, transferCommandBuffer_.get());
+
+        transferCommandBuffer_->endCapture();
+
+        renderer::Fence fence({device_.ref(), 0});
+
+        renderer::SubmitInfo submitInfo = {
+            .fence = fence,
+            .commandBuffers = {transferCommandBuffer_.get()},
+            .waits = {},
+            .signals = {},
+            .waitFlags = {},
+        };
+
+        transferQueue_->submit(submitInfo);
+
+        device_->waitForFences({fence});
 
         createBasicPipelineResources();
+
+        renderer::DescriptorSetBufferBinding cameraBufferBinding = {
+            .buffer = playerCamera_.buffer.ref(),
+            .offsetBytes = 0,
+            .rangeBytes = playerCamera_.buffer->size(),
+        };
+
+        renderer::DescriptorSetUpdateInfo uniformBufferUpdateInfo = {
+            .set = basicDescriptorSet_.get(),
+            .inputType = renderer::DescriptorInputType::UNIFORM_BUFFER,
+            .binding = 0,
+            .arrayElement = 0,
+            .buffers = {cameraBufferBinding},
+            .images = {},
+        };
+
+        descriptorPool_->updateDescriptorSets({uniformBufferUpdateInfo});
 
         lastFrameTime_ = std::chrono::high_resolution_clock::now();
     }
@@ -30,10 +118,41 @@ namespace app {
 
         lastFrameTime_ = currentTime;
 
-        player_->update(deltaTime);
+        game::updateCharacter(playerCharacter_, deltaTime);
+        game::easeCameraTowardsCharacter(playerCamera_, playerCharacter_, deltaTime);
 
-        camera_->slowMoveToPlayer(deltaTime, player_.ref());
-        camera_->update();
+        renderer::BufferCreateInfo stagingBufferCreateInfo = {
+            .device = device_.ref(),
+            .memoryType = renderer::MemoryType::HOST_VISIBLE,
+            .usageFlags = renderer::BufferUsageFlags::TRANSFER_SOURCE,
+            .sizeBytes = 2048,
+        };
+
+        renderer::Buffer stagingBuffer(stagingBufferCreateInfo);
+
+        std::uint64_t stagingBufferOffset = 0;
+
+        transferCommandBuffer_->beginCapture();
+
+        playerCamera_.extent = {swapchain_->extent().width, swapchain_->extent().height};
+
+        game::updateCamera(playerCamera_, stagingBuffer, stagingBufferOffset, transferCommandBuffer_.get());
+
+        transferCommandBuffer_->endCapture();
+
+        renderer::Fence fence({device_.ref(), 0});
+
+        renderer::SubmitInfo submitInfo = {
+            .fence = fence,
+            .commandBuffers = {transferCommandBuffer_.get()},
+            .waits = {},
+            .signals = {},
+            .waitFlags = {},
+        };
+
+        transferQueue_->submit(submitInfo);
+
+        device_->waitForFences({fence});
     }
 
     void Program::render() {
@@ -42,8 +161,6 @@ namespace app {
         auto& inFlightFence = inFlightFences_[frameCounter_.index];
         auto& acquireSemaphore = acquireSemaphores_[frameCounter_.index];
         auto& presentSemaphore = presentSemaphores_[imageCounter_.index];
-
-        commandBuffer.beginCapture();
 
         data::Rect2D<std::int32_t, std::uint32_t> renderArea = {
             .offset = {0, 0},
@@ -68,8 +185,6 @@ namespace app {
             .stencilClearValue = {},
         };
 
-        commandBuffer.beginRenderPass(renderPassBeginInfo);
-
         renderer::Viewport viewport = {
             .position = {
                 .x = 0.0,
@@ -90,19 +205,16 @@ namespace app {
             .extent = swapchain_->extent(),
         };
 
+        commandBuffer.beginCapture();
+        commandBuffer.beginRenderPass(renderPassBeginInfo);
         commandBuffer.bindPipeline(basicPipeline_.get());
 
         commandBuffer.setPipelineViewports({viewport}, 0);
         commandBuffer.setPipelineScissors({scissor}, 0);
 
-        data::ReferenceList<renderer::DescriptorSet> sets = {
-            player_->descriptorSet(),
-            camera_->descriptorSet(),
-        };
+        commandBuffer.bindDescriptorSets(renderer::DeviceOperation::GRAPHICS, basicPipelineLayout_.ref(), 0, {basicDescriptorSet_.get()});
 
-        commandBuffer.bindDescriptorSets(renderer::DeviceOperation::GRAPHICS, basicPipelineLayout_.ref(), 0, sets);
-
-        player_->render(commandBuffer, basicPipelineLayout_.ref());
+        game::renderCharacter(playerCharacter_, commandBuffer, basicPipelineLayout_.ref());
 
         commandBuffer.endRenderPass();
         commandBuffer.endCapture();
@@ -155,11 +267,13 @@ namespace app {
         renderer::PipelineLayoutCreateInfo pipelineLayoutCreateInfo = {
             .device = device_.ref(),
             .inputLayouts = {
-                player_->descriptorSetLayout(),
-                camera_->descriptorSetLayout(),
+                cameraDescriptorSetLayout_.ref(),
             },
             .pushConstants = {
-                player_->pushConstant(),
+                renderer::PushConstantInputInfo{
+                    .sizeBytes = sizeof(glm::mat4),
+                    .stageFlags = renderer::DescriptorShaderStageFlags::VERTEX,
+                },
             },
         };
 
@@ -186,7 +300,7 @@ namespace app {
                     renderer::VertexInputBindingDescription{
                         .inputRate = renderer::VertexInputRate::PER_VERTEX,
                         .binding = 0,
-                        .strideBytes = sizeof(game::Vertex),
+                        .strideBytes = sizeof(game::CharacterVertex),
                     },
                 },
                 .attributes = {
@@ -204,7 +318,7 @@ namespace app {
                 },
             },
             .inputAssembly = {
-                .topology = renderer::PolygonTopology::TRIANGLE_STRIP,
+                .topology = renderer::PolygonTopology::TRIANGLE,
                 .primitiveRestart = false,
             },
             .viewportCount = 1,

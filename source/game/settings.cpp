@@ -1,73 +1,67 @@
 #include <game/settings.hpp>
 
-#include <filesystem>
 #include <fstream>
 
-namespace game {
-    SettingsManager::SettingsManager(const std::string& path)
-        : path_(path) {
-        if (!std::filesystem::exists(path_)) {
-            throw std::runtime_error(std::format("Construction failed: game::SettingsManager: File does not exist: {}", path_));
-        }
-    }
+#include <nlohmann/json.hpp>
 
-    void SettingsManager::load(SettingsConfig& config) {
-        std::ifstream file(path_);
+namespace game {
+    void loadSettings(Settings& settings) {
+        std::ifstream file("config/settings.json");
 
         if (!file) {
-            throw std::runtime_error(std::format("Call failed: game::SettingsManager::load(): File could not be opened for reading: {}", path_));
+            throw std::runtime_error("Call failed: game::loadSettings(): Failed to open file: config/settings.json");
         }
 
         std::string contents(std::istreambuf_iterator<char>(file), {});
         nlohmann::json json = nlohmann::json::parse(contents);
 
-        config.display.size.x = json["display"]["width"].get<std::uint32_t>();
-        config.display.size.y = json["display"]["height"].get<std::uint32_t>();
-        config.display.resizable = json["display"]["resizable"].get<bool>();
+        settings.display.size.x = json["display"]["width"].get<std::uint32_t>();
+        settings.display.size.y = json["display"]["height"].get<std::uint32_t>();
+        settings.display.resizable = json["display"]["resizable"].get<bool>();
 
-        config.graphics.imageCount = json["graphics"]["imageCount"].get<std::uint32_t>();
-        config.graphics.renderAheadLimit = json["graphics"]["renderAheadLimit"].get<std::uint32_t>();
-        config.graphics.vsync = json["graphics"]["vsync"].get<bool>();
+        settings.graphics.imageCount = json["graphics"]["imageCount"].get<std::uint32_t>();
+        settings.graphics.renderAheadLimit = json["graphics"]["renderAheadLimit"].get<std::uint32_t>();
+        settings.graphics.vsync = json["graphics"]["vsync"].get<bool>();
 
-        config.controls.speed = json["controls"]["speed"].get<float>();
+        settings.controls.speed = json["controls"]["speed"].get<float>();
 
-        config.camera.zoom = json["camera"]["zoom"].get<float>();
-        config.camera.ease = json["camera"]["ease"].get<float>();
+        settings.camera.scale = json["camera"]["scale"].get<float>();
+        settings.camera.ease = json["camera"]["ease"].get<float>();
 
         std::string displayMode = json["display"]["mode"].get<std::string>();
 
         if (displayMode == "windowed") {
-            config.display.mode = app::WindowVisibility::WINDOWED;
+            settings.display.mode = app::WindowVisibility::WINDOWED;
         }
         else if (displayMode == "fullscreen") {
-            config.display.mode = app::WindowVisibility::FULLSCREEN;
+            settings.display.mode = app::WindowVisibility::FULLSCREEN;
         }
         else {
-            throw std::runtime_error(std::format("Call failed: game::SettingsManager::load(): Bad value for setting \"display.mode\": {}", path_));
+            throw std::runtime_error("Call failed: game::loadSettings(): Bad value for setting \"display.mode\": config/settings.json");
         }
     }
 
-    void SettingsManager::save(const SettingsConfig& config) {
+    void saveSettings(const Settings& settings) {
         nlohmann::json json;
 
-        json["display"]["width"] = config.display.size.x;
-        json["display"]["height"] = config.display.size.y;
-        json["display"]["resizable"] = config.display.resizable;
-        json["display"]["mode"] = (config.display.mode == app::WindowVisibility::FULLSCREEN) ? "fullscreen" : "windowed";
+        json["display"]["width"] = settings.display.size.x;
+        json["display"]["height"] = settings.display.size.y;
+        json["display"]["resizable"] = settings.display.resizable;
+        json["display"]["mode"] = (settings.display.mode == app::WindowVisibility::FULLSCREEN) ? "fullscreen" : "windowed";
 
-        json["graphics"]["imageCount"] = config.graphics.imageCount;
-        json["graphics"]["renderAheadLimit"] = config.graphics.renderAheadLimit;
-        json["graphics"]["vsync"] = config.graphics.vsync;
+        json["graphics"]["imageCount"] = settings.graphics.imageCount;
+        json["graphics"]["renderAheadLimit"] = settings.graphics.renderAheadLimit;
+        json["graphics"]["vsync"] = settings.graphics.vsync;
 
-        json["controls"]["speed"] = config.controls.speed;
+        json["controls"]["speed"] = settings.controls.speed;
 
-        json["camera"]["zoom"] = config.camera.zoom;
-        json["camera"]["ease"] = config.camera.ease;
+        json["camera"]["scale"] = settings.camera.scale;
+        json["camera"]["ease"] = settings.camera.ease;
 
-        std::ofstream file(path_, std::ios::trunc);
+        std::ofstream file("config/settings.json", std::ios::trunc);
 
         if (!file) {
-            throw std::runtime_error(std::format("Call failed: game::SettingsManager::save(): File could not be opened for writing: {}", path_));
+            throw std::runtime_error("Call failed: game::saveSettings(): File could not be opened for writing: config/settings.json");
         }
 
         file << json.dump(4);

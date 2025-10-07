@@ -2,9 +2,7 @@
 
 namespace app {
     Program::Program() {
-        settingsManager_ = data::makeUnique<game::SettingsManager>("config/settings.json");
-
-        settingsManager_->load(settings_);
+        game::loadSettings(settings_);
 
         context_ = data::makeUnique<Context>();
 
@@ -289,11 +287,11 @@ namespace app {
                     break;
 
                 case WindowEventType::KEY_PRESSED:
-                    player_->beginMove(event.info.keyPress);
+                    game::updateCharacterVelocity(playerCharacter_, playerController_, event.info.keyPress);
                     break;
 
                 case WindowEventType::KEY_RELEASED:
-                    player_->stopMove(event.info.keyRelease);
+                    game::updateCharacterVelocity(playerCharacter_, playerController_, event.info.keyRelease);
                     break;
 
                 default:

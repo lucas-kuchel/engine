@@ -22,8 +22,11 @@
 #include <renderer/resources/shader.hpp>
 
 #include <game/camera.hpp>
-#include <game/player.hpp>
+#include <game/character.hpp>
+#include <game/controller.hpp>
 #include <game/settings.hpp>
+
+#include <chrono>
 
 #include <glm/glm.hpp>
 
@@ -63,12 +66,15 @@ namespace app {
         data::Unique<renderer::CommandPool> graphicsCommandPool_;
         data::Unique<renderer::CommandPool> transferCommandPool_;
         data::Unique<renderer::PipelineLayout> basicPipelineLayout_;
+        data::Unique<renderer::DescriptorPool> descriptorPool_;
+        data::Unique<renderer::DescriptorSetLayout> cameraDescriptorSetLayout_;
 
         data::NullableRef<renderer::Queue> graphicsQueue_;
         data::NullableRef<renderer::Queue> transferQueue_;
         data::NullableRef<renderer::Queue> presentQueue_;
         data::NullableRef<renderer::Pipeline> basicPipeline_;
         data::NullableRef<renderer::CommandBuffer> transferCommandBuffer_;
+        data::NullableRef<renderer::DescriptorSet> basicDescriptorSet_;
 
         std::vector<renderer::Fence> inFlightFences_;
         std::vector<renderer::Semaphore> acquireSemaphores_;
@@ -77,17 +83,17 @@ namespace app {
         std::vector<renderer::CommandBuffer> commandBuffers_;
         std::vector<renderer::Pipeline> pipelines_;
         std::vector<renderer::CommandBuffer> transferCommandBuffers_;
+        std::vector<renderer::DescriptorSet> descriptorSets_;
 
         Counter imageCounter_;
         Counter frameCounter_;
 
         bool explicitSwapchainRecreate_ = false;
 
-        data::Unique<game::SettingsManager> settingsManager_;
-        data::Unique<game::Player> player_;
-        data::Unique<game::Camera> camera_;
-
-        game::SettingsConfig settings_;
+        game::Character playerCharacter_;
+        game::Controller playerController_;
+        game::Camera playerCamera_;
+        game::Settings settings_;
 
         std::chrono::time_point<std::chrono::high_resolution_clock> lastFrameTime_;
     };

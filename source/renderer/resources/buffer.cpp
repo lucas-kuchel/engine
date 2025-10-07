@@ -6,11 +6,11 @@
 namespace renderer {
 
     void Buffer::unmap() {
-        if (!hostCoherent_) {
-            vmaFlushAllocation(device_->getVmaAllocator(), memory_, mapOffset_, mapSize_);
-        }
-
         if (isMapped_) {
+            if (!hostCoherent_) {
+                vmaFlushAllocation(device_->getVmaAllocator(), memory_, mapOffset_, mapSize_);
+            }
+
             vmaUnmapMemory(device_->getVmaAllocator(), memory_);
 
             isMapped_ = false;
@@ -28,22 +28,26 @@ namespace renderer {
 
         isMapped_ = true;
 
-        auto& properties = device_->getInstance().getVkPhysicalDeviceProperties();
-
-        VkDeviceSize atomSize = properties.limits.nonCoherentAtomSize;
-
-        mapOffset_ = offset & ~(atomSize - 1);
-        mapSize_ = ((mapOffset_ + size + atomSize - 1) & ~(atomSize - 1)) - mapOffset_;
-
         if (!hostCoherent_) {
+            auto& properties = device_->getInstance().getVkPhysicalDeviceProperties();
+
+            VkDeviceSize atomSize = properties.limits.nonCoherentAtomSize;
+
+            mapOffset_ = offset & ~(atomSize - 1);
+            mapSize_ = ((mapOffset_ + size + atomSize - 1) & ~(atomSize - 1)) - mapOffset_;
+
             vmaInvalidateAllocation(device_->getVmaAllocator(), memory_, mapOffset_, mapSize_);
+        }
+        else {
+            mapOffset_ = offset;
+            mapSize_ = size;
         }
 
         void* data = nullptr;
 
         vmaMapMemory(device_->getVmaAllocator(), memory_, &data);
 
-        return {reinterpret_cast<std::uint8_t*>(data) + mapOffset_, mapSize_};
+        return {reinterpret_cast<std::uint8_t*>(data) + offset, size};
     }
 
     Buffer::Buffer(const BufferCreateInfo& createInfo)
