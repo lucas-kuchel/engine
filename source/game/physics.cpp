@@ -8,6 +8,15 @@ namespace game {
         body.velocity *= 1.0f / (1.0f + airResistance * deltaTime);
         body.velocity.x *= 1.0f / (1.0f + friction * deltaTime);
 
+        const float epsilon = 0.001f;
+        if (std::abs(body.velocity.x) < epsilon) {
+            body.velocity.x = 0.0f;
+        }
+
+        if (std::abs(body.velocity.y) < epsilon) {
+            body.velocity.y = 0.0f;
+        }
+
         body.position += body.velocity * deltaTime;
         body.acceleration = {0.0f, 0.0f};
     }

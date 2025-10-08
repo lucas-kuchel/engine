@@ -89,14 +89,7 @@ namespace game {
         commandBuffer.draw(4, static_cast<std::uint32_t>(instances.size()), 0, 0);
     }
 
-    void updateCharacter(Character& character, const MovableBody& body, const BoxCollisionResult& collisionResult) {
-        character.accelerating = body.acceleration != glm::vec2(0.0f, 0.0f);
-        character.airborne = !collisionResult.collided;
-
-        if (character.sprinting) {
-            character.speed *= (1.0f / character.sprintMultiplier);
-        }
-
-        character.sprinting = false;
+    float currentCharacterSpeed(const Character& character) {
+        return character.sprinting ? character.baseSpeed * character.sprintMultiplier : character.baseSpeed;
     }
 }

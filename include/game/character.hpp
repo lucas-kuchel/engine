@@ -37,13 +37,11 @@ namespace game {
     };
 
     struct Character {
-        float speed = 0.0f;
+        float baseSpeed = 0.0f;
         float sprintMultiplier = 0.0f;
         float jumpForce = 0.0f;
 
-        bool accelerating = false;
         bool sprinting = false;
-        bool airborne = false;
 
         CharacterFacing facing = CharacterFacing::RIGHT;
     };
@@ -52,5 +50,5 @@ namespace game {
     void updateCharacterInstances(CharacterMesh& mesh, std::span<CharacterInstance> instances, renderer::Buffer& stagingBuffer, std::uint64_t& stagingBufferOffset, renderer::CommandBuffer& transferBuffer);
     void renderCharacterInstances(CharacterMesh& mesh, std::span<CharacterInstance> instances, renderer::CommandBuffer& commandBuffer);
 
-    void updateCharacter(Character& character, const MovableBody& body, const BoxCollisionResult& collisionResult);
+    float currentCharacterSpeed(const Character& character);
 }

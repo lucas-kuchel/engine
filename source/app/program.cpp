@@ -1,6 +1,7 @@
 #include <app/program.hpp>
 
 #include <fstream>
+#include <print>
 
 #include <stb_image.h>
 
@@ -56,9 +57,9 @@ namespace app {
         camera_.scale = settings_.camera.scale;
 
         characters_.push_back(game::Character{
-            .speed = 3.0,
+            .baseSpeed = 3.0,
             .sprintMultiplier = 1.75f,
-            .jumpForce = 7.0f,
+            .jumpForce = 8.0f,
         });
 
         characterInstances_.push_back(game::CharacterInstance{
@@ -84,9 +85,9 @@ namespace app {
         characterCollisionResults_.emplace_back();
 
         characters_.push_back(game::Character{
-            .speed = 4.5,
+            .baseSpeed = 4.5,
             .sprintMultiplier = 1.2f,
-            .jumpForce = 5.5f,
+            .jumpForce = 9.5f,
         });
 
         characterInstances_.push_back(game::CharacterInstance{
@@ -202,15 +203,17 @@ namespace app {
         bool isColliding = focusedCharacterCollisionResult.collided;
         bool bottomCollision = focusedCharacterCollisionResult.bottom;
 
-        if (sprintKeyPressed && !focusedCharacter.sprinting) {
+        if (sprintKeyPressed) {
             focusedCharacter.sprinting = true;
-            focusedCharacter.speed *= focusedCharacter.sprintMultiplier;
+        }
+        else {
+            focusedCharacter.sprinting = false;
         }
 
         if (leftKeyPressed) {
             float multiplier = 1.0f;
 
-            if (focusedCharacter.airborne) {
+            if (!focusedCharacterCollisionResult.bottom) {
                 multiplier = 0.25f;
             }
 
@@ -219,14 +222,13 @@ namespace app {
                 focusedCharacter.facing = game::CharacterFacing::LEFT;
             }
 
-            focusedCharacterMovableBody.acceleration.x -= multiplier * focusedCharacter.speed;
-            focusedCharacter.accelerating = true;
+            focusedCharacterMovableBody.acceleration.x -= multiplier * game::currentCharacterSpeed(focusedCharacter);
         }
 
         if (rightKeyPressed) {
             float multiplier = 1.0f;
 
-            if (focusedCharacter.airborne) {
+            if (!focusedCharacterCollisionResult.bottom) {
                 multiplier = 0.25f;
             }
 
@@ -235,11 +237,10 @@ namespace app {
                 focusedCharacter.facing = game::CharacterFacing::RIGHT;
             }
 
-            focusedCharacterMovableBody.acceleration.x += multiplier * focusedCharacter.speed;
-            focusedCharacter.accelerating = true;
+            focusedCharacterMovableBody.acceleration.x += multiplier * game::currentCharacterSpeed(focusedCharacter);
         }
 
-        if (jumpKeyPressed && isColliding && bottomCollision && !focusedCharacter.airborne) {
+        if (jumpKeyPressed && isColliding && bottomCollision && focusedCharacterCollisionResult.bottom) {
             focusedCharacterMovableBody.velocity.y += focusedCharacter.jumpForce;
         }
 
@@ -255,12 +256,18 @@ namespace app {
         for (std::size_t i = 0; i < characters_.size(); i++) {
             float friction = 0.0f;
 
-            if (characterCollisionResults_[i].collided && !characters_[i].accelerating) {
+            const glm::vec2& acceleration = characterMovableBodies_[i].acceleration;
+            const glm::vec2& velocity = characterMovableBodies_[i].velocity;
+
+            bool accelerating = glm::length(acceleration) > 0.0f;
+            bool reversing = glm::length(velocity) > 0.0f && glm::length(acceleration) > 0.0f && glm::dot(velocity, acceleration) < 0.0f;
+            bool moving = glm::length(velocity) > 0.0f;
+
+            if (characterCollisionResults_[i].collided && moving && (!accelerating || reversing)) {
                 friction = (characterCollisionResults_[i].other.get().physics.friction + characterColliders_[i].physics.friction) * 0.5f;
             }
 
             game::updateMovement(characterMovableBodies_[i], deltaTime, map_.physics.gravity, friction, map_.physics.airResistance);
-            game::updateCharacter(characters_[i], characterMovableBodies_[i], characterCollisionResults_[i]);
 
             characterInstances_[i].position = glm::vec3(characterMovableBodies_[i].position, 0.0f);
             characterColliders_[i].position = characterMovableBodies_[i].position;
