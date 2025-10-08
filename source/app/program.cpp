@@ -1,6 +1,7 @@
 #include <app/program.hpp>
 
 #include <fstream>
+#include <print>
 
 #include <stb_image.h>
 
@@ -51,25 +52,79 @@ namespace app {
             .device = device_.ref(),
             .memoryType = renderer::MemoryType::HOST_VISIBLE,
             .usageFlags = renderer::BufferUsageFlags::TRANSFER_SOURCE,
-            .sizeBytes = 2048,
+            .sizeBytes = 16 * 1024 * 1024,
         };
 
-        renderer::Buffer stagingBuffer(stagingBufferCreateInfo);
+        stagingBuffer_ = data::makeUnique<renderer::Buffer>(stagingBufferCreateInfo);
+
+        controller_.leftBinding = app::Key::A;
+        controller_.rightBinding = app::Key::D;
+        controller_.jumpBinding = app::Key::SPACE;
+
+        camera_.ease = settings_.camera.ease;
+        camera_.scale = settings_.camera.scale;
+
+        characters_.push_back(game::Character{
+            .speed = 3.0,
+        });
+
+        characterInstances_.push_back(game::CharacterInstance{
+            .position = {0.0f, 0.0f, 0.0f},
+            .scale = {1.0f, 1.0f},
+            .texOffset = {0.0f, 0.0f},
+        });
+
+        characterMovableBodies_.push_back(game::MovableBody{
+            .position = {0.0f, 0.0f},
+            .velocity = {0.0f, 0.0f},
+            .acceleration = {0.0f, 0.0f},
+        });
+
+        characterColliders_.push_back(game::BoxCollider{
+            .physics = {
+                .friction = 1.00f,
+            },
+            .position = {0.0f, 0.0f},
+            .extent = {1.0f, 1.0f},
+        });
+
+        characterCollisionResults_.emplace_back();
+
+        characters_.push_back(game::Character{
+            .speed = 6.0,
+        });
+
+        characterInstances_.push_back(game::CharacterInstance{
+            .position = {5.0f, 0.0f, 0.0f},
+            .scale = {1.0f, 1.0f},
+            .texOffset = {0.0f, 0.0f},
+        });
+
+        characterMovableBodies_.push_back(game::MovableBody{
+            .position = {5.0f, 0.0f},
+            .velocity = {0.0f, 0.0f},
+            .acceleration = {0.0f, 0.0f},
+        });
+
+        characterColliders_.push_back(game::BoxCollider{
+            .physics = {
+                .friction = 1.00f,
+            },
+            .position = {5.0f, 0.0f},
+            .extent = {1.0f, 1.0f},
+        });
+
+        characterCollisionResults_.emplace_back();
+
+        game::loadMapFromFile(map_, "assets/maps/map0.json");
 
         std::uint64_t stagingBufferOffset = 0;
 
         transferCommandBuffer_->beginCapture();
 
-        playerCharacter_.speed = settings_.controls.speed;
-
-        playerController_.leftBinding = app::Key::A;
-        playerController_.rightBinding = app::Key::D;
-
-        playerCamera_.ease = settings_.camera.ease;
-        playerCamera_.scale = settings_.camera.scale;
-
-        game::createCharacter(playerCharacter_, device_.ref(), stagingBuffer, stagingBufferOffset, transferCommandBuffer_.get());
-        game::createCamera(playerCamera_, device_.ref(), stagingBuffer, stagingBufferOffset, transferCommandBuffer_.get());
+        game::createMap(tileMesh_, map_, device_.ref(), stagingBuffer_.ref(), stagingBufferOffset, transferCommandBuffer_.get());
+        game::createCharacters(characterMesh_, characterInstances_, device_.ref(), stagingBuffer_.ref(), stagingBufferOffset, transferCommandBuffer_.get());
+        game::createCamera(camera_, device_.ref(), stagingBuffer_.ref(), stagingBufferOffset, transferCommandBuffer_.get());
 
         transferCommandBuffer_->endCapture();
 
@@ -90,9 +145,9 @@ namespace app {
         createBasicPipelineResources();
 
         renderer::DescriptorSetBufferBinding cameraBufferBinding = {
-            .buffer = playerCamera_.buffer.ref(),
+            .buffer = camera_.uniformBuffer.ref(),
             .offsetBytes = 0,
-            .rangeBytes = playerCamera_.buffer->size(),
+            .rangeBytes = camera_.uniformBuffer->size(),
         };
 
         renderer::DescriptorSetUpdateInfo uniformBufferUpdateInfo = {
@@ -110,6 +165,8 @@ namespace app {
     }
 
     void Program::update() {
+        std::uint64_t stagingBufferOffset = 0;
+
         std::chrono::time_point<std::chrono::high_resolution_clock> currentTime = std::chrono::high_resolution_clock::now();
 
         std::chrono::duration<float> delta = currentTime - lastFrameTime_;
@@ -118,25 +175,59 @@ namespace app {
 
         lastFrameTime_ = currentTime;
 
-        game::updateCharacter(playerCharacter_, deltaTime);
-        game::easeCameraTowardsCharacter(playerCamera_, playerCharacter_, deltaTime);
-
-        renderer::BufferCreateInfo stagingBufferCreateInfo = {
-            .device = device_.ref(),
-            .memoryType = renderer::MemoryType::HOST_VISIBLE,
-            .usageFlags = renderer::BufferUsageFlags::TRANSFER_SOURCE,
-            .sizeBytes = 2048,
-        };
-
-        renderer::Buffer stagingBuffer(stagingBufferCreateInfo);
-
-        std::uint64_t stagingBufferOffset = 0;
+        camera_.extent = {swapchain_->extent().width, swapchain_->extent().height};
 
         transferCommandBuffer_->beginCapture();
 
-        playerCamera_.extent = {swapchain_->extent().width, swapchain_->extent().height};
+        for (auto& character : characters_) {
+            character.accelerating = false;
+        }
 
-        game::updateCamera(playerCamera_, stagingBuffer, stagingBufferOffset, transferCommandBuffer_.get());
+        if (keysHeld_[keyIndex(controller_.leftBinding)]) {
+            characterMovableBodies_[focusedCharacterIndex_].acceleration.x -= 1.0f * characters_[focusedCharacterIndex_].speed;
+            characters_[focusedCharacterIndex_].accelerating = true;
+        }
+
+        if (keysHeld_[keyIndex(controller_.rightBinding)]) {
+            characterMovableBodies_[focusedCharacterIndex_].acceleration.x += 1.0f * characters_[focusedCharacterIndex_].speed;
+            characters_[focusedCharacterIndex_].accelerating = true;
+        }
+
+        if (keysHeld_[keyIndex(controller_.jumpBinding)] && characterCollisionResults_[focusedCharacterIndex_].collided) {
+            characterMovableBodies_[focusedCharacterIndex_].acceleration.y += 1500.0f;
+        }
+
+        if (keysPressed_[keyIndex(Key::TAB)]) {
+            if (focusedCharacterIndex_ + 1 == characters_.size()) {
+                focusedCharacterIndex_ = 0;
+            }
+            else {
+                focusedCharacterIndex_++;
+            }
+        }
+
+        for (std::size_t i = 0; i < characters_.size(); i++) {
+            float friction = 0.0f;
+
+            if (characterCollisionResults_[i].collided && !characters_[i].accelerating) {
+                friction = (characterCollisionResults_[i].other.get().physics.friction + characterColliders_[i].physics.friction) * 0.5f;
+            }
+
+            std::println("character {} is accelerating? {}", i, characters_[i].accelerating);
+
+            game::updateMovement(characterMovableBodies_[i], deltaTime, map_.physics.gravity, friction, map_.physics.airResistance);
+
+            characterInstances_[i].position = glm::vec3(characterMovableBodies_[i].position, 0.0f);
+            characterColliders_[i].position = characterMovableBodies_[i].position;
+        }
+
+        game::resolveMapCollisions(map_, characterMovableBodies_, characterColliders_, characterCollisionResults_);
+        game::updateMap(tileMesh_, map_, stagingBuffer_.ref(), stagingBufferOffset, transferCommandBuffer_.get());
+
+        game::updateCharacters(characterMesh_, characterInstances_, stagingBuffer_.ref(), stagingBufferOffset, transferCommandBuffer_.get());
+
+        game::easeCameraTowards(camera_, characterMovableBodies_[focusedCharacterIndex_].position, deltaTime);
+        game::updateCamera(camera_, stagingBuffer_.ref(), stagingBufferOffset, transferCommandBuffer_.get());
 
         transferCommandBuffer_->endCapture();
 
@@ -214,7 +305,9 @@ namespace app {
 
         commandBuffer.bindDescriptorSets(renderer::DeviceOperation::GRAPHICS, basicPipelineLayout_.ref(), 0, {basicDescriptorSet_.get()});
 
-        game::renderCharacter(playerCharacter_, commandBuffer, basicPipelineLayout_.ref());
+        game::renderMap(tileMesh_, map_, commandBuffer);
+
+        game::renderCharacters(characterMesh_, characterInstances_, commandBuffer);
 
         commandBuffer.endRenderPass();
         commandBuffer.endCapture();
@@ -269,12 +362,7 @@ namespace app {
             .inputLayouts = {
                 cameraDescriptorSetLayout_.ref(),
             },
-            .pushConstants = {
-                renderer::PushConstantInputInfo{
-                    .sizeBytes = sizeof(glm::mat4),
-                    .stageFlags = renderer::DescriptorShaderStageFlags::VERTEX,
-                },
-            },
+            .pushConstants = {},
         };
 
         basicPipelineLayout_ = data::makeUnique<renderer::PipelineLayout>(pipelineLayoutCreateInfo);
@@ -302,23 +390,42 @@ namespace app {
                         .binding = 0,
                         .strideBytes = sizeof(game::CharacterVertex),
                     },
+                    renderer::VertexInputBindingDescription{
+                        .inputRate = renderer::VertexInputRate::PER_INSTANCE,
+                        .binding = 1,
+                        .strideBytes = sizeof(game::CharacterInstance),
+                    },
                 },
                 .attributes = {
                     renderer::VertexAttributeDescription{
                         .format = renderer::VertexAttributeFormat::R32G32_FLOAT,
                         .binding = 0,
                         .location = 0,
-
                     },
                     renderer::VertexAttributeDescription{
                         .format = renderer::VertexAttributeFormat::R32G32_FLOAT,
                         .binding = 0,
                         .location = 1,
                     },
+                    renderer::VertexAttributeDescription{
+                        .format = renderer::VertexAttributeFormat::R32G32B32_FLOAT,
+                        .binding = 1,
+                        .location = 2,
+                    },
+                    renderer::VertexAttributeDescription{
+                        .format = renderer::VertexAttributeFormat::R32G32_FLOAT,
+                        .binding = 1,
+                        .location = 3,
+                    },
+                    renderer::VertexAttributeDescription{
+                        .format = renderer::VertexAttributeFormat::R32G32_FLOAT,
+                        .binding = 1,
+                        .location = 4,
+                    },
                 },
             },
             .inputAssembly = {
-                .topology = renderer::PolygonTopology::TRIANGLE,
+                .topology = renderer::PolygonTopology::TRIANGLE_STRIP,
                 .primitiveRestart = false,
             },
             .viewportCount = 1,

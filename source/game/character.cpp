@@ -1,5 +1,6 @@
 #include <game/character.hpp>
 #include <game/controller.hpp>
+#include <game/physics.hpp>
 #include <game/settings.hpp>
 
 #include <renderer/device.hpp>
@@ -14,21 +15,12 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 namespace game {
-    void createCharacter(Character& character, renderer::Device& device, renderer::Buffer& stagingBuffer, std::uint64_t& stagingBufferOffset, renderer::CommandBuffer& transferBuffer) {
+    void createCharacters(CharacterMesh& mesh, std::span<CharacterInstance> instances, renderer::Device& device, renderer::Buffer& stagingBuffer, std::uint64_t& stagingBufferOffset, renderer::CommandBuffer& transferBuffer) {
         std::array<CharacterVertex, 4> vertices = {
-            CharacterVertex({0.5, -1.0}, {1.0, 0.0}),
-            CharacterVertex({-0.5, -1.0}, {0.0, 0.0}),
-            CharacterVertex({-0.5, 1.0}, {0.0, 2.0}),
-            CharacterVertex({0.5, 1.0}, {1.0, 2.0}),
-        };
-
-        std::array<std::uint32_t, 6> indices = {
-            0,
-            1,
-            2,
-            0,
-            2,
-            3,
+            CharacterVertex({0.5, -0.5}, {1.0, 0.0}),
+            CharacterVertex({-0.5, -0.5}, {0.0, 0.0}),
+            CharacterVertex({0.5, 0.5}, {1.0, 1.0}),
+            CharacterVertex({-0.5, 0.5}, {0.0, 1.0}),
         };
 
         renderer::BufferCreateInfo vertexBufferCreateInfo = {
@@ -38,79 +30,77 @@ namespace game {
             .sizeBytes = vertices.size() * sizeof(CharacterVertex),
         };
 
-        renderer::BufferCreateInfo indexBufferCreateInfo = {
+        renderer::BufferCreateInfo instanceBufferCreateInfo = {
             .device = device,
             .memoryType = renderer::MemoryType::DEVICE_LOCAL,
-            .usageFlags = renderer::BufferUsageFlags::INDEX | renderer::BufferUsageFlags::TRANSFER_DESTINATION,
-            .sizeBytes = indices.size() * sizeof(std::uint32_t),
+            .usageFlags = renderer::BufferUsageFlags::VERTEX | renderer::BufferUsageFlags::TRANSFER_DESTINATION,
+            .sizeBytes = instances.size() * sizeof(CharacterInstance),
         };
 
-        character.vertexBuffer = data::makeUnique<renderer::Buffer>(vertexBufferCreateInfo);
-        character.indexBuffer = data::makeUnique<renderer::Buffer>(indexBufferCreateInfo);
+        mesh.vertexBuffer = data::makeUnique<renderer::Buffer>(vertexBufferCreateInfo);
+        mesh.instanceBuffer = data::makeUnique<renderer::Buffer>(instanceBufferCreateInfo);
 
-        auto stagingBufferData = stagingBuffer.map(character.vertexBuffer->size() + character.indexBuffer->size(), stagingBufferOffset);
+        std::uint64_t totalSize = mesh.vertexBuffer->size() + mesh.instanceBuffer->size();
+        std::span<std::uint8_t> stagingBufferData = stagingBuffer.map(totalSize, stagingBufferOffset);
 
-        std::memcpy(stagingBufferData.data(), vertices.data(), character.vertexBuffer->size());
-        std::memcpy(stagingBufferData.data() + character.vertexBuffer->size(), indices.data(), character.indexBuffer->size());
+        std::memcpy(stagingBufferData.data(), vertices.data(), mesh.vertexBuffer->size());
+        std::memcpy(stagingBufferData.data() + mesh.vertexBuffer->size(), instances.data(), mesh.instanceBuffer->size());
 
         stagingBuffer.unmap();
 
         renderer::BufferCopyRegion vertexBufferCopyRegion = {
             .sourceOffsetBytes = stagingBufferOffset,
             .destinationOffsetBytes = 0,
-            .sizeBytes = character.vertexBuffer->size(),
+            .sizeBytes = mesh.vertexBuffer->size(),
         };
 
-        renderer::BufferCopyRegion indexBufferCopyRegion = {
-            .sourceOffsetBytes = stagingBufferOffset + character.vertexBuffer->size(),
+        renderer::BufferCopyRegion instanceBufferCopyRegion = {
+            .sourceOffsetBytes = stagingBufferOffset + mesh.vertexBuffer->size(),
             .destinationOffsetBytes = 0,
-            .sizeBytes = character.indexBuffer->size(),
+            .sizeBytes = mesh.instanceBuffer->size(),
         };
 
-        stagingBufferOffset += character.vertexBuffer->size() + character.indexBuffer->size();
+        stagingBufferOffset += mesh.vertexBuffer->size() + mesh.instanceBuffer->size();
 
-        transferBuffer.copyBuffer(stagingBuffer, character.vertexBuffer.ref(), {vertexBufferCopyRegion});
-        transferBuffer.copyBuffer(stagingBuffer, character.indexBuffer.ref(), {indexBufferCopyRegion});
+        transferBuffer.copyBuffer(stagingBuffer, mesh.vertexBuffer.ref(), {vertexBufferCopyRegion});
+        transferBuffer.copyBuffer(stagingBuffer, mesh.instanceBuffer.ref(), {instanceBufferCopyRegion});
     }
 
-    void updateCharacter(Character& character, float deltaTime) {
-        if (glm::length(character.velocity) > 0.0f) {
-            character.velocity = glm::normalize(character.velocity);
-            character.position += character.velocity * character.speed * deltaTime;
+    void updateCharacters(CharacterMesh& mesh, std::span<CharacterInstance> instances, renderer::Buffer& stagingBuffer, std::uint64_t& stagingBufferOffset, renderer::CommandBuffer& transferBuffer) {
+        std::span<std::uint8_t> stagingBufferData = stagingBuffer.map(mesh.instanceBuffer->size(), stagingBufferOffset);
 
-            character.orientation = character.velocity;
-        }
+        std::memcpy(stagingBufferData.data(), instances.data(), mesh.instanceBuffer->size());
 
-        glm::mat4 scale = glm::scale(glm::mat4(1.0f), glm::vec3(character.orientation.x, 1.0f, 1.0f));
+        stagingBuffer.unmap();
 
-        character.model = glm::mat4(1.0f);
-        character.model = glm::translate(character.model, glm::vec3(character.position, 0.0f)) * scale;
+        renderer::BufferCopyRegion instanceBufferCopyRegion = {
+            .sourceOffsetBytes = stagingBufferOffset,
+            .destinationOffsetBytes = 0,
+            .sizeBytes = mesh.instanceBuffer->size(),
+        };
+
+        stagingBufferOffset += mesh.instanceBuffer->size();
+
+        transferBuffer.copyBuffer(stagingBuffer, mesh.instanceBuffer.ref(), {instanceBufferCopyRegion});
     }
 
-    void renderCharacter(Character& character, renderer::CommandBuffer& commandBuffer, renderer::PipelineLayout& pipelineLayout) {
-        std::span<std::uint8_t> pushConstant = {reinterpret_cast<std::uint8_t*>(&character.model), sizeof(glm::mat4)};
-
-        commandBuffer.pushConstants(pipelineLayout, renderer::DescriptorShaderStageFlags::VERTEX, pushConstant, 0);
-        commandBuffer.bindVertexBuffers({character.vertexBuffer.ref()}, {0}, 0);
-        commandBuffer.bindIndexBuffer(character.indexBuffer.ref(), 0, renderer::IndexType::UINT32);
-        commandBuffer.drawIndexed(6, 1, 0, 0, 0);
+    void renderCharacters(CharacterMesh& character, std::span<CharacterInstance> instances, renderer::CommandBuffer& commandBuffer) {
+        commandBuffer.bindVertexBuffers({character.vertexBuffer.ref(), character.instanceBuffer.ref()}, {0, 0}, 0);
+        commandBuffer.draw(4, static_cast<std::uint32_t>(instances.size()), 0, 0);
     }
 
-    void updateCharacterVelocity(Character& character, Controller& controller, app::WindowKeyPressedEventInfo& eventInfo) {
-        if (eventInfo.key == controller.leftBinding) {
-            character.velocity.x -= 1.0f;
+    void setCharacterState(Character& character, const MovableBody& body, const CollisionResult& collisionResult) {
+        if (!collisionResult.collided) {
+            character.state = CharacterState::AIRBORNE;
         }
-        else if (eventInfo.key == controller.rightBinding) {
-            character.velocity.x += 1.0f;
+        else if (body.acceleration == glm::vec2{0.0f, 0.0f}) {
+            character.state = CharacterState::IDLE;
         }
-    }
-
-    void updateCharacterVelocity(Character& character, Controller& controller, app::WindowKeyReleasedEventInfo& eventInfo) {
-        if (eventInfo.key == controller.leftBinding) {
-            character.velocity.x += 1.0f;
+        else if (character.accelerating) {
+            character.state = CharacterState::ACCELERATING;
         }
-        else if (eventInfo.key == controller.rightBinding) {
-            character.velocity.x -= 1.0f;
+        else {
+            character.state = CharacterState::SLOWING;
         }
     }
 }

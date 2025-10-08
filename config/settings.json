@@ -6,12 +6,9 @@
         "resizable": true
     },
     "graphics": {
-        "vsync": false,
+        "vsync": true,
         "imageCount": 3,
         "renderAheadLimit": 3
-    },
-    "controls": {
-        "speed": 2.0
     },
     "camera": {
         "scale": 20.0,

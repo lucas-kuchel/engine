@@ -24,8 +24,10 @@
 #include <game/camera.hpp>
 #include <game/character.hpp>
 #include <game/controller.hpp>
+#include <game/map.hpp>
 #include <game/settings.hpp>
 
+#include <array>
 #include <chrono>
 
 #include <glm/glm.hpp>
@@ -54,6 +56,8 @@ namespace app {
         void close();
 
         void createBasicPipelineResources();
+
+        static std::size_t keyIndex(Key key);
 
         data::Unique<Context> context_;
         data::Unique<Window> window_;
@@ -90,11 +94,27 @@ namespace app {
 
         bool explicitSwapchainRecreate_ = false;
 
-        game::Character playerCharacter_;
-        game::Controller playerController_;
-        game::Camera playerCamera_;
+        game::CharacterMesh characterMesh_;
+        game::TileMesh tileMesh_;
+        game::Controller controller_;
+        game::Camera camera_;
         game::Settings settings_;
+        game::Map map_;
+
+        data::Unique<renderer::Buffer> stagingBuffer_;
+
+        std::vector<game::Character> characters_;
+        std::vector<game::MovableBody> characterMovableBodies_;
+        std::vector<game::BoxCollider> characterColliders_;
+        std::vector<game::CollisionResult> characterCollisionResults_;
+        std::vector<game::CharacterInstance> characterInstances_;
+
+        std::uint32_t focusedCharacterIndex_ = 0;
 
         std::chrono::time_point<std::chrono::high_resolution_clock> lastFrameTime_;
+
+        std::array<bool, 93> keysPressed_ = {false};
+        std::array<bool, 93> keysHeld_ = {false};
+        std::array<bool, 93> keysReleased_ = {false};
     };
 }

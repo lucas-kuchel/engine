@@ -287,11 +287,15 @@ namespace app {
                     break;
 
                 case WindowEventType::KEY_PRESSED:
-                    game::updateCharacterVelocity(playerCharacter_, playerController_, event.info.keyPress);
+                    keysPressed_[keyIndex(event.info.keyPress.key)] = true;
+                    keysHeld_[keyIndex(event.info.keyPress.key)] = true;
+                    keysReleased_[keyIndex(event.info.keyPress.key)] = false;
                     break;
 
                 case WindowEventType::KEY_RELEASED:
-                    game::updateCharacterVelocity(playerCharacter_, playerController_, event.info.keyRelease);
+                    keysPressed_[keyIndex(event.info.keyRelease.key)] = false;
+                    keysHeld_[keyIndex(event.info.keyRelease.key)] = false;
+                    keysReleased_[keyIndex(event.info.keyRelease.key)] = true;
                     break;
 
                 default:
@@ -307,6 +311,14 @@ namespace app {
         bool resized = false;
 
         while (running) {
+            for (auto& pressed : keysPressed_) {
+                pressed = false;
+            }
+
+            for (auto& released : keysReleased_) {
+                released = false;
+            }
+
             manageEvents(running);
             acquireImage(resized);
 
@@ -317,5 +329,9 @@ namespace app {
         }
 
         close();
+    }
+
+    std::size_t Program::keyIndex(Key key) {
+        return static_cast<std::size_t>(key);
     }
 }

@@ -23,8 +23,6 @@ namespace game {
         settings.graphics.renderAheadLimit = json["graphics"]["renderAheadLimit"].get<std::uint32_t>();
         settings.graphics.vsync = json["graphics"]["vsync"].get<bool>();
 
-        settings.controls.speed = json["controls"]["speed"].get<float>();
-
         settings.camera.scale = json["camera"]["scale"].get<float>();
         settings.camera.ease = json["camera"]["ease"].get<float>();
 
@@ -52,8 +50,6 @@ namespace game {
         json["graphics"]["imageCount"] = settings.graphics.imageCount;
         json["graphics"]["renderAheadLimit"] = settings.graphics.renderAheadLimit;
         json["graphics"]["vsync"] = settings.graphics.vsync;
-
-        json["controls"]["speed"] = settings.controls.speed;
 
         json["camera"]["scale"] = settings.camera.scale;
         json["camera"]["ease"] = settings.camera.ease;

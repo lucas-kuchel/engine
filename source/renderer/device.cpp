@@ -6,6 +6,7 @@
 #include <renderer/resources/shader.hpp>
 
 #include <stdexcept>
+#include <unordered_map>
 
 namespace renderer {
     Device::Device(const DeviceCreateInfo& createInfo)
@@ -315,11 +316,13 @@ namespace renderer {
                 };
             }
 
-            std::uint32_t offset = 0;
+            std::unordered_map<std::uint32_t, std::uint32_t> bindingOffsets;
 
             for (std::size_t j = 0; j < createData.attributes.size(); j++) {
                 auto& description = createData.attributes[j];
                 auto& attribute = createInfo.vertexInput.attributes[j];
+
+                std::uint32_t& offset = bindingOffsets[attribute.binding];
 
                 description = {
                     .location = attribute.location,

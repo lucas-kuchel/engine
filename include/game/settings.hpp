@@ -22,10 +22,6 @@ namespace game {
             std::uint32_t renderAheadLimit;
         } graphics;
 
-        struct Controls {
-            float speed;
-        } controls;
-
         struct Camera {
             float scale;
             float ease;

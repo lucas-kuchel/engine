@@ -1,0 +1,48 @@
+{
+    "physics": {
+        "gravity": 9.81,
+        "airResistance": 0.3
+    },
+    "tiles": [
+        {
+            "dimensions": [
+                20,
+                2
+            ],
+            "offset": [
+                1.0,
+                1.0
+            ],
+            "tile": {
+                "position": [
+                    -10.0,
+                    -5.0
+                ],
+                "scale": [
+                    1.0,
+                    1.0
+                ],
+                "texOffset": [
+                    0.0,
+                    0.0
+                ],
+                "rotation": 0.0
+            }
+        }
+    ],
+    "colliders": [
+        {
+            "physics": {
+                "friction": 5.00
+            },
+            "position": [
+                -10.0,
+                -4.0
+            ],
+            "extent": [
+                20.0,
+                1.0
+            ]
+        }
+    ]
+}

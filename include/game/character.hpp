@@ -11,31 +11,43 @@
 #include <glm/glm.hpp>
 
 namespace game {
-    struct SettingsConfig;
-
     struct Controller;
+    struct MovableBody;
+    struct CollisionResult;
+
+    enum class CharacterState {
+        ACCELERATING,
+        SLOWING,
+        AIRBORNE,
+        IDLE,
+    };
 
     struct CharacterVertex {
         glm::vec2 position;
         glm::vec2 texCoord;
     };
 
-    struct Character {
-        float speed = 1.0f;
-
-        glm::vec2 position = {0.0f, 0.0f};
-        glm::vec2 orientation = {1.0f, 0.0f};
-        glm::vec2 velocity = {0.0f, 0.0f};
-        glm::mat4 model = {1.0f};
-
-        data::Unique<renderer::Buffer> vertexBuffer;
-        data::Unique<renderer::Buffer> indexBuffer;
+    struct CharacterInstance {
+        glm::vec3 position = {0.0f, 0.0f, 0.0f};
+        glm::vec2 scale = {1.0f, 1.0f};
+        glm::vec2 texOffset = {0.0f, 0.0f};
     };
 
-    void createCharacter(Character& character, renderer::Device& device, renderer::Buffer& stagingBuffer, std::uint64_t& stagingBufferOffset, renderer::CommandBuffer& transferBuffer);
-    void updateCharacter(Character& character, float deltaTime);
-    void renderCharacter(Character& character, renderer::CommandBuffer& commandBuffer, renderer::PipelineLayout& pipelineLayout);
+    struct CharacterMesh {
+        data::Unique<renderer::Buffer> vertexBuffer;
+        data::Unique<renderer::Buffer> instanceBuffer;
+    };
 
-    void updateCharacterVelocity(Character& character, Controller& controller, app::WindowKeyPressedEventInfo& eventInfo);
-    void updateCharacterVelocity(Character& character, Controller& controller, app::WindowKeyReleasedEventInfo& eventInfo);
+    struct Character {
+        float speed = 0.0f;
+        bool accelerating = false;
+
+        CharacterState state = CharacterState::IDLE;
+    };
+
+    void createCharacters(CharacterMesh& mesh, std::span<CharacterInstance> instances, renderer::Device& device, renderer::Buffer& stagingBuffer, std::uint64_t& stagingBufferOffset, renderer::CommandBuffer& transferBuffer);
+    void updateCharacters(CharacterMesh& mesh, std::span<CharacterInstance> instances, renderer::Buffer& stagingBuffer, std::uint64_t& stagingBufferOffset, renderer::CommandBuffer& transferBuffer);
+    void renderCharacters(CharacterMesh& mesh, std::span<CharacterInstance> instances, renderer::CommandBuffer& commandBuffer);
+
+    void setCharacterState(Character& character, const MovableBody& body, const CollisionResult& collisionResult);
 }
