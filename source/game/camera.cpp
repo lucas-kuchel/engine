@@ -88,8 +88,9 @@ namespace game {
         transferBuffer.copyBuffer(stagingBuffer, camera.uniformBuffer.ref(), {bufferCopyRegion});
     }
 
-    void easeCameraTowards(Camera& camera, glm::vec2& position, float deltaTime) {
+    void easeCameraTowards(Camera& camera, glm::vec2 position, float deltaTime) {
+        float frameEase = 1.0f - std::pow(1.0f - camera.ease, deltaTime);
         glm::vec2 delta = position - camera.position;
-        camera.position += delta * camera.ease * deltaTime;
+        camera.position += delta * frameEase;
     }
 }

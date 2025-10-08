@@ -6,7 +6,7 @@
         "resizable": true
     },
     "graphics": {
-        "vsync": true,
+        "vsync": false,
         "imageCount": 3,
         "renderAheadLimit": 3
     },

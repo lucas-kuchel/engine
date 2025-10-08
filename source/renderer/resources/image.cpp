@@ -12,7 +12,7 @@ namespace renderer {
     Image::Image(const ImageCreateInfo& createInfo)
         : device_(createInfo.device), extent_(createInfo.extent), sampleCount_(createInfo.sampleCount),
           mipLevels_(createInfo.mipLevels), arrayLayers_(createInfo.arrayLayers),
-          type_(mapType(createInfo.type)), format_(mapFormat(createInfo.format)) {
+          type_(mapType(createInfo.type)), format_(mapFormat(createInfo.format, createInfo.device.getInstance())) {
         VmaMemoryUsage memoryUsage;
         VkMemoryPropertyFlags memoryProperties;
 
@@ -197,7 +197,24 @@ namespace renderer {
         : device_(device) {
     }
 
-    VkFormat Image::mapFormat(ImageFormat format) {
+    VkFormat Image::mapFormat(ImageFormat format, renderer::Instance& instance) {
+        auto findSupportedFormat = [&](const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features) -> VkFormat {
+            for (VkFormat vkFormat : candidates) {
+                VkFormatProperties properties;
+
+                vkGetPhysicalDeviceFormatProperties(instance.getVkPhysicalDevice(), vkFormat, &properties);
+
+                if (tiling == VK_IMAGE_TILING_LINEAR && (properties.linearTilingFeatures & features) == features) {
+                    return vkFormat;
+                }
+                if (tiling == VK_IMAGE_TILING_OPTIMAL && (properties.optimalTilingFeatures & features) == features) {
+                    return vkFormat;
+                }
+            }
+
+            throw std::runtime_error("Call failed: renderer::Image::mapFormat(): Failed to find supported non-colour image format");
+        };
+
         switch (format) {
             case ImageFormat::R8_UNORM:
                 return VK_FORMAT_R8_UNORM;
@@ -223,17 +240,35 @@ namespace renderer {
             case ImageFormat::B8G8R8A8_SRGB:
                 return VK_FORMAT_B8G8R8A8_SRGB;
 
-            case ImageFormat::D16_UNORM:
-                return VK_FORMAT_D16_UNORM;
+            case ImageFormat::DEPTH_ONLY: {
+                std::vector<VkFormat> candidates = {
+                    VK_FORMAT_D32_SFLOAT,
+                    VK_FORMAT_D32_SFLOAT_S8_UINT,
+                    VK_FORMAT_D24_UNORM_S8_UINT,
+                    VK_FORMAT_D16_UNORM,
+                    VK_FORMAT_D16_UNORM_S8_UINT,
+                };
 
-            case ImageFormat::D24_UNORM_S8_UINT:
-                return VK_FORMAT_D24_UNORM_S8_UINT;
+                return findSupportedFormat(candidates, VK_IMAGE_TILING_OPTIMAL, VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
+            }
 
-            case ImageFormat::D32_SFLOAT:
-                return VK_FORMAT_D32_SFLOAT;
+            case ImageFormat::STENCIL_ONLY: {
+                std::vector<VkFormat> candidates = {
+                    VK_FORMAT_S8_UINT,
+                };
 
-            case ImageFormat::D32_SFLOAT_S8_UINT:
-                return VK_FORMAT_D32_SFLOAT_S8_UINT;
+                return findSupportedFormat(candidates, VK_IMAGE_TILING_OPTIMAL, VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
+            }
+
+            case ImageFormat::DEPTH_STENCIL: {
+                std::vector<VkFormat> candidates = {
+                    VK_FORMAT_D32_SFLOAT_S8_UINT,
+                    VK_FORMAT_D24_UNORM_S8_UINT,
+                    VK_FORMAT_D16_UNORM_S8_UINT,
+                };
+
+                return findSupportedFormat(candidates, VK_IMAGE_TILING_OPTIMAL, VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
+            }
 
             default:
                 throw std::runtime_error("Call failed: renderer::Image::mapFormat(): Invalid image format");
@@ -282,17 +317,17 @@ namespace renderer {
             case VK_FORMAT_B8G8R8A8_SRGB:
                 return ImageFormat::B8G8R8A8_SRGB;
 
-            case VK_FORMAT_D16_UNORM:
-                return ImageFormat::D16_UNORM;
-
-            case VK_FORMAT_D24_UNORM_S8_UINT:
-                return ImageFormat::D24_UNORM_S8_UINT;
-
             case VK_FORMAT_D32_SFLOAT:
-                return ImageFormat::D32_SFLOAT;
+            case VK_FORMAT_D16_UNORM:
+                return ImageFormat::DEPTH_ONLY;
 
+            case VK_FORMAT_S8_UINT:
+                return ImageFormat::STENCIL_ONLY;
+
+            case VK_FORMAT_D16_UNORM_S8_UINT:
+            case VK_FORMAT_D24_UNORM_S8_UINT:
             case VK_FORMAT_D32_SFLOAT_S8_UINT:
-                return ImageFormat::D32_SFLOAT_S8_UINT;
+                return ImageFormat::DEPTH_STENCIL;
 
             default:
                 throw std::runtime_error("Call failed: renderer::Image::reverseMapFormat(): Invalid image format");
@@ -326,7 +361,7 @@ namespace renderer {
             .format = createInfo.image.getVkFormat(),
             .components = {},
             .subresourceRange = {
-                .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                .aspectMask = ImageAspectFlags::mapFrom(createInfo.aspectFlags),
                 .baseMipLevel = createInfo.baseMipLevel,
                 .levelCount = createInfo.levelCount,
                 .baseArrayLayer = createInfo.baseArrayLayer,

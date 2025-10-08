@@ -15,7 +15,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 namespace game {
-    void createCharacters(CharacterMesh& mesh, std::span<CharacterInstance> instances, renderer::Device& device, renderer::Buffer& stagingBuffer, std::uint64_t& stagingBufferOffset, renderer::CommandBuffer& transferBuffer) {
+    void createCharacterInstances(CharacterMesh& mesh, std::span<CharacterInstance> instances, renderer::Device& device, renderer::Buffer& stagingBuffer, std::uint64_t& stagingBufferOffset, renderer::CommandBuffer& transferBuffer) {
         std::array<CharacterVertex, 4> vertices = {
             CharacterVertex({0.5, -0.5}, {1.0, 0.0}),
             CharacterVertex({-0.5, -0.5}, {0.0, 0.0}),
@@ -66,7 +66,7 @@ namespace game {
         transferBuffer.copyBuffer(stagingBuffer, mesh.instanceBuffer.ref(), {instanceBufferCopyRegion});
     }
 
-    void updateCharacters(CharacterMesh& mesh, std::span<CharacterInstance> instances, renderer::Buffer& stagingBuffer, std::uint64_t& stagingBufferOffset, renderer::CommandBuffer& transferBuffer) {
+    void updateCharacterInstances(CharacterMesh& mesh, std::span<CharacterInstance> instances, renderer::Buffer& stagingBuffer, std::uint64_t& stagingBufferOffset, renderer::CommandBuffer& transferBuffer) {
         std::span<std::uint8_t> stagingBufferData = stagingBuffer.map(mesh.instanceBuffer->size(), stagingBufferOffset);
 
         std::memcpy(stagingBufferData.data(), instances.data(), mesh.instanceBuffer->size());
@@ -84,23 +84,19 @@ namespace game {
         transferBuffer.copyBuffer(stagingBuffer, mesh.instanceBuffer.ref(), {instanceBufferCopyRegion});
     }
 
-    void renderCharacters(CharacterMesh& character, std::span<CharacterInstance> instances, renderer::CommandBuffer& commandBuffer) {
+    void renderCharacterInstances(CharacterMesh& character, std::span<CharacterInstance> instances, renderer::CommandBuffer& commandBuffer) {
         commandBuffer.bindVertexBuffers({character.vertexBuffer.ref(), character.instanceBuffer.ref()}, {0, 0}, 0);
         commandBuffer.draw(4, static_cast<std::uint32_t>(instances.size()), 0, 0);
     }
 
-    void setCharacterState(Character& character, const MovableBody& body, const BoxCollisionResult& collisionResult) {
-        if (!collisionResult.collided) {
-            character.state = CharacterState::AIRBORNE;
+    void updateCharacter(Character& character, const MovableBody& body, const BoxCollisionResult& collisionResult) {
+        character.accelerating = body.acceleration != glm::vec2(0.0f, 0.0f);
+        character.airborne = !collisionResult.collided;
+
+        if (character.sprinting) {
+            character.speed *= (1.0f / character.sprintMultiplier);
         }
-        else if (body.acceleration == glm::vec2{0.0f, 0.0f}) {
-            character.state = CharacterState::IDLE;
-        }
-        else if (character.accelerating) {
-            character.state = CharacterState::ACCELERATING;
-        }
-        else {
-            character.state = CharacterState::SLOWING;
-        }
+
+        character.sprinting = false;
     }
 }

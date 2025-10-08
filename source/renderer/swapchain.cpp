@@ -164,6 +164,7 @@ namespace renderer {
             ImageViewCreateInfo viewCreateInfo = {
                 .image = image,
                 .type = ImageViewType::IMAGE_2D,
+                .aspectFlags = ImageAspectFlags::COLOUR,
                 .baseMipLevel = 0,
                 .levelCount = 1,
                 .baseArrayLayer = 0,

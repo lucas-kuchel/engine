@@ -72,6 +72,8 @@ namespace app {
         data::Unique<renderer::PipelineLayout> basicPipelineLayout_;
         data::Unique<renderer::DescriptorPool> descriptorPool_;
         data::Unique<renderer::DescriptorSetLayout> cameraDescriptorSetLayout_;
+        data::Unique<renderer::Fence> stagingBufferFence_;
+        data::Unique<renderer::Semaphore> stagingBufferSemaphore_;
 
         data::NullableRef<renderer::Queue> graphicsQueue_;
         data::NullableRef<renderer::Queue> transferQueue_;
@@ -88,6 +90,8 @@ namespace app {
         std::vector<renderer::Pipeline> pipelines_;
         std::vector<renderer::CommandBuffer> transferCommandBuffers_;
         std::vector<renderer::DescriptorSet> descriptorSets_;
+        std::vector<renderer::Image> depthImages_;
+        std::vector<renderer::ImageView> depthImageViews_;
 
         Counter imageCounter_;
         Counter frameCounter_;

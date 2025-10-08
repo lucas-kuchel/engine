@@ -30,5 +30,5 @@ namespace game {
     void createCamera(Camera& camera, renderer::Device& device, renderer::Buffer& stagingBuffer, std::uint64_t& stagingBufferOffset, renderer::CommandBuffer& transferBuffer);
     void updateCamera(Camera& camera, renderer::Buffer& stagingBuffer, std::uint64_t& stagingBufferOffset, renderer::CommandBuffer& transferBuffer);
 
-    void easeCameraTowards(Camera& camera, glm::vec2& position, float deltaTime);
+    void easeCameraTowards(Camera& camera, glm::vec2 position, float deltaTime);
 }

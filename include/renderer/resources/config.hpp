@@ -237,11 +237,9 @@ namespace renderer {
         R16G16B16A16_SFLOAT,
         R32G32B32A32_SFLOAT,
 
-        D16_UNORM,
-        D24_UNORM_S8_UINT,
-        D32_SFLOAT,
-        S8_UINT,
-        D32_SFLOAT_S8_UINT,
+        DEPTH_STENCIL,
+        DEPTH_ONLY,
+        STENCIL_ONLY,
     };
 
     // @brief What to do when loading a frame attachment

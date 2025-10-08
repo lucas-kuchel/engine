@@ -15,11 +15,9 @@ namespace game {
     struct MovableBody;
     struct BoxCollisionResult;
 
-    enum class CharacterState {
-        ACCELERATING,
-        SLOWING,
-        AIRBORNE,
-        IDLE,
+    enum class CharacterFacing {
+        LEFT,
+        RIGHT,
     };
 
     struct CharacterVertex {
@@ -40,14 +38,19 @@ namespace game {
 
     struct Character {
         float speed = 0.0f;
-        bool accelerating = false;
+        float sprintMultiplier = 0.0f;
+        float jumpForce = 0.0f;
 
-        CharacterState state = CharacterState::IDLE;
+        bool accelerating = false;
+        bool sprinting = false;
+        bool airborne = false;
+
+        CharacterFacing facing = CharacterFacing::RIGHT;
     };
 
-    void createCharacters(CharacterMesh& mesh, std::span<CharacterInstance> instances, renderer::Device& device, renderer::Buffer& stagingBuffer, std::uint64_t& stagingBufferOffset, renderer::CommandBuffer& transferBuffer);
-    void updateCharacters(CharacterMesh& mesh, std::span<CharacterInstance> instances, renderer::Buffer& stagingBuffer, std::uint64_t& stagingBufferOffset, renderer::CommandBuffer& transferBuffer);
-    void renderCharacters(CharacterMesh& mesh, std::span<CharacterInstance> instances, renderer::CommandBuffer& commandBuffer);
+    void createCharacterInstances(CharacterMesh& mesh, std::span<CharacterInstance> instances, renderer::Device& device, renderer::Buffer& stagingBuffer, std::uint64_t& stagingBufferOffset, renderer::CommandBuffer& transferBuffer);
+    void updateCharacterInstances(CharacterMesh& mesh, std::span<CharacterInstance> instances, renderer::Buffer& stagingBuffer, std::uint64_t& stagingBufferOffset, renderer::CommandBuffer& transferBuffer);
+    void renderCharacterInstances(CharacterMesh& mesh, std::span<CharacterInstance> instances, renderer::CommandBuffer& commandBuffer);
 
-    void setCharacterState(Character& character, const MovableBody& body, const BoxCollisionResult& collisionResult);
+    void updateCharacter(Character& character, const MovableBody& body, const BoxCollisionResult& collisionResult);
 }

@@ -14,6 +14,7 @@
 namespace renderer {
     class Queue;
     class Device;
+    class Instance;
 
     // @brief Creation information for the image
     struct ImageCreateInfo {
@@ -92,7 +93,7 @@ namespace renderer {
         std::uint64_t mapOffset_ = 0;
         std::uint64_t size_ = 0;
 
-        static VkFormat mapFormat(ImageFormat format);
+        static VkFormat mapFormat(ImageFormat format, renderer::Instance& instance);
         static ImageFormat reverseMapFormat(VkFormat format);
 
         static VkImageType mapType(ImageType type);
@@ -138,6 +139,7 @@ namespace renderer {
     struct ImageViewCreateInfo {
         Image& image;
         ImageViewType type;
+        Flags aspectFlags;
 
         std::uint32_t baseMipLevel;
         std::uint32_t levelCount;

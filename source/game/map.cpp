@@ -57,24 +57,6 @@ namespace game {
         transferBuffer.copyBuffer(stagingBuffer, mesh.instanceBuffer.ref(), {instanceBufferCopyRegion});
     }
 
-    void updateMap(TileMesh& mesh, Map& map, renderer::Buffer& stagingBuffer, std::uint64_t& stagingBufferOffset, renderer::CommandBuffer& transferBuffer) {
-        std::span<std::uint8_t> stagingBufferData = stagingBuffer.map(mesh.instanceBuffer->size(), stagingBufferOffset);
-
-        std::memcpy(stagingBufferData.data(), map.tiles.data(), mesh.instanceBuffer->size());
-
-        stagingBuffer.unmap();
-
-        renderer::BufferCopyRegion instanceBufferCopyRegion = {
-            .sourceOffsetBytes = stagingBufferOffset,
-            .destinationOffsetBytes = 0,
-            .sizeBytes = mesh.instanceBuffer->size(),
-        };
-
-        stagingBufferOffset += mesh.instanceBuffer->size();
-
-        transferBuffer.copyBuffer(stagingBuffer, mesh.instanceBuffer.ref(), {instanceBufferCopyRegion});
-    }
-
     void renderMap(TileMesh& mesh, Map& map, renderer::CommandBuffer& commandBuffer) {
         commandBuffer.bindVertexBuffers({mesh.vertexBuffer.ref(), mesh.instanceBuffer.ref()}, {0, 0}, 0);
         commandBuffer.draw(4, static_cast<std::uint32_t>(map.tiles.size()), 0, 0);

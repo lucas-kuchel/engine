@@ -46,7 +46,7 @@ namespace renderer {
 
             attachments[i] = {
                 .flags = 0,
-                .format = Image::mapFormat(createInfo.colourAttachments[i].format),
+                .format = Image::mapFormat(createInfo.colourAttachments[i].format, device_->getInstance()),
                 .samples = static_cast<VkSampleCountFlagBits>(createInfo.sampleCount),
                 .loadOp = static_cast<VkAttachmentLoadOp>(createInfo.colourAttachments[i].operations.load),
                 .storeOp = static_cast<VkAttachmentStoreOp>(createInfo.colourAttachments[i].operations.store),
@@ -57,7 +57,7 @@ namespace renderer {
             };
         }
 
-        for (std::size_t i = createInfo.colourAttachments.size(); i < attachments.size(); i++) {
+        for (std::size_t i = 0; i < attachments.size() - createInfo.colourAttachments.size(); i++) {
             struct FlagMap {
                 ImageLayout layout;
                 VkImageLayout vkLayout;
@@ -88,9 +88,9 @@ namespace renderer {
                 }
             }
 
-            attachments[i] = {
+            attachments[depthBaseIndex + i] = {
                 .flags = 0,
-                .format = Image::mapFormat(createInfo.depthStencilAttachments[i].format),
+                .format = Image::mapFormat(createInfo.depthStencilAttachments[i].format, device_->getInstance()),
                 .samples = static_cast<VkSampleCountFlagBits>(createInfo.sampleCount),
                 .loadOp = static_cast<VkAttachmentLoadOp>(createInfo.depthStencilAttachments[i].depthOperations.load),
                 .storeOp = static_cast<VkAttachmentStoreOp>(createInfo.depthStencilAttachments[i].depthOperations.store),

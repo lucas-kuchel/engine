@@ -40,7 +40,6 @@ namespace game {
     };
 
     void createMap(TileMesh& mesh, Map& map, renderer::Device& device, renderer::Buffer& stagingBuffer, std::uint64_t& stagingBufferOffset, renderer::CommandBuffer& transferBuffer);
-    void updateMap(TileMesh& mesh, Map& map, renderer::Buffer& stagingBuffer, std::uint64_t& stagingBufferOffset, renderer::CommandBuffer& transferBuffer);
     void renderMap(TileMesh& mesh, Map& map, renderer::CommandBuffer& commandBuffer);
 
     void loadMapFromFile(Map& map, const std::string& path);

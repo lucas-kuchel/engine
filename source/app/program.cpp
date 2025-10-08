@@ -47,24 +47,18 @@ namespace app {
         descriptorSets_ = descriptorPool_->allocateDescriptorSets(setCreateInfo);
         basicDescriptorSet_ = descriptorSets_[0];
 
-        renderer::BufferCreateInfo stagingBufferCreateInfo = {
-            .device = device_.ref(),
-            .memoryType = renderer::MemoryType::HOST_VISIBLE,
-            .usageFlags = renderer::BufferUsageFlags::TRANSFER_SOURCE,
-            .sizeBytes = 16 * 1024 * 1024,
-        };
-
-        stagingBuffer_ = data::makeUnique<renderer::Buffer>(stagingBufferCreateInfo);
-
         controller_.leftBinding = app::Key::A;
         controller_.rightBinding = app::Key::D;
         controller_.jumpBinding = app::Key::SPACE;
+        controller_.sprintBinding = app::Key::LSHIFT;
 
         camera_.ease = settings_.camera.ease;
         camera_.scale = settings_.camera.scale;
 
         characters_.push_back(game::Character{
             .speed = 3.0,
+            .sprintMultiplier = 1.75f,
+            .jumpForce = 7.0f,
         });
 
         characterInstances_.push_back(game::CharacterInstance{
@@ -90,7 +84,9 @@ namespace app {
         characterCollisionResults_.emplace_back();
 
         characters_.push_back(game::Character{
-            .speed = 6.0,
+            .speed = 4.5,
+            .sprintMultiplier = 1.2f,
+            .jumpForce = 5.5f,
         });
 
         characterInstances_.push_back(game::CharacterInstance{
@@ -117,12 +113,23 @@ namespace app {
 
         game::loadMapFromFile(map_, "assets/maps/map0.json");
 
+        std::uint64_t mapSizeBytes = map_.tiles.size() * sizeof(game::TileInstance);
+
+        renderer::BufferCreateInfo stagingBufferCreateInfo = {
+            .device = device_.ref(),
+            .memoryType = renderer::MemoryType::HOST_VISIBLE,
+            .usageFlags = renderer::BufferUsageFlags::TRANSFER_SOURCE,
+            .sizeBytes = 4 * 1024 * 1024 + mapSizeBytes,
+        };
+
+        stagingBuffer_ = data::makeUnique<renderer::Buffer>(stagingBufferCreateInfo);
+
         std::uint64_t stagingBufferOffset = 0;
 
         transferCommandBuffer_->beginCapture();
 
         game::createMap(tileMesh_, map_, device_.ref(), stagingBuffer_.ref(), stagingBufferOffset, transferCommandBuffer_.get());
-        game::createCharacters(characterMesh_, characterInstances_, device_.ref(), stagingBuffer_.ref(), stagingBufferOffset, transferCommandBuffer_.get());
+        game::createCharacterInstances(characterMesh_, characterInstances_, device_.ref(), stagingBuffer_.ref(), stagingBufferOffset, transferCommandBuffer_.get());
         game::createCamera(camera_, device_.ref(), stagingBuffer_.ref(), stagingBufferOffset, transferCommandBuffer_.get());
 
         transferCommandBuffer_->endCapture();
@@ -161,6 +168,11 @@ namespace app {
         descriptorPool_->updateDescriptorSets({uniformBufferUpdateInfo});
 
         lastFrameTime_ = std::chrono::high_resolution_clock::now();
+
+        stagingBufferCreateInfo.sizeBytes = 4 * 1024 * 1024;
+
+        stagingBuffer_.reset();
+        stagingBuffer_ = data::makeUnique<renderer::Buffer>(stagingBufferCreateInfo);
     }
 
     void Program::update() {
@@ -178,44 +190,57 @@ namespace app {
 
         transferCommandBuffer_->beginCapture();
 
-        for (auto& character : characters_) {
-            character.accelerating = false;
-        }
-
         auto& focusedCharacter = characters_[focusedCharacterIndex_];
         auto& focusedCharacterMovableBody = characterMovableBodies_[focusedCharacterIndex_];
         auto& focusedCharacterCollisionResult = characterCollisionResults_[focusedCharacterIndex_];
+        auto& focusedCharacterInstance = characterInstances_[focusedCharacterIndex_];
 
-        if (keysHeld_[keyIndex(controller_.leftBinding)]) {
+        bool sprintKeyPressed = keysHeld_[keyIndex(controller_.sprintBinding)];
+        bool leftKeyPressed = keysHeld_[keyIndex(controller_.leftBinding)];
+        bool rightKeyPressed = keysHeld_[keyIndex(controller_.rightBinding)];
+        bool jumpKeyPressed = keysHeld_[keyIndex(controller_.jumpBinding)];
+        bool isColliding = focusedCharacterCollisionResult.collided;
+        bool bottomCollision = focusedCharacterCollisionResult.bottom;
+
+        if (sprintKeyPressed && !focusedCharacter.sprinting) {
+            focusedCharacter.sprinting = true;
+            focusedCharacter.speed *= focusedCharacter.sprintMultiplier;
+        }
+
+        if (leftKeyPressed) {
             float multiplier = 1.0f;
 
-            if (focusedCharacter.state == game::CharacterState::AIRBORNE) {
+            if (focusedCharacter.airborne) {
                 multiplier = 0.25f;
+            }
+
+            if (focusedCharacter.facing == game::CharacterFacing::RIGHT) {
+                focusedCharacterInstance.scale.x *= -1.0f;
+                focusedCharacter.facing = game::CharacterFacing::LEFT;
             }
 
             focusedCharacterMovableBody.acceleration.x -= multiplier * focusedCharacter.speed;
             focusedCharacter.accelerating = true;
         }
 
-        if (keysHeld_[keyIndex(controller_.rightBinding)]) {
+        if (rightKeyPressed) {
             float multiplier = 1.0f;
 
-            if (focusedCharacter.state == game::CharacterState::AIRBORNE) {
+            if (focusedCharacter.airborne) {
                 multiplier = 0.25f;
+            }
+
+            if (focusedCharacter.facing == game::CharacterFacing::LEFT) {
+                focusedCharacterInstance.scale.x *= -1.0f;
+                focusedCharacter.facing = game::CharacterFacing::RIGHT;
             }
 
             focusedCharacterMovableBody.acceleration.x += multiplier * focusedCharacter.speed;
             focusedCharacter.accelerating = true;
         }
 
-        bool jumpKeyPressed = keysHeld_[keyIndex(controller_.jumpBinding)];
-        bool isColliding = focusedCharacterCollisionResult.collided;
-        bool bottomCollision = focusedCharacterCollisionResult.bottom;
-
-        if (jumpKeyPressed) {
-            if (isColliding && bottomCollision) {
-                focusedCharacterMovableBody.acceleration.y += 2000.0f;
-            }
+        if (jumpKeyPressed && isColliding && bottomCollision && !focusedCharacter.airborne) {
+            focusedCharacterMovableBody.velocity.y += focusedCharacter.jumpForce;
         }
 
         if (keysPressed_[keyIndex(Key::TAB)]) {
@@ -235,35 +260,30 @@ namespace app {
             }
 
             game::updateMovement(characterMovableBodies_[i], deltaTime, map_.physics.gravity, friction, map_.physics.airResistance);
-            game::setCharacterState(characters_[i], characterMovableBodies_[i], characterCollisionResults_[i]);
+            game::updateCharacter(characters_[i], characterMovableBodies_[i], characterCollisionResults_[i]);
 
             characterInstances_[i].position = glm::vec3(characterMovableBodies_[i].position, 0.0f);
             characterColliders_[i].position = characterMovableBodies_[i].position;
         }
 
         game::resolveMapCollisions(map_, characterMovableBodies_, characterColliders_, characterCollisionResults_);
-        game::updateMap(tileMesh_, map_, stagingBuffer_.ref(), stagingBufferOffset, transferCommandBuffer_.get());
 
-        game::updateCharacters(characterMesh_, characterInstances_, stagingBuffer_.ref(), stagingBufferOffset, transferCommandBuffer_.get());
+        game::updateCharacterInstances(characterMesh_, characterInstances_, stagingBuffer_.ref(), stagingBufferOffset, transferCommandBuffer_.get());
 
         game::easeCameraTowards(camera_, focusedCharacterMovableBody.position, deltaTime);
         game::updateCamera(camera_, stagingBuffer_.ref(), stagingBufferOffset, transferCommandBuffer_.get());
 
         transferCommandBuffer_->endCapture();
 
-        renderer::Fence fence({device_.ref(), 0});
-
         renderer::SubmitInfo submitInfo = {
-            .fence = fence,
+            .fence = stagingBufferFence_.ref(),
             .commandBuffers = {transferCommandBuffer_.get()},
             .waits = {},
-            .signals = {},
+            .signals = {stagingBufferSemaphore_.ref()},
             .waitFlags = {},
         };
 
         transferQueue_->submit(submitInfo);
-
-        device_->waitForFences({fence});
     }
 
     void Program::render() {
@@ -292,8 +312,8 @@ namespace app {
             .clearValues = {
                 clearColour,
             },
-            .depthClearValue = {},
-            .stencilClearValue = {},
+            .depthClearValue = 0.0f,
+            .stencilClearValue = 0u,
         };
 
         renderer::Viewport viewport = {
@@ -327,7 +347,7 @@ namespace app {
 
         game::renderMap(tileMesh_, map_, commandBuffer);
 
-        game::renderCharacters(characterMesh_, characterInstances_, commandBuffer);
+        game::renderCharacterInstances(characterMesh_, characterInstances_, commandBuffer);
 
         commandBuffer.endRenderPass();
         commandBuffer.endCapture();
@@ -335,9 +355,10 @@ namespace app {
         renderer::SubmitInfo submitInfo = {
             .fence = inFlightFence,
             .commandBuffers = {commandBuffer},
-            .waits = {acquireSemaphore},
+            .waits = {stagingBufferSemaphore_.ref(), acquireSemaphore},
             .signals = {presentSemaphore},
             .waitFlags = {
+                renderer::PipelineStageFlags::VERTEX_INPUT,
                 renderer::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
             },
         };
@@ -450,7 +471,33 @@ namespace app {
             },
             .viewportCount = 1,
             .scissorCount = 1,
-            .rasterisation = {},
+            .rasterisation = {
+                .frontFaceWinding = renderer::PolygonFaceWinding::ANTICLOCKWISE,
+                .cullMode = renderer::PolygonCullMode::NEVER,
+                .frontface = {
+                    .depthComparison = renderer::CompareOperation::LESS_EQUAL,
+                    .stencilComparison = renderer::CompareOperation::ALWAYS,
+                    .stencilFailOperation = renderer::ValueOperation::KEEP,
+                    .depthFailOperation = renderer::ValueOperation::KEEP,
+                    .passOperation = renderer::ValueOperation::KEEP,
+                    .stencilCompareMask = 0xFF,
+                    .stencilWriteMask = 0xFF,
+                },
+                .backface = {
+                    .depthComparison = renderer::CompareOperation::LESS_EQUAL,
+                    .stencilComparison = renderer::CompareOperation::ALWAYS,
+                    .stencilFailOperation = renderer::ValueOperation::KEEP,
+                    .depthFailOperation = renderer::ValueOperation::KEEP,
+                    .passOperation = renderer::ValueOperation::KEEP,
+                    .stencilCompareMask = 0xFF,
+                    .stencilWriteMask = 0xFF,
+                },
+                .depthClampEnable = false,
+                .depthTestEnable = true,
+                .depthWriteEnable = true,
+                .depthBoundsTestEnable = false,
+                .stencilTestEnable = false,
+            },
             .multisample = {},
             .colourBlend = {
                 .attachments = {renderer::ColourBlendAttachment{}},
