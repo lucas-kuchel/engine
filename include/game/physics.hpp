@@ -20,16 +20,21 @@ namespace game {
         glm::vec2 extent = {0.0f, 0.0f};
     };
 
-    struct CollisionResult {
+    struct BoxCollisionResult {
         bool collided = false;
 
         glm::vec2 penetration = {0.0f, 0.0f};
         glm::vec2 normal = {0.0f, 0.0f};
 
-        data::NullableRef<const BoxCollider> other = nullptr;
+        data::NullableRef<const BoxCollider> other;
+
+        bool left = false;
+        bool right = false;
+        bool top = false;
+        bool bottom = false;
     };
 
     void updateMovement(MovableBody& body, float deltaTime, float gravity, float friction, float airResistance);
 
-    void testCollisionAABB(const BoxCollider& a, const BoxCollider& b, CollisionResult& result);
+    void testCollisionAABB(const BoxCollider& a, const BoxCollider& b, BoxCollisionResult& result);
 }

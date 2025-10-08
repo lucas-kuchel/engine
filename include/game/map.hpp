@@ -45,5 +45,5 @@ namespace game {
 
     void loadMapFromFile(Map& map, const std::string& path);
 
-    void resolveMapCollisions(const Map& map, std::span<MovableBody> bodies, std::span<BoxCollider> colliders, std::span<CollisionResult> results);
+    void resolveMapCollisions(const Map& map, std::span<MovableBody> bodies, std::span<BoxCollider> colliders, std::span<BoxCollisionResult> results);
 }

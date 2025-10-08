@@ -99,12 +99,15 @@ namespace game {
 
         if (json.contains("tiles") && json["tiles"].is_array()) {
             for (const auto& gridJson : json["tiles"]) {
+
                 glm::uvec2 dimensions{0, 0};
+
                 if (gridJson.contains("dimensions")) {
                     auto g = gridJson["dimensions"];
                     dimensions.x = g.size() > 0 ? g[0].get<std::uint32_t>() : 0;
                     dimensions.y = g.size() > 1 ? g[1].get<std::uint32_t>() : 0;
                 }
+
                 if (dimensions.x == 0 || dimensions.y == 0)
                     continue;
 
@@ -115,26 +118,22 @@ namespace game {
                     offset.y = o.size() > 1 ? o[1].get<float>() : 0.0f;
                 }
 
-                if (!gridJson.contains("tile") || !gridJson["tile"].is_object())
-                    continue;
-
-                const auto& tileJson = gridJson["tile"];
                 TileInstance baseTile;
 
-                if (tileJson.contains("position")) {
-                    auto p = tileJson["position"];
+                if (gridJson.contains("position")) {
+                    auto p = gridJson["position"];
                     baseTile.position.x = p.size() > 0 ? p[0].get<float>() : 0.0f;
                     baseTile.position.y = p.size() > 1 ? p[1].get<float>() : 0.0f;
                 }
 
-                if (tileJson.contains("scale")) {
-                    auto s = tileJson["scale"];
+                if (gridJson.contains("scale")) {
+                    auto s = gridJson["scale"];
                     baseTile.scale.x = s.size() > 0 ? s[0].get<float>() : 1.0f;
                     baseTile.scale.y = s.size() > 1 ? s[1].get<float>() : 1.0f;
                 }
 
-                if (tileJson.contains("texOffset")) {
-                    auto t = tileJson["texOffset"];
+                if (gridJson.contains("texOffset")) {
+                    auto t = gridJson["texOffset"];
                     baseTile.texOffset.x = t.size() > 0 ? t[0].get<float>() : 0.0f;
                     baseTile.texOffset.y = t.size() > 1 ? t[1].get<float>() : 0.0f;
                 }
@@ -179,16 +178,16 @@ namespace game {
         }
     }
 
-    void resolveMapCollisions(const Map& map, std::span<MovableBody> bodies, std::span<BoxCollider> colliders, std::span<CollisionResult> results) {
+    void resolveMapCollisions(const Map& map, std::span<MovableBody> bodies, std::span<BoxCollider> colliders, std::span<BoxCollisionResult> results) {
         for (std::size_t i = 0; i < bodies.size(); i++) {
             MovableBody& body = bodies[i];
             BoxCollider& box = colliders[i];
-            CollisionResult& resultOut = results[i];
+            BoxCollisionResult& resultOut = results[i];
 
             resultOut = {};
 
             for (const BoxCollider& mapBox : map.colliders) {
-                CollisionResult result;
+                BoxCollisionResult result;
 
                 game::testCollisionAABB(box, mapBox, result);
 

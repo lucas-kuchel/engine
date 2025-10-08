@@ -6,41 +6,178 @@
     "tiles": [
         {
             "dimensions": [
-                20,
-                2
+                5,
+                1
             ],
             "offset": [
                 1.0,
                 1.0
             ],
-            "tile": {
-                "position": [
-                    -10.0,
-                    -5.0
-                ],
-                "scale": [
-                    1.0,
-                    1.0
-                ],
-                "texOffset": [
-                    0.0,
-                    0.0
-                ],
-                "rotation": 0.0
-            }
+            "position": [
+                -10.0,
+                -5.0
+            ],
+            "scale": [
+                1.0,
+                1.0
+            ],
+            "texOffset": [
+                0.0,
+                0.0
+            ]
+        },
+        {
+            "dimensions": [
+                3,
+                1
+            ],
+            "offset": [
+                1.0,
+                1.0
+            ],
+            "position": [
+                -8.0,
+                -2.5
+            ],
+            "scale": [
+                1.0,
+                1.0
+            ],
+            "texOffset": [
+                0.0,
+                0.0
+            ]
+        },
+        {
+            "dimensions": [
+                4,
+                1
+            ],
+            "offset": [
+                1.0,
+                1.0
+            ],
+            "position": [
+                -5.0,
+                0.0
+            ],
+            "scale": [
+                1.0,
+                1.0
+            ],
+            "texOffset": [
+                0.0,
+                0.0
+            ]
+        },
+        {
+            "dimensions": [
+                2,
+                1
+            ],
+            "offset": [
+                1.0,
+                1.0
+            ],
+            "position": [
+                -1.5,
+                2.5
+            ],
+            "scale": [
+                1.0,
+                1.0
+            ],
+            "texOffset": [
+                0.0,
+                0.0
+            ]
+        },
+        {
+            "dimensions": [
+                3,
+                1
+            ],
+            "offset": [
+                1.0,
+                1.0
+            ],
+            "position": [
+                1.0,
+                5.0
+            ],
+            "scale": [
+                1.0,
+                1.0
+            ],
+            "texOffset": [
+                0.0,
+                0.0
+            ]
         }
     ],
     "colliders": [
         {
             "physics": {
-                "friction": 5.00
+                "friction": 5.0
             },
             "position": [
                 -10.0,
-                -4.0
+                -5.0
             ],
             "extent": [
-                20.0,
+                5.0,
+                1.0
+            ]
+        },
+        {
+            "physics": {
+                "friction": 3.0
+            },
+            "position": [
+                -8.0,
+                -2.5
+            ],
+            "extent": [
+                3.0,
+                1.0
+            ]
+        },
+        {
+            "physics": {
+                "friction": 2.5
+            },
+            "position": [
+                -5.0,
+                0.0
+            ],
+            "extent": [
+                4.0,
+                1.0
+            ]
+        },
+        {
+            "physics": {
+                "friction": 4.0
+            },
+            "position": [
+                -1.5,
+                2.5
+            ],
+            "extent": [
+                2.0,
+                1.0
+            ]
+        },
+        {
+            "physics": {
+                "friction": 3.5
+            },
+            "position": [
+                1.0,
+                5.0
+            ],
+            "extent": [
+                3.0,
                 1.0
             ]
         }

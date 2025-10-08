@@ -12,7 +12,7 @@ namespace game {
         body.acceleration = {0.0f, 0.0f};
     }
 
-    void testCollisionAABB(const BoxCollider& a, const BoxCollider& b, CollisionResult& result) {
+    void testCollisionAABB(const BoxCollider& a, const BoxCollider& b, BoxCollisionResult& result) {
         glm::vec2 aMin = a.position - a.extent * 0.5f;
         glm::vec2 aMax = a.position + a.extent * 0.5f;
         glm::vec2 bMin = b.position - b.extent * 0.5f;
@@ -25,6 +25,25 @@ namespace game {
             result.collided = true;
 
             if (overlapX < overlapY) {
+                if (a.position.x < b.position.x) {
+                    result.right = true;
+                }
+                else {
+                    result.left = true;
+                }
+            }
+            else {
+                if (a.position.y < b.position.y) {
+                    result.top = true;
+                }
+                else {
+                    result.bottom = true;
+                }
+            }
+
+            result.other = b;
+
+            if (overlapX < overlapY) {
                 result.penetration = {overlapX, 0.0f};
                 result.normal = (a.position.x < b.position.x) ? glm::vec2{-1.0f, 0.0f} : glm::vec2{1.0f, 0.0f};
             }
@@ -33,7 +52,5 @@ namespace game {
                 result.normal = (a.position.y < b.position.y) ? glm::vec2{0.0f, -1.0f} : glm::vec2{0.0f, 1.0f};
             }
         }
-
-        result.other = b;
     }
 }

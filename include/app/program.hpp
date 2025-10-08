@@ -106,7 +106,7 @@ namespace app {
         std::vector<game::Character> characters_;
         std::vector<game::MovableBody> characterMovableBodies_;
         std::vector<game::BoxCollider> characterColliders_;
-        std::vector<game::CollisionResult> characterCollisionResults_;
+        std::vector<game::BoxCollisionResult> characterCollisionResults_;
         std::vector<game::CharacterInstance> characterInstances_;
 
         std::uint32_t focusedCharacterIndex_ = 0;

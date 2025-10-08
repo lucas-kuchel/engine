@@ -13,7 +13,7 @@
 namespace game {
     struct Controller;
     struct MovableBody;
-    struct CollisionResult;
+    struct BoxCollisionResult;
 
     enum class CharacterState {
         ACCELERATING,
@@ -49,5 +49,5 @@ namespace game {
     void updateCharacters(CharacterMesh& mesh, std::span<CharacterInstance> instances, renderer::Buffer& stagingBuffer, std::uint64_t& stagingBufferOffset, renderer::CommandBuffer& transferBuffer);
     void renderCharacters(CharacterMesh& mesh, std::span<CharacterInstance> instances, renderer::CommandBuffer& commandBuffer);
 
-    void setCharacterState(Character& character, const MovableBody& body, const CollisionResult& collisionResult);
+    void setCharacterState(Character& character, const MovableBody& body, const BoxCollisionResult& collisionResult);
 }

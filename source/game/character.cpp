@@ -89,7 +89,7 @@ namespace game {
         commandBuffer.draw(4, static_cast<std::uint32_t>(instances.size()), 0, 0);
     }
 
-    void setCharacterState(Character& character, const MovableBody& body, const CollisionResult& collisionResult) {
+    void setCharacterState(Character& character, const MovableBody& body, const BoxCollisionResult& collisionResult) {
         if (!collisionResult.collided) {
             character.state = CharacterState::AIRBORNE;
         }

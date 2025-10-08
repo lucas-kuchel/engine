@@ -1,7 +1,6 @@
 #include <app/program.hpp>
 
 #include <fstream>
-#include <print>
 
 #include <stb_image.h>
 
@@ -69,13 +68,13 @@ namespace app {
         });
 
         characterInstances_.push_back(game::CharacterInstance{
-            .position = {0.0f, 0.0f, 0.0f},
+            .position = {0.0f, 7.0f, 0.0f},
             .scale = {1.0f, 1.0f},
             .texOffset = {0.0f, 0.0f},
         });
 
         characterMovableBodies_.push_back(game::MovableBody{
-            .position = {0.0f, 0.0f},
+            .position = {0.0f, 7.0f},
             .velocity = {0.0f, 0.0f},
             .acceleration = {0.0f, 0.0f},
         });
@@ -84,7 +83,7 @@ namespace app {
             .physics = {
                 .friction = 1.00f,
             },
-            .position = {0.0f, 0.0f},
+            .position = {0.0f, 7.0f},
             .extent = {1.0f, 1.0f},
         });
 
@@ -95,13 +94,13 @@ namespace app {
         });
 
         characterInstances_.push_back(game::CharacterInstance{
-            .position = {5.0f, 0.0f, 0.0f},
+            .position = {2.0f, 7.0f, 0.0f},
             .scale = {1.0f, 1.0f},
             .texOffset = {0.0f, 0.0f},
         });
 
         characterMovableBodies_.push_back(game::MovableBody{
-            .position = {5.0f, 0.0f},
+            .position = {2.0f, 7.0f},
             .velocity = {0.0f, 0.0f},
             .acceleration = {0.0f, 0.0f},
         });
@@ -110,7 +109,7 @@ namespace app {
             .physics = {
                 .friction = 1.00f,
             },
-            .position = {5.0f, 0.0f},
+            .position = {2.0f, 7.0f},
             .extent = {1.0f, 1.0f},
         });
 
@@ -183,18 +182,40 @@ namespace app {
             character.accelerating = false;
         }
 
+        auto& focusedCharacter = characters_[focusedCharacterIndex_];
+        auto& focusedCharacterMovableBody = characterMovableBodies_[focusedCharacterIndex_];
+        auto& focusedCharacterCollisionResult = characterCollisionResults_[focusedCharacterIndex_];
+
         if (keysHeld_[keyIndex(controller_.leftBinding)]) {
-            characterMovableBodies_[focusedCharacterIndex_].acceleration.x -= 1.0f * characters_[focusedCharacterIndex_].speed;
-            characters_[focusedCharacterIndex_].accelerating = true;
+            float multiplier = 1.0f;
+
+            if (focusedCharacter.state == game::CharacterState::AIRBORNE) {
+                multiplier = 0.25f;
+            }
+
+            focusedCharacterMovableBody.acceleration.x -= multiplier * focusedCharacter.speed;
+            focusedCharacter.accelerating = true;
         }
 
         if (keysHeld_[keyIndex(controller_.rightBinding)]) {
-            characterMovableBodies_[focusedCharacterIndex_].acceleration.x += 1.0f * characters_[focusedCharacterIndex_].speed;
-            characters_[focusedCharacterIndex_].accelerating = true;
+            float multiplier = 1.0f;
+
+            if (focusedCharacter.state == game::CharacterState::AIRBORNE) {
+                multiplier = 0.25f;
+            }
+
+            focusedCharacterMovableBody.acceleration.x += multiplier * focusedCharacter.speed;
+            focusedCharacter.accelerating = true;
         }
 
-        if (keysHeld_[keyIndex(controller_.jumpBinding)] && characterCollisionResults_[focusedCharacterIndex_].collided) {
-            characterMovableBodies_[focusedCharacterIndex_].acceleration.y += 1500.0f;
+        bool jumpKeyPressed = keysHeld_[keyIndex(controller_.jumpBinding)];
+        bool isColliding = focusedCharacterCollisionResult.collided;
+        bool bottomCollision = focusedCharacterCollisionResult.bottom;
+
+        if (jumpKeyPressed) {
+            if (isColliding && bottomCollision) {
+                focusedCharacterMovableBody.acceleration.y += 2000.0f;
+            }
         }
 
         if (keysPressed_[keyIndex(Key::TAB)]) {
@@ -213,9 +234,8 @@ namespace app {
                 friction = (characterCollisionResults_[i].other.get().physics.friction + characterColliders_[i].physics.friction) * 0.5f;
             }
 
-            std::println("character {} is accelerating? {}", i, characters_[i].accelerating);
-
             game::updateMovement(characterMovableBodies_[i], deltaTime, map_.physics.gravity, friction, map_.physics.airResistance);
+            game::setCharacterState(characters_[i], characterMovableBodies_[i], characterCollisionResults_[i]);
 
             characterInstances_[i].position = glm::vec3(characterMovableBodies_[i].position, 0.0f);
             characterColliders_[i].position = characterMovableBodies_[i].position;
@@ -226,7 +246,7 @@ namespace app {
 
         game::updateCharacters(characterMesh_, characterInstances_, stagingBuffer_.ref(), stagingBufferOffset, transferCommandBuffer_.get());
 
-        game::easeCameraTowards(camera_, characterMovableBodies_[focusedCharacterIndex_].position, deltaTime);
+        game::easeCameraTowards(camera_, focusedCharacterMovableBody.position, deltaTime);
         game::updateCamera(camera_, stagingBuffer_.ref(), stagingBufferOffset, transferCommandBuffer_.get());
 
         transferCommandBuffer_->endCapture();
