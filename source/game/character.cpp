@@ -17,10 +17,10 @@
 namespace game {
     void createCharacterInstances(CharacterMesh& mesh, std::span<CharacterInstance> instances, renderer::Device& device, renderer::Buffer& stagingBuffer, std::uint64_t& stagingBufferOffset, renderer::CommandBuffer& transferBuffer) {
         std::array<CharacterVertex, 4> vertices = {
-            CharacterVertex({0.5, -0.5}, {1.0, 0.0}),
+            CharacterVertex({0.5, -0.5}, {0.5, 0.0}),
             CharacterVertex({-0.5, -0.5}, {0.0, 0.0}),
-            CharacterVertex({0.5, 0.5}, {1.0, 1.0}),
-            CharacterVertex({-0.5, 0.5}, {0.0, 1.0}),
+            CharacterVertex({0.5, 0.5}, {0.5, 0.5}),
+            CharacterVertex({-0.5, 0.5}, {0.0, 0.5}),
         };
 
         renderer::BufferCreateInfo vertexBufferCreateInfo = {

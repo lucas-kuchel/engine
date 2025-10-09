@@ -1,7 +1,7 @@
 #include <app/program.hpp>
 
+#include <cstring>
 #include <fstream>
-#include <print>
 
 #include <stb_image.h>
 
@@ -10,6 +10,47 @@ namespace app {
         renderer::CommandBufferCreateInfo transferCommandBuffersCreateInfo = {
             .count = 1,
         };
+
+        std::int32_t width = 0;
+        std::int32_t height = 0;
+        std::int32_t channels = 0;
+
+        std::uint8_t* tilemapImageData = stbi_load("assets/images/tilemap.png", &width, &height, &channels, STBI_rgb_alpha);
+
+        renderer::SamplerCreateInfo samplerCreateInfo = {
+            .device = device_.ref(),
+            .minFilter = renderer::Filter::NEAREST,
+            .magFilter = renderer::Filter::NEAREST,
+            .mipmapMode = renderer::MipmapMode::NEAREST,
+            .addressModeU = renderer::AddressMode::REPEAT,
+            .addressModeV = renderer::AddressMode::REPEAT,
+            .addressModeW = renderer::AddressMode::REPEAT,
+            .borderColour = renderer::BorderColour::FLOAT_OPAQUE_BLACK,
+            .enableAnisotropy = false,
+            .maxAnisotropy = 0.0f,
+            .enableCompare = false,
+            .unnormalisedCoordinates = false,
+            .comparison = renderer::CompareOperation::ALWAYS,
+            .mipLodBias = 0.0f,
+            .minLod = 0.0f,
+            .maxLod = 0.0f,
+        };
+
+        sampler_ = data::makeUnique<renderer::Sampler>(samplerCreateInfo);
+
+        renderer::ImageCreateInfo tilemapImageCreateInfo = {
+            .device = device_.ref(),
+            .type = renderer::ImageType::IMAGE_2D,
+            .format = renderer::ImageFormat::R8G8B8A8_UNORM,
+            .memoryType = renderer::MemoryType::DEVICE_LOCAL,
+            .usageFlags = renderer::ImageUsageFlags::SAMPLED | renderer::ImageUsageFlags::TRANSFER_DESTINATION,
+            .extent = {static_cast<std::uint32_t>(width), static_cast<std::uint32_t>(height), 1},
+            .sampleCount = 1,
+            .mipLevels = 1,
+            .arrayLayers = 1,
+        };
+
+        tilemapImage_ = data::makeUnique<renderer::Image>(tilemapImageCreateInfo);
 
         transferCommandBuffers_ = transferCommandPool_->allocateCommandBuffers(transferCommandBuffersCreateInfo);
         transferCommandBuffer_ = transferCommandBuffers_.front();
@@ -21,28 +62,40 @@ namespace app {
             .binding = 0,
         };
 
-        renderer::DescriptorSetLayoutCreateInfo layoutCreateInfo = {
-            .device = device_.ref(),
-            .inputs = {bufferInputInfo},
+        renderer::DescriptorSetInputInfo samplerInputInfo = {
+            .type = renderer::DescriptorInputType::IMAGE_SAMPLER,
+            .stageFlags = renderer::DescriptorShaderStageFlags::FRAGMENT,
+            .count = 1,
+            .binding = 1,
         };
 
-        cameraDescriptorSetLayout_ = data::makeUnique<renderer::DescriptorSetLayout>(layoutCreateInfo);
+        renderer::DescriptorSetLayoutCreateInfo layoutCreateInfo = {
+            .device = device_.ref(),
+            .inputs = {bufferInputInfo, samplerInputInfo},
+        };
+
+        descriptorSetLayout_ = data::makeUnique<renderer::DescriptorSetLayout>(layoutCreateInfo);
 
         renderer::DescriptorPoolSize bufferSize = {
             .type = renderer::DescriptorInputType::UNIFORM_BUFFER,
             .count = 1,
         };
 
+        renderer::DescriptorPoolSize imageSize = {
+            .type = renderer::DescriptorInputType::IMAGE_SAMPLER,
+            .count = 1,
+        };
+
         renderer::DescriptorPoolCreateInfo poolCreateInfo = {
             .device = device_.ref(),
-            .poolSizes = {bufferSize},
+            .poolSizes = {bufferSize, imageSize},
             .maximumSetCount = 1,
         };
 
         descriptorPool_ = data::makeUnique<renderer::DescriptorPool>(poolCreateInfo);
 
         renderer::DescriptorSetCreateInfo setCreateInfo = {
-            .layouts = {cameraDescriptorSetLayout_.ref()},
+            .layouts = {descriptorSetLayout_.ref()},
         };
 
         descriptorSets_ = descriptorPool_->allocateDescriptorSets(setCreateInfo);
@@ -66,6 +119,7 @@ namespace app {
             .position = {0.0f, 7.0f, 0.0f},
             .scale = {1.0f, 1.0f},
             .texOffset = {0.0f, 0.0f},
+            .texScale = 1.0f,
         });
 
         characterMovableBodies_.push_back(game::MovableBody{
@@ -94,6 +148,7 @@ namespace app {
             .position = {2.0f, 7.0f, 0.0f},
             .scale = {1.0f, 1.0f},
             .texOffset = {0.0f, 0.0f},
+            .texScale = 1.0f,
         });
 
         characterMovableBodies_.push_back(game::MovableBody{
@@ -120,7 +175,7 @@ namespace app {
             .device = device_.ref(),
             .memoryType = renderer::MemoryType::HOST_VISIBLE,
             .usageFlags = renderer::BufferUsageFlags::TRANSFER_SOURCE,
-            .sizeBytes = 4 * 1024 * 1024 + mapSizeBytes,
+            .sizeBytes = 8 * 1024 * 1024 + mapSizeBytes,
         };
 
         stagingBuffer_ = data::makeUnique<renderer::Buffer>(stagingBufferCreateInfo);
@@ -128,6 +183,62 @@ namespace app {
         std::uint64_t stagingBufferOffset = 0;
 
         transferCommandBuffer_->beginCapture();
+
+        renderer::ImageMemoryBarrier memoryBarrier0 = {
+            .image = tilemapImage_.ref(),
+            .sourceQueue = {},
+            .destinationQueue = {},
+            .oldLayout = renderer::ImageLayout::UNDEFINED,
+            .newLayout = renderer::ImageLayout::TRANSFER_DESTINATION_OPTIMAL,
+            .baseMipLevel = 0,
+            .mipLevelCount = 1,
+            .baseArrayLayer = 0,
+            .arrayLayerCount = 1,
+            .aspectMask = renderer::ImageAspectFlags::COLOUR,
+            .sourceAccessFlags = renderer::AccessFlags::NONE,
+            .destinationAccessFlags = renderer::AccessFlags::TRANSFER_WRITE,
+        };
+
+        transferCommandBuffer_->pipelineBarrier(renderer::PipelineStageFlags::TOP_OF_PIPE, renderer::PipelineStageFlags::TRANSFER, {memoryBarrier0});
+
+        auto tilemapStagingMapping = stagingBuffer_->map(static_cast<std::uint32_t>(width * height * channels), stagingBufferOffset);
+
+        std::memcpy(tilemapStagingMapping.data(), tilemapImageData, static_cast<std::uint32_t>(width * height * channels));
+
+        stagingBuffer_->unmap();
+
+        renderer::BufferImageCopyRegion tilemapCopyRegion = {
+            .bufferOffset = stagingBufferOffset,
+            .bufferRowLength = 0,
+            .bufferImageHeight = 0,
+            .mipLevel = 0,
+            .baseArrayLayer = 0,
+            .arrayLayerCount = 1,
+            .imageAspectMask = renderer::ImageAspectFlags::COLOUR,
+            .imageOffset = {0, 0, 0},
+            .imageExtent = {static_cast<std::uint32_t>(width), static_cast<std::uint32_t>(height), 1},
+        };
+
+        stagingBufferOffset += static_cast<std::uint32_t>(width * height * channels);
+
+        transferCommandBuffer_->copyBufferToImage(stagingBuffer_.ref(), tilemapImage_.ref(), renderer::ImageLayout::TRANSFER_DESTINATION_OPTIMAL, {tilemapCopyRegion});
+
+        renderer::ImageMemoryBarrier memoryBarrier1 = {
+            .image = tilemapImage_.ref(),
+            .sourceQueue = {},
+            .destinationQueue = {},
+            .oldLayout = renderer::ImageLayout::TRANSFER_DESTINATION_OPTIMAL,
+            .newLayout = renderer::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
+            .baseMipLevel = 0,
+            .mipLevelCount = 1,
+            .baseArrayLayer = 0,
+            .arrayLayerCount = 1,
+            .aspectMask = renderer::ImageAspectFlags::COLOUR,
+            .sourceAccessFlags = renderer::AccessFlags::TRANSFER_WRITE,
+            .destinationAccessFlags = renderer::AccessFlags::SHADER_READ,
+        };
+
+        transferCommandBuffer_->pipelineBarrier(renderer::PipelineStageFlags::TRANSFER, renderer::PipelineStageFlags::FRAGMENT_SHADER, {memoryBarrier1});
 
         game::createMap(tileMesh_, map_, device_.ref(), stagingBuffer_.ref(), stagingBufferOffset, transferCommandBuffer_.get());
         game::createCharacterInstances(characterMesh_, characterInstances_, device_.ref(), stagingBuffer_.ref(), stagingBufferOffset, transferCommandBuffer_.get());
@@ -168,12 +279,43 @@ namespace app {
 
         descriptorPool_->updateDescriptorSets({uniformBufferUpdateInfo});
 
+        renderer::ImageViewCreateInfo tilemapImageViewCreateInfo = {
+            .image = tilemapImage_.ref(),
+            .type = renderer::ImageViewType::IMAGE_2D,
+            .aspectFlags = renderer::ImageAspectFlags::COLOUR,
+            .baseMipLevel = 0,
+            .levelCount = 1,
+            .baseArrayLayer = 0,
+            .layerCount = 1,
+        };
+
+        tilemapImageView_ = data::makeUnique<renderer::ImageView>(tilemapImageViewCreateInfo);
+
+        renderer::DescriptorSetImageBinding samplerBinding = {
+            .image = tilemapImageView_.ref(),
+            .sampler = sampler_.ref(),
+            .layout = renderer::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
+        };
+
+        renderer::DescriptorSetUpdateInfo samplerUpdateInfo = {
+            .set = basicDescriptorSet_.get(),
+            .inputType = renderer::DescriptorInputType::IMAGE_SAMPLER,
+            .binding = 1,
+            .arrayElement = 0,
+            .buffers = {},
+            .images = {samplerBinding},
+        };
+
+        descriptorPool_->updateDescriptorSets({samplerUpdateInfo});
+
         lastFrameTime_ = std::chrono::high_resolution_clock::now();
 
         stagingBufferCreateInfo.sizeBytes = 4 * 1024 * 1024;
 
         stagingBuffer_.reset();
         stagingBuffer_ = data::makeUnique<renderer::Buffer>(stagingBufferCreateInfo);
+
+        stbi_image_free(tilemapImageData);
     }
 
     void Program::update() {
@@ -408,7 +550,7 @@ namespace app {
         renderer::PipelineLayoutCreateInfo pipelineLayoutCreateInfo = {
             .device = device_.ref(),
             .inputLayouts = {
-                cameraDescriptorSetLayout_.ref(),
+                descriptorSetLayout_.ref(),
             },
             .pushConstants = {},
         };
@@ -469,6 +611,11 @@ namespace app {
                         .format = renderer::VertexAttributeFormat::R32G32_FLOAT,
                         .binding = 1,
                         .location = 4,
+                    },
+                    renderer::VertexAttributeDescription{
+                        .format = renderer::VertexAttributeFormat::R32_FLOAT,
+                        .binding = 1,
+                        .location = 5,
                     },
                 },
             },

@@ -8,10 +8,10 @@
 namespace game {
     void createMap(TileMesh& mesh, Map& map, renderer::Device& device, renderer::Buffer& stagingBuffer, std::uint64_t& stagingBufferOffset, renderer::CommandBuffer& transferBuffer) {
         std::array<TileVertex, 4> vertices = {
-            TileVertex({0.5, -0.5}, {1.0, 0.0}),
+            TileVertex({0.5, -0.5}, {0.5, 0.0}),
             TileVertex({-0.5, -0.5}, {0.0, 0.0}),
-            TileVertex({0.5, 0.5}, {1.0, 1.0}),
-            TileVertex({-0.5, 0.5}, {0.0, 1.0}),
+            TileVertex({0.5, 0.5}, {0.5, 0.5}),
+            TileVertex({-0.5, 0.5}, {0.0, 0.5}),
         };
 
         renderer::BufferCreateInfo vertexBufferCreateInfo = {
@@ -90,8 +90,9 @@ namespace game {
                     dimensions.y = g.size() > 1 ? g[1].get<std::uint32_t>() : 0;
                 }
 
-                if (dimensions.x == 0 || dimensions.y == 0)
+                if (dimensions.x == 0 || dimensions.y == 0) {
                     continue;
+                }
 
                 glm::vec2 offset{0.0f};
                 if (gridJson.contains("offset")) {
@@ -100,29 +101,34 @@ namespace game {
                     offset.y = o.size() > 1 ? o[1].get<float>() : 0.0f;
                 }
 
-                TileInstance baseTile;
+                TileInstance instance;
 
                 if (gridJson.contains("position")) {
                     auto p = gridJson["position"];
-                    baseTile.position.x = p.size() > 0 ? p[0].get<float>() : 0.0f;
-                    baseTile.position.y = p.size() > 1 ? p[1].get<float>() : 0.0f;
+                    instance.position.x = p.size() > 0 ? p[0].get<float>() : 0.0f;
+                    instance.position.y = p.size() > 1 ? p[1].get<float>() : 0.0f;
+                    instance.position.z = p.size() > 1 ? p[2].get<float>() : 0.0f;
                 }
 
                 if (gridJson.contains("scale")) {
                     auto s = gridJson["scale"];
-                    baseTile.scale.x = s.size() > 0 ? s[0].get<float>() : 1.0f;
-                    baseTile.scale.y = s.size() > 1 ? s[1].get<float>() : 1.0f;
+                    instance.scale.x = s.size() > 0 ? s[0].get<float>() : 1.0f;
+                    instance.scale.y = s.size() > 1 ? s[1].get<float>() : 1.0f;
                 }
 
                 if (gridJson.contains("texOffset")) {
                     auto t = gridJson["texOffset"];
-                    baseTile.texOffset.x = t.size() > 0 ? t[0].get<float>() : 0.0f;
-                    baseTile.texOffset.y = t.size() > 1 ? t[1].get<float>() : 0.0f;
+                    instance.texOffset.x = t.size() > 0 ? t[0].get<float>() : 0.0f;
+                    instance.texOffset.y = t.size() > 1 ? t[1].get<float>() : 0.0f;
+                }
+
+                if (gridJson.contains("texScale")) {
+                    instance.texScale = gridJson.value("texScale", 0.0f);
                 }
 
                 for (std::size_t i = 0; i < dimensions.x; i++) {
                     for (std::size_t j = 0; j < dimensions.y; j++) {
-                        TileInstance tile = baseTile;
+                        TileInstance tile = instance;
 
                         tile.position.x += offset.x * static_cast<float>(i);
                         tile.position.y += offset.y * static_cast<float>(j);

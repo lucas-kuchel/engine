@@ -71,9 +71,12 @@ namespace app {
         data::Unique<renderer::CommandPool> transferCommandPool_;
         data::Unique<renderer::PipelineLayout> basicPipelineLayout_;
         data::Unique<renderer::DescriptorPool> descriptorPool_;
-        data::Unique<renderer::DescriptorSetLayout> cameraDescriptorSetLayout_;
+        data::Unique<renderer::DescriptorSetLayout> descriptorSetLayout_;
         data::Unique<renderer::Fence> stagingBufferFence_;
         data::Unique<renderer::Semaphore> stagingBufferSemaphore_;
+        data::Unique<renderer::Image> tilemapImage_;
+        data::Unique<renderer::ImageView> tilemapImageView_;
+        data::Unique<renderer::Sampler> sampler_;
 
         data::NullableRef<renderer::Queue> graphicsQueue_;
         data::NullableRef<renderer::Queue> transferQueue_;
