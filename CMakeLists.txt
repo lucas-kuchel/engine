@@ -18,14 +18,11 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
         $<$<CONFIG:Release>:-O3 -flto -fomit-frame-pointer>
         -Wall -Wextra -Wpedantic -Wshadow -Wnon-virtual-dtor
         -Wold-style-cast -Wcast-align -Wunused -Wconversion -Wsign-conversion
-        -Wzero-as-null-pointer-constant -Wduplicated-cond -Wduplicated-branches
-        -Wlogical-op -Wnull-dereference -Wdouble-promotion -Wformat=2 -Werror
+        -Wzero-as-null-pointer-constant
+        -Wnull-dereference -Wdouble-promotion -Wformat=2 -Werror
     )
 elseif(MSVC)
-    target_compile_options(engine PRIVATE
-        $<$<CONFIG:Release>:/O2 /GL /favor:INTEL64 /Ot /fp:fast>
-        /W4 /permissive- /WX
-    )
+    message(WARNING "MSVC has not been tested with this codebase")
 endif()
 
 target_include_directories(engine PRIVATE "include" ${Stb_INCLUDE_DIR})

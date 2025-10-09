@@ -11,6 +11,7 @@
 #include <renderer/resources/sampler.hpp>
 
 #include <cstring>
+#include <array>
 
 #include <glm/gtc/matrix_transform.hpp>
 

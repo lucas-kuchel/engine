@@ -8,6 +8,7 @@
 #include <renderer/queue.hpp>
 
 #include <cstring>
+#include <array>
 
 #include <glm/gtc/matrix_transform.hpp>
 
