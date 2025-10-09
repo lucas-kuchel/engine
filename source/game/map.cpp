@@ -122,10 +122,6 @@ namespace game {
                     instance.texOffset.y = t.size() > 1 ? t[1].get<float>() : 0.0f;
                 }
 
-                if (gridJson.contains("texScale")) {
-                    instance.texScale = gridJson.value("texScale", 0.0f);
-                }
-
                 for (std::size_t i = 0; i < dimensions.x; i++) {
                     for (std::size_t j = 0; j < dimensions.y; j++) {
                         TileInstance tile = instance;

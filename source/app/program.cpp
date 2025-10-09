@@ -119,7 +119,6 @@ namespace app {
             .position = {0.0f, 7.0f, 0.0f},
             .scale = {1.0f, 1.0f},
             .texOffset = {0.0f, 0.0f},
-            .texScale = 1.0f,
         });
 
         characterMovableBodies_.push_back(game::MovableBody{
@@ -148,7 +147,6 @@ namespace app {
             .position = {2.0f, 7.0f, 0.0f},
             .scale = {1.0f, 1.0f},
             .texOffset = {0.0f, 0.0f},
-            .texScale = 1.0f,
         });
 
         characterMovableBodies_.push_back(game::MovableBody{

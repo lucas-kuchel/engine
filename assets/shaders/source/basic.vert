@@ -12,7 +12,6 @@ layout(location = 1) in vec2 vertexTexCoord;
 layout(location = 2) in vec3 instanceTranslation;
 layout(location = 3) in vec2 instanceScale;
 layout(location = 4) in vec2 instanceTexOffset;
-layout(location = 5) in float instanceTexScale;
 
 layout(location = 0) out vec2 outTexCoord;
 
@@ -22,5 +21,5 @@ void main() {
     vec4 transformed = camera.projection * camera.view * vec4(offset, 1.0);
 
     gl_Position = transformed;
-    outTexCoord = vertexTexCoord + instanceTexOffset * instanceTexScale;
+    outTexCoord = vertexTexCoord + instanceTexOffset;
 }

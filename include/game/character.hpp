@@ -25,12 +25,10 @@ namespace game {
         glm::vec2 texCoord;
     };
 
-    struct CharacterInstance {
+    struct alignas(32) CharacterInstance {
         glm::vec3 position = {0.0f, 0.0f, 0.0f};
         glm::vec2 scale = {1.0f, 1.0f};
         glm::vec2 texOffset = {0.0f, 0.0f};
-
-        float texScale = 0.0f;
     };
 
     struct CharacterMesh {
