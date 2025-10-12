@@ -28,11 +28,13 @@ namespace renderer {
         }
         else {
             imageView.imageViewType_ = mapType(createInfo.type);
-            imageView.image_ = &createInfo.image;
+            imageView.image_ = createInfo.image.image_;
             imageView.baseArrayLayer_ = createInfo.baseArrayLayer;
             imageView.baseMipLevel_ = createInfo.baseMipLevel;
             imageView.layerCount_ = createInfo.layerCount;
             imageView.levelCount_ = createInfo.levelCount;
+            imageView.extent_ = createInfo.image.extent_;
+            imageView.device_ = createInfo.image.device_->device_;
         }
 
         return imageView;
@@ -40,14 +42,10 @@ namespace renderer {
 
     void ImageView::destroy(ImageView& imageView) {
         if (imageView.imageView_) {
-            vkDestroyImageView(imageView.image_->device_->device_, imageView.imageView_, nullptr);
+            vkDestroyImageView(imageView.device_, imageView.imageView_, nullptr);
 
             imageView.imageView_ = nullptr;
         }
-    }
-
-    const Image& ImageView::getImage(ImageView& imageView) {
-        return *imageView.image_;
     }
 
     ImageViewType ImageView::getType(ImageView& imageView) {

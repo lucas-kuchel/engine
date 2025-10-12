@@ -37,6 +37,11 @@ namespace renderer {
         swapchain.device_ = &createInfo.device;
         swapchain.surface_ = &createInfo.surface;
         swapchain.presentQueue_ = &createInfo.presentQueue;
+        swapchain.recreate_ = false;
+        swapchain.extent_ = {
+            Surface::extent(createInfo.surface).x,
+            Surface::extent(createInfo.surface).y,
+        };
 
         VkSurfaceCapabilitiesKHR surfaceCapabilities = getSurfaceCapabilities(swapchain);
 
@@ -44,6 +49,8 @@ namespace renderer {
         selectPresentMode(swapchain);
 
         swapchain.imageCount_ = std::max(std::min(createInfo.imageCount, surfaceCapabilities.maxImageCount), surfaceCapabilities.minImageCount);
+        swapchain.extent_.width = std::clamp(swapchain.extent_.width, surfaceCapabilities.minImageExtent.width, surfaceCapabilities.maxImageExtent.width);
+        swapchain.extent_.height = std::clamp(swapchain.extent_.height, surfaceCapabilities.minImageExtent.height, surfaceCapabilities.maxImageExtent.height);
 
         VkSwapchainCreateInfoKHR swapchainCreateInfo = {
             .sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
@@ -53,10 +60,7 @@ namespace renderer {
             .minImageCount = createInfo.imageCount,
             .imageFormat = swapchain.surfaceFormat_.format,
             .imageColorSpace = swapchain.surfaceFormat_.colorSpace,
-            .imageExtent = {
-                Surface::extent(createInfo.surface).x,
-                Surface::extent(createInfo.surface).y,
-            },
+            .imageExtent = swapchain.extent_,
             .imageArrayLayers = 1,
             .imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
             .imageSharingMode = VK_SHARING_MODE_EXCLUSIVE,
@@ -153,11 +157,11 @@ namespace renderer {
         return swapchain.imageIndex_;
     }
 
-    std::span<Image> Swapchain::getImages(Swapchain& swapchain) {
+    std::span<const Image> Swapchain::getImages(Swapchain& swapchain) {
         return swapchain.images_;
     }
 
-    std::span<ImageView> Swapchain::getImageViews(Swapchain& swapchain) {
+    std::span<const ImageView> Swapchain::getImageViews(Swapchain& swapchain) {
         return swapchain.imageViews_;
     }
 
@@ -222,6 +226,10 @@ namespace renderer {
             auto& imageView = swapchain.imageViews_.back();
 
             imageView = ImageView::create(viewCreateInfo);
+        }
+
+        if (swapchain.imageCount_ != actualImageCount) {
+            swapchain.imageCount_ = actualImageCount;
         }
     }
 

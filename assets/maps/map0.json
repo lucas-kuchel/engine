@@ -23,14 +23,14 @@
                 1.0
             ],
             "texOffset": [
-                0.0,
+                0.5,
                 0.0
             ],
             "texScale": 2.0
         },
         {
             "dimensions": [
-                3,
+                7,
                 1
             ],
             "offset": [
@@ -47,7 +47,7 @@
                 1.0
             ],
             "texOffset": [
-                0.5,
+                0.0,
                 0.0
             ],
             "texScale": 1.0
@@ -128,7 +128,7 @@
     "colliders": [
         {
             "physics": {
-                "friction": 10.0
+                "friction": 0.0
             },
             "position": [
                 -15.0,
@@ -141,14 +141,14 @@
         },
         {
             "physics": {
-                "friction": 0.0
+                "friction": 10.0
             },
             "position": [
                 -8.0,
                 -2.5
             ],
             "extent": [
-                3.0,
+                7.0,
                 1.0
             ]
         },

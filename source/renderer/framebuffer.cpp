@@ -26,8 +26,8 @@ namespace renderer {
             .renderPass = createInfo.renderPass.renderPass_,
             .attachmentCount = static_cast<std::uint32_t>(createInfo.imageViews.size()),
             .pAttachments = imageViews.data(),
-            .width = defactoImage.image_->extent_.x,
-            .height = defactoImage.image_->extent_.y,
+            .width = defactoImage.extent_.x,
+            .height = defactoImage.extent_.y,
             .layers = 1,
         };
 

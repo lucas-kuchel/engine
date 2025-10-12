@@ -4,7 +4,6 @@
 #include <app/context.hpp>
 #include <app/window.hpp>
 
-
 #include <renderer/buffer.hpp>
 #include <renderer/command_buffer.hpp>
 #include <renderer/command_pool.hpp>
@@ -101,7 +100,7 @@ namespace app {
         Counter imageCounter_;
         Counter frameCounter_;
 
-        bool explicitSwapchainRecreate_ = false;
+        bool resized_ = false;
 
         game::CharacterMesh characterMesh_;
         game::TileMesh tileMesh_;

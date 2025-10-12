@@ -50,8 +50,8 @@ namespace renderer {
         static ImageFormat getFormat(Swapchain& swapchain);
         static std::uint32_t getImageCount(Swapchain& swapchain);
         static std::uint32_t getImageIndex(Swapchain& swapchain);
-        static std::span<Image> getImages(Swapchain& swapchain);
-        static std::span<ImageView> getImageViews(Swapchain& swapchain);
+        static std::span<const Image> getImages(Swapchain& swapchain);
+        static std::span<const ImageView> getImageViews(Swapchain& swapchain);
         static bool isSynchronised(Swapchain& swapchain);
         static bool shouldRecreate(Swapchain& swapchain);
         static glm::uvec2 getExtent(Swapchain& swapchain);

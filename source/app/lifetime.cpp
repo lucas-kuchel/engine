@@ -146,7 +146,7 @@ namespace app {
             .createFlags = renderer::FenceCreateFlags::START_SIGNALED,
         };
 
-        std::span<renderer::ImageView> swapchainImageViews = renderer::Swapchain::getImageViews(swapchain_);
+        auto swapchainImageViews = renderer::Swapchain::getImageViews(swapchain_);
         auto swapchainExtent = renderer::Swapchain::getExtent(swapchain_);
 
         presentSemaphores_.reserve(imageCounter_.count);
@@ -291,9 +291,7 @@ namespace app {
 
                 renderer::Device::waitIdle(device_);
 
-                renderer::Swapchain newSwapchain = renderer::Swapchain::create(swapchainCreateInfo);
-
-                swapchain_ = newSwapchain;
+                swapchain_ = renderer::Swapchain::create(swapchainCreateInfo);
 
                 resized = true;
             }
@@ -308,17 +306,8 @@ namespace app {
 
         if (resized) {
             imageCounter_.count = renderer::Swapchain::getImageCount(swapchain_);
-
             frameCounter_.count = std::min(imageCounter_.count, settings_.graphics.renderAheadLimit);
             frameCounter_.index = std::min(frameCounter_.index, frameCounter_.count - 1);
-
-            for (auto& semaphore : acquireSemaphores_) {
-                renderer::Semaphore::destroy(semaphore);
-            }
-
-            for (auto& fence : inFlightFences_) {
-                renderer::Fence::destroy(fence);
-            }
 
             for (auto& semaphore : presentSemaphores_) {
                 renderer::Semaphore::destroy(semaphore);
@@ -336,36 +325,15 @@ namespace app {
                 renderer::Framebuffer::destroy(framebuffer);
             }
 
-            acquireSemaphores_.clear();
-            inFlightFences_.clear();
             framebuffers_.clear();
             presentSemaphores_.clear();
             depthImages_.clear();
             depthImageViews_.clear();
 
-            renderer::FenceCreateInfo fenceCreateInfo = {
-                .device = device_,
-                .createFlags = renderer::FenceCreateFlags::START_SIGNALED,
-            };
-
-            acquireSemaphores_.reserve(frameCounter_.count);
-            inFlightFences_.reserve(frameCounter_.count);
-
-            for (std::size_t i = 0; i < frameCounter_.count; i++) {
-                acquireSemaphores_.push_back(renderer::Semaphore());
-                inFlightFences_.push_back(renderer::Fence());
-
-                auto& semaphore = acquireSemaphores_.back();
-                auto& fence = inFlightFences_.back();
-
-                semaphore = renderer::Semaphore::create(device_);
-                fence = renderer::Fence::create(fenceCreateInfo);
-            }
-
             renderer::CommandPool::destroyCommandBuffers(graphicsCommandPool_, commandBuffers_);
             commandBuffers_ = renderer::CommandPool::allocateCommandBuffers(graphicsCommandPool_, frameCounter_.count);
 
-            std::span<renderer::ImageView> swapchainImageViews = renderer::Swapchain::getImageViews(swapchain_);
+            auto swapchainImageViews = renderer::Swapchain::getImageViews(swapchain_);
             auto swapchainExtent = renderer::Swapchain::getExtent(swapchain_);
 
             presentSemaphores_.reserve(imageCounter_.count);
@@ -451,6 +419,21 @@ namespace app {
                     keysPressed_[keyIndex(event.info.keyPress.key)] = true;
                     keysHeld_[keyIndex(event.info.keyPress.key)] = true;
                     keysReleased_[keyIndex(event.info.keyPress.key)] = false;
+
+                    switch (event.info.keyPress.key) {
+                        case Key::F11: {
+                            if (window_->getVisibility() != WindowVisibility::FULLSCREEN) {
+                                window_->setVisibility(WindowVisibility::FULLSCREEN);
+                            }
+                            else {
+                                window_->setVisibility(WindowVisibility::WINDOWED);
+                            }
+
+                            break;
+                        }
+                        default:
+                            break;
+                    }
                     break;
 
                 case WindowEventType::KEY_RELEASED:
@@ -469,7 +452,6 @@ namespace app {
         start();
 
         bool running = true;
-        bool resized = false;
 
         while (running) {
             for (auto& pressed : keysPressed_) {
@@ -481,7 +463,7 @@ namespace app {
             }
 
             manageEvents(running);
-            acquireImage(resized);
+            acquireImage(resized_);
 
             update();
             render();

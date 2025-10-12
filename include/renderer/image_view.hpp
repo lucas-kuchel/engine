@@ -2,6 +2,8 @@
 
 #include <renderer/configuration.hpp>
 
+#include <glm/glm.hpp>
+
 namespace renderer {
     class Image;
     class Queue;
@@ -23,7 +25,6 @@ namespace renderer {
         static ImageView create(const ImageViewCreateInfo& createInfo);
         static void destroy(ImageView& imageView);
 
-        static const Image& getImage(ImageView& imageView);
         static ImageViewType getType(ImageView& imageView);
         static std::uint32_t getBaseMipLevel(ImageView& imageView);
         static std::uint32_t getLevelCount(ImageView& imageView);
@@ -31,8 +32,11 @@ namespace renderer {
         static std::uint32_t getLayerCount(ImageView& imageView);
 
     private:
-        Image* image_ = nullptr;
+        VkImage image_ = nullptr;
+        VkDevice device_ = nullptr;
         VkImageView imageView_ = nullptr;
+
+        glm::uvec3 extent_;
 
         VkImageViewType imageViewType_ = VK_IMAGE_VIEW_TYPE_MAX_ENUM;
 
