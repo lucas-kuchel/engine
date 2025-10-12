@@ -1,7 +1,5 @@
 #pragma once
 
-#include <data/references.hpp>
-
 #include <glm/glm.hpp>
 
 namespace game {
@@ -26,7 +24,7 @@ namespace game {
         glm::vec2 penetration = {0.0f, 0.0f};
         glm::vec2 normal = {0.0f, 0.0f};
 
-        data::NullableRef<const BoxCollider> other;
+        const BoxCollider* other = nullptr;
 
         bool left = false;
         bool right = false;

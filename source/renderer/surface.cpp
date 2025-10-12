@@ -6,30 +6,29 @@
 #include <GLFW/glfw3.h>
 
 namespace renderer {
-    Surface::Surface(const SurfaceCreateInfo& createInfo)
-        : instance_(createInfo.instance), window_(createInfo.window) {
-        if (glfwCreateWindowSurface(instance_->getVkInstance(), window_->getAgnosticHandle(), nullptr, &surface_) != VK_SUCCESS) {
-            throw std::runtime_error("Call failed: renderer::Surface::create(): Failed to create window surface");
+    Surface Surface::create(const SurfaceCreateInfo& createInfo) {
+        Surface surface;
+
+        if (glfwCreateWindowSurface(createInfo.instance.instance_, createInfo.window.handle_, nullptr, &surface.surface_) != VK_SUCCESS) {
+            surface.surface_ = nullptr;
+        }
+        else {
+            surface.window_ = &createInfo.window;
+            surface.instance_ = &createInfo.instance;
+        }
+
+        return surface;
+    }
+
+    void Surface::destroy(Surface& surface) {
+        if (surface.surface_) {
+            vkDestroySurfaceKHR(surface.instance_->instance_, surface.surface_, nullptr);
+
+            surface.surface_ = nullptr;
         }
     }
 
-    Surface::~Surface() {
-        if (surface_) {
-            vkDestroySurfaceKHR(instance_->getVkInstance(), surface_, nullptr);
-
-            surface_ = VK_NULL_HANDLE;
-        }
-    }
-
-    data::Extent2D<std::uint32_t> Surface::extent() const {
-        return window_->extent();
-    }
-
-    VkSurfaceKHR& Surface::getVkSurface() {
-        return surface_;
-    }
-
-    const VkSurfaceKHR& Surface::getVkSurface() const {
-        return surface_;
+    glm::uvec2 Surface::extent(Surface& surface) {
+        return surface.window_->extent();
     }
 }

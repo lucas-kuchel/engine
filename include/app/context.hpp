@@ -1,13 +1,7 @@
 #pragma once
 
 namespace app {
-    // @brief Current platform backend
-    enum class ContextBackend {
-        WAYLAND,
-        X11,
-        WIN32,
-        COCOA,
-    };
+    enum class ContextBackend : int;
 
     // @brief Represents the interaction layer between the platform and window
     // @note Not safe to copy

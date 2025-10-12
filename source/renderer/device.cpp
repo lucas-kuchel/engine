@@ -1,27 +1,29 @@
+#include <renderer/configuration.hpp>
 #include <renderer/device.hpp>
+#include <renderer/fence.hpp>
 #include <renderer/instance.hpp>
+#include <renderer/pipeline.hpp>
 #include <renderer/queue.hpp>
+#include <renderer/render_pass.hpp>
+#include <renderer/shader_module.hpp>
 #include <renderer/surface.hpp>
-
-#include <renderer/resources/shader.hpp>
 
 #include <stdexcept>
 #include <unordered_map>
 
 namespace renderer {
-    Device::Device(const DeviceCreateInfo& createInfo)
-        : instance_(createInfo.instance) {
-        auto& physicalDevice = instance_->getVkPhysicalDevice();
+    Device Device::create(const DeviceCreateInfo& createInfo) {
+        Device device;
 
         std::vector<std::uint32_t> familyIndexMappings;
         std::vector<std::vector<float>> familyIndexPriorities;
 
-        queues_.reserve(createInfo.queues.size());
+        device.queues_.reserve(createInfo.queues.size());
 
         for (auto& queueCreateInfo : createInfo.queues) {
-            queues_.push_back(Queue());
+            device.queues_.push_back(Queue());
 
-            auto& queue = queues_.back();
+            auto& queue = device.queues_.back();
 
             VkQueueFlags queueTypeNeeded = 0;
             bool isPresentType = false;
@@ -42,8 +44,8 @@ namespace renderer {
                 isPresentType = true;
             }
 
-            auto& queueFamilyProperties = instance_->queueFamilyProperties_;
-            auto& queueFamilyOccupations = instance_->queueFamilyOccupations_;
+            auto& queueFamilyProperties = createInfo.instance.queueFamilyProperties_;
+            auto& queueFamilyOccupations = createInfo.instance.queueFamilyOccupations_;
 
             bool foundQueue = false;
 
@@ -56,9 +58,9 @@ namespace renderer {
                         throw std::runtime_error("Construction failed: renderer::Queue inside renderer::Device: Present queues require a surface to be created");
                     }
 
-                    auto& surface = queueCreateInfo.surface->getVkSurface();
+                    auto& surface = queueCreateInfo.surface->surface_;
 
-                    if (vkGetPhysicalDeviceSurfaceSupportKHR(physicalDevice, i, surface, &presentSupported) != VK_SUCCESS) {
+                    if (vkGetPhysicalDeviceSurfaceSupportKHR(createInfo.instance.physicalDevice_, i, surface, &presentSupported) != VK_SUCCESS) {
                         throw std::runtime_error("Construction failed: renderer::Queue inside renderer::Device: Failed to query surface presentation support");
                     }
 
@@ -120,13 +122,13 @@ namespace renderer {
 
         std::uint32_t extensionCount = 0;
 
-        if (vkEnumerateDeviceExtensionProperties(physicalDevice, nullptr, &extensionCount, nullptr) != VK_SUCCESS) {
+        if (vkEnumerateDeviceExtensionProperties(createInfo.instance.physicalDevice_, nullptr, &extensionCount, nullptr) != VK_SUCCESS) {
             throw std::runtime_error("Construction failed: renderer::Device: Failed to enumerate device extensions");
         }
 
         std::vector<VkExtensionProperties> extensionProperties(extensionCount);
 
-        if (vkEnumerateDeviceExtensionProperties(physicalDevice, nullptr, &extensionCount, extensionProperties.data()) != VK_SUCCESS) {
+        if (vkEnumerateDeviceExtensionProperties(createInfo.instance.physicalDevice_, nullptr, &extensionCount, extensionProperties.data()) != VK_SUCCESS) {
             throw std::runtime_error("Construction failed: renderer::Device: Failed to enumerate device extensions");
         }
 
@@ -166,78 +168,81 @@ namespace renderer {
             .pEnabledFeatures = nullptr,
         };
 
-        if (vkCreateDevice(physicalDevice, &deviceCreateInfo, nullptr, &device_) != VK_SUCCESS) {
-            throw std::runtime_error("Construction failed: renderer::Device: Failed to create device");
+        if (vkCreateDevice(createInfo.instance.physicalDevice_, &deviceCreateInfo, nullptr, &device.device_) != VK_SUCCESS) {
+            device.device_ = nullptr;
+            device.allocator_ = nullptr;
+
+            return device;
         }
 
-        for (auto& queue : queues_) {
-            vkGetDeviceQueue(device_, queue.familyIndex_, queue.queueIndex_, &queue.queue_);
+        device.instance_ = &createInfo.instance;
+
+        for (auto& queue : device.queues_) {
+            vkGetDeviceQueue(device.device_, queue.familyIndex_, queue.queueIndex_, &queue.queue_);
         }
 
         VmaAllocatorCreateInfo allocatorCreateInfo = {
             .flags = 0,
-            .physicalDevice = instance_->getVkPhysicalDevice(),
-            .device = device_,
+            .physicalDevice = device.instance_->physicalDevice_,
+            .device = device.device_,
             .preferredLargeHeapBlockSize = 0,
             .pAllocationCallbacks = nullptr,
             .pDeviceMemoryCallbacks = nullptr,
             .pHeapSizeLimit = nullptr,
             .pVulkanFunctions = nullptr,
-            .instance = instance_->getVkInstance(),
-            .vulkanApiVersion = instance_->apiVersion_,
+            .instance = device.instance_->instance_,
+            .vulkanApiVersion = device.instance_->apiVersion_,
             .pTypeExternalMemoryHandleTypes = nullptr,
         };
 
-        if (vmaCreateAllocator(&allocatorCreateInfo, &allocator_) != VK_SUCCESS) {
-            throw std::runtime_error("Construction failed: renderer::Device: Failed to create memory allocator");
+        if (vmaCreateAllocator(&allocatorCreateInfo, &device.allocator_) != VK_SUCCESS) {
+            vkDestroyDevice(device.device_, nullptr);
+            device.device_ = nullptr;
+            device.allocator_ = nullptr;
+        }
+
+        return device;
+    }
+
+    void Device::destroy(Device& device) {
+        if (device.allocator_) {
+            vmaDestroyAllocator(device.allocator_);
+
+            device.allocator_ = nullptr;
+        }
+
+        if (device.device_) {
+            vkDestroyDevice(device.device_, nullptr);
+
+            device.device_ = nullptr;
         }
     }
 
-    Device::~Device() {
-        if (allocator_ != VK_NULL_HANDLE) {
-            vmaDestroyAllocator(allocator_);
-
-            allocator_ = VK_NULL_HANDLE;
-        }
-
-        if (device_ != VK_NULL_HANDLE) {
-            vkDestroyDevice(device_, nullptr);
-
-            device_ = VK_NULL_HANDLE;
-        }
+    bool Device::waitIdle(Device& device) {
+        return vkDeviceWaitIdle(device.device_) == VK_SUCCESS;
     }
 
-    void Device::waitIdle() {
-        if (vkDeviceWaitIdle(device_) != VK_SUCCESS) {
-            throw std::runtime_error("Call failed: renderer::Device::waitIdle(): Failed to wait for GPU to be idle");
-        }
-    }
-
-    void Device::waitForFences(const std::vector<data::Ref<Fence>>& fences, bool waitAll, std::uint32_t timeout) {
+    bool Device::waitForFences(Device& device, const std::vector<Fence>& fences, bool waitAll, std::uint32_t timeout) {
         std::vector<VkFence> vkFences(fences.size());
 
         for (std::size_t i = 0; i < fences.size(); i++) {
-            vkFences[i] = fences[i]->getVkFence();
+            vkFences[i] = fences[i].fence_;
         }
 
-        if (vkWaitForFences(device_, static_cast<std::uint32_t>(vkFences.size()), vkFences.data(), waitAll, timeout) != VK_SUCCESS) {
-            throw std::runtime_error("Call failed: renderer::Device::waitForFences(): Error waiting for fences");
-        }
+        return vkWaitForFences(device.device_, static_cast<std::uint32_t>(vkFences.size()), vkFences.data(), waitAll, timeout) == VK_SUCCESS;
     }
 
-    void Device::resetFences(const std::vector<data::Ref<Fence>>& fences) {
+    bool Device::resetFences(Device& device, const std::vector<Fence>& fences) {
         std::vector<VkFence> vkFences(fences.size());
 
         for (std::size_t i = 0; i < fences.size(); i++) {
-            vkFences[i] = fences[i]->getVkFence();
+            vkFences[i] = fences[i].fence_;
         }
 
-        if (vkResetFences(device_, static_cast<std::uint32_t>(vkFences.size()), vkFences.data()) != VK_SUCCESS) {
-            throw std::runtime_error("Call failed: renderer::Device::resetFences(): Error resetting fences");
-        }
+        return vkResetFences(device.device_, static_cast<std::uint32_t>(vkFences.size()), vkFences.data()) == VK_SUCCESS;
     }
 
-    std::vector<Pipeline> Device::createPipelines(const std::vector<PipelineCreateInfo>& createInfos) {
+    std::vector<Pipeline> Device::createPipelines(Device& device, const std::vector<PipelineCreateInfo>& createInfos) {
         struct PipelineCreationData {
             std::vector<VkPipelineShaderStageCreateInfo> shaderStages;
             std::vector<VkVertexInputBindingDescription> bindings;
@@ -299,7 +304,7 @@ namespace renderer {
                     .pNext = nullptr,
                     .flags = 0,
                     .stage = Pipeline::reverseMapShaderStage(stage.stage),
-                    .module = stage.module.getVkShaderModule(),
+                    .module = stage.module.module_,
                     .pName = stage.entry.c_str(),
                     .pSpecializationInfo = nullptr,
                 };
@@ -471,57 +476,31 @@ namespace renderer {
                 .pDepthStencilState = &createData.depthStencil,
                 .pColorBlendState = &createData.colourBlend,
                 .pDynamicState = &dynamicStateInfo,
-                .layout = createInfo.layout.getVkPipelineLayout(),
-                .renderPass = createInfo.renderPass.getVkRenderPass(),
+                .layout = createInfo.layout.pipelineLayout_,
+                .renderPass = createInfo.renderPass.renderPass_,
                 .subpass = createInfo.subpassIndex,
                 .basePipelineHandle = VK_NULL_HANDLE,
                 .basePipelineIndex = 0,
             };
         }
 
-        if (vkCreateGraphicsPipelines(device_, VK_NULL_HANDLE, static_cast<std::uint32_t>(pipelineCreateInfos.size()), pipelineCreateInfos.data(), nullptr, pipelineHandles.data()) != VK_SUCCESS) {
-            throw std::runtime_error("Call failed: renderer::Device::createPipelines: Failed to create graphics pipelines");
+        if (vkCreateGraphicsPipelines(device.device_, VK_NULL_HANDLE, static_cast<std::uint32_t>(pipelineCreateInfos.size()), pipelineCreateInfos.data(), nullptr, pipelineHandles.data()) != VK_SUCCESS) {
+            return {};
         }
 
         for (auto& vkPipeline : pipelineHandles) {
-            pipelines.push_back(Pipeline(*this));
+            pipelines.push_back(Pipeline());
+
             auto& pipeline = pipelines.back();
 
             pipeline.pipeline_ = vkPipeline;
+            pipeline.device_ = &device;
         }
 
         return pipelines;
     }
 
-    std::span<Queue> Device::queues() {
-        return queues_;
-    }
-
-    std::span<const Queue> Device::queues() const {
-        return queues_;
-    }
-
-    Instance& Device::getInstance() {
-        return instance_.get();
-    }
-
-    const Instance& Device::getInstance() const {
-        return instance_.get();
-    }
-
-    VkDevice& Device::getVkDevice() {
-        return device_;
-    }
-
-    const VkDevice& Device::getVkDevice() const {
-        return device_;
-    }
-
-    VmaAllocator& Device::getVmaAllocator() {
-        return allocator_;
-    }
-
-    const VmaAllocator& Device::getVmaAllocator() const {
-        return allocator_;
+    std::span<Queue> Device::getQueues(Device& device) {
+        return device.queues_;
     }
 }

@@ -2,13 +2,12 @@
 #include <game/character.hpp>
 #include <game/settings.hpp>
 
-#include <renderer/resources/fence.hpp>
-
 #include <renderer/device.hpp>
+#include <renderer/fence.hpp>
 #include <renderer/queue.hpp>
 
-#include <cstring>
 #include <array>
+#include <cstring>
 
 #include <glm/gtc/matrix_transform.hpp>
 
@@ -26,23 +25,25 @@ namespace game {
             .sizeBytes = matrices.size() * sizeof(glm::mat4),
         };
 
-        camera.uniformBuffer = data::makeUnique<renderer::Buffer>(bufferCreateInfo);
+        camera.uniformBuffer = renderer::Buffer::create(bufferCreateInfo);
 
-        auto stagingBufferData = stagingBuffer.map(camera.uniformBuffer->size(), stagingBufferOffset);
+        std::size_t uniformBufferSize = renderer::Buffer::size(camera.uniformBuffer);
 
-        std::memcpy(stagingBufferData.data(), matrices.data(), camera.uniformBuffer->size());
+        auto mapping = renderer::Buffer::map(stagingBuffer, uniformBufferSize, stagingBufferOffset);
 
-        stagingBuffer.unmap();
+        std::memcpy(mapping.data.data(), matrices.data(), uniformBufferSize);
+
+        renderer::Buffer::unmap(stagingBuffer, mapping);
 
         renderer::BufferCopyRegion bufferCopyRegion = {
             .sourceOffsetBytes = stagingBufferOffset,
             .destinationOffsetBytes = 0,
-            .sizeBytes = camera.uniformBuffer->size(),
+            .sizeBytes = uniformBufferSize,
         };
 
-        stagingBufferOffset += camera.uniformBuffer->size();
+        stagingBufferOffset += uniformBufferSize;
 
-        transferBuffer.copyBuffer(stagingBuffer, camera.uniformBuffer.ref(), {bufferCopyRegion});
+        renderer::CommandBuffer::copyBuffer(transferBuffer, stagingBuffer, camera.uniformBuffer, {bufferCopyRegion});
     }
 
     void updateCamera(Camera& camera, renderer::Buffer& stagingBuffer, std::uint64_t& stagingBufferOffset, renderer::CommandBuffer& transferBuffer) {
@@ -72,21 +73,29 @@ namespace game {
             camera.view,
         };
 
-        auto stagingBufferData = stagingBuffer.map(camera.uniformBuffer->size(), stagingBufferOffset);
+        std::size_t uniformBufferSize = renderer::Buffer::size(camera.uniformBuffer);
 
-        std::memcpy(stagingBufferData.data(), matrices.data(), camera.uniformBuffer->size());
+        auto mapping = renderer::Buffer::map(stagingBuffer, uniformBufferSize, stagingBufferOffset);
 
-        stagingBuffer.unmap();
+        std::memcpy(mapping.data.data(), matrices.data(), uniformBufferSize);
+
+        renderer::Buffer::unmap(stagingBuffer, mapping);
 
         renderer::BufferCopyRegion bufferCopyRegion = {
             .sourceOffsetBytes = stagingBufferOffset,
             .destinationOffsetBytes = 0,
-            .sizeBytes = camera.uniformBuffer->size(),
+            .sizeBytes = uniformBufferSize,
         };
 
-        stagingBufferOffset += camera.uniformBuffer->size();
+        stagingBufferOffset += uniformBufferSize;
 
-        transferBuffer.copyBuffer(stagingBuffer, camera.uniformBuffer.ref(), {bufferCopyRegion});
+        renderer::CommandBuffer::copyBuffer(transferBuffer, stagingBuffer, camera.uniformBuffer, {bufferCopyRegion});
+    }
+
+    void destroyCamera(Camera& camera) {
+        if (camera.uniformBuffer) {
+            renderer::Buffer::destroy(camera.uniformBuffer);
+        }
     }
 
     void easeCameraTowards(Camera& camera, glm::vec2 position, float deltaTime) {

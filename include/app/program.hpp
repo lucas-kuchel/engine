@@ -1,25 +1,26 @@
 #pragma once
 
-#include <data/unique.hpp>
-
+#include <app/configuration.hpp>
 #include <app/context.hpp>
 #include <app/window.hpp>
 
+
+#include <renderer/buffer.hpp>
+#include <renderer/command_buffer.hpp>
+#include <renderer/command_pool.hpp>
 #include <renderer/device.hpp>
+#include <renderer/fence.hpp>
+#include <renderer/framebuffer.hpp>
+#include <renderer/image.hpp>
+#include <renderer/image_view.hpp>
 #include <renderer/instance.hpp>
+#include <renderer/pipeline.hpp>
+#include <renderer/render_pass.hpp>
+#include <renderer/sampler.hpp>
+#include <renderer/semaphore.hpp>
+#include <renderer/shader_module.hpp>
 #include <renderer/surface.hpp>
 #include <renderer/swapchain.hpp>
-
-#include <renderer/commands/buffer.hpp>
-#include <renderer/commands/pool.hpp>
-
-#include <renderer/resources/buffer.hpp>
-#include <renderer/resources/framebuffer.hpp>
-#include <renderer/resources/image.hpp>
-#include <renderer/resources/pass.hpp>
-#include <renderer/resources/pipeline.hpp>
-#include <renderer/resources/sampler.hpp>
-#include <renderer/resources/shader.hpp>
 
 #include <game/camera.hpp>
 #include <game/character.hpp>
@@ -29,6 +30,7 @@
 
 #include <array>
 #include <chrono>
+#include <memory>
 
 #include <glm/glm.hpp>
 
@@ -59,31 +61,31 @@ namespace app {
 
         static std::size_t keyIndex(Key key);
 
-        data::Unique<Context> context_;
-        data::Unique<Window> window_;
+        std::unique_ptr<Context> context_;
+        std::unique_ptr<Window> window_;
 
-        data::Unique<renderer::Instance> instance_;
-        data::Unique<renderer::Surface> surface_;
-        data::Unique<renderer::Device> device_;
-        data::Unique<renderer::Swapchain> swapchain_;
-        data::Unique<renderer::RenderPass> renderPass_;
-        data::Unique<renderer::CommandPool> graphicsCommandPool_;
-        data::Unique<renderer::CommandPool> transferCommandPool_;
-        data::Unique<renderer::PipelineLayout> basicPipelineLayout_;
-        data::Unique<renderer::DescriptorPool> descriptorPool_;
-        data::Unique<renderer::DescriptorSetLayout> descriptorSetLayout_;
-        data::Unique<renderer::Fence> stagingBufferFence_;
-        data::Unique<renderer::Semaphore> stagingBufferSemaphore_;
-        data::Unique<renderer::Image> tilemapImage_;
-        data::Unique<renderer::ImageView> tilemapImageView_;
-        data::Unique<renderer::Sampler> sampler_;
-
-        data::NullableRef<renderer::Queue> graphicsQueue_;
-        data::NullableRef<renderer::Queue> transferQueue_;
-        data::NullableRef<renderer::Queue> presentQueue_;
-        data::NullableRef<renderer::Pipeline> basicPipeline_;
-        data::NullableRef<renderer::CommandBuffer> transferCommandBuffer_;
-        data::NullableRef<renderer::DescriptorSet> basicDescriptorSet_;
+        renderer::Instance instance_;
+        renderer::Surface surface_;
+        renderer::Device device_;
+        renderer::Swapchain swapchain_;
+        renderer::Queue graphicsQueue_;
+        renderer::Queue transferQueue_;
+        renderer::Queue presentQueue_;
+        renderer::Pipeline basicPipeline_;
+        renderer::CommandBuffer transferCommandBuffer_;
+        renderer::DescriptorSet basicDescriptorSet_;
+        renderer::RenderPass renderPass_;
+        renderer::CommandPool graphicsCommandPool_;
+        renderer::CommandPool transferCommandPool_;
+        renderer::PipelineLayout basicPipelineLayout_;
+        renderer::DescriptorPool descriptorPool_;
+        renderer::DescriptorSetLayout descriptorSetLayout_;
+        renderer::Fence stagingBufferFence_;
+        renderer::Semaphore stagingBufferSemaphore_;
+        renderer::Image tilemapImage_;
+        renderer::ImageView tilemapImageView_;
+        renderer::Sampler sampler_;
+        renderer::Buffer stagingBuffer_;
 
         std::vector<renderer::Fence> inFlightFences_;
         std::vector<renderer::Semaphore> acquireSemaphores_;
@@ -107,8 +109,6 @@ namespace app {
         game::Camera camera_;
         game::Settings settings_;
         game::Map map_;
-
-        data::Unique<renderer::Buffer> stagingBuffer_;
 
         std::vector<game::Character> characters_;
         std::vector<game::MovableBody> characterMovableBodies_;

@@ -1,14 +1,9 @@
 #pragma once
 
-#include <data/unique.hpp>
-
 #include <app/window.hpp>
 
-#include <renderer/resources/buffer.hpp>
-
-#include <renderer/commands/buffer.hpp>
-
-#include <glm/glm.hpp>
+#include <renderer/buffer.hpp>
+#include <renderer/command_buffer.hpp>
 
 namespace game {
     struct Controller;
@@ -32,8 +27,8 @@ namespace game {
     };
 
     struct CharacterMesh {
-        data::Unique<renderer::Buffer> vertexBuffer;
-        data::Unique<renderer::Buffer> instanceBuffer;
+        renderer::Buffer vertexBuffer;
+        renderer::Buffer instanceBuffer;
     };
 
     struct Character {
@@ -49,6 +44,7 @@ namespace game {
     void createCharacterInstances(CharacterMesh& mesh, std::span<CharacterInstance> instances, renderer::Device& device, renderer::Buffer& stagingBuffer, std::uint64_t& stagingBufferOffset, renderer::CommandBuffer& transferBuffer);
     void updateCharacterInstances(CharacterMesh& mesh, std::span<CharacterInstance> instances, renderer::Buffer& stagingBuffer, std::uint64_t& stagingBufferOffset, renderer::CommandBuffer& transferBuffer);
     void renderCharacterInstances(CharacterMesh& mesh, std::span<CharacterInstance> instances, renderer::CommandBuffer& commandBuffer);
+    void destroyCharacterInstances(CharacterMesh& mesh);
 
     float currentCharacterSpeed(const Character& character);
 }

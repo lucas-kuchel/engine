@@ -28,38 +28,48 @@ namespace game {
             .sizeBytes = map.tiles.size() * sizeof(TileInstance),
         };
 
-        mesh.vertexBuffer = data::makeUnique<renderer::Buffer>(vertexBufferCreateInfo);
-        mesh.instanceBuffer = data::makeUnique<renderer::Buffer>(instanceBufferCreateInfo);
+        mesh.vertexBuffer = renderer::Buffer::create(vertexBufferCreateInfo);
+        mesh.instanceBuffer = renderer::Buffer::create(instanceBufferCreateInfo);
 
-        std::uint64_t totalSize = mesh.vertexBuffer->size() + mesh.instanceBuffer->size();
-        std::span<std::uint8_t> stagingBufferData = stagingBuffer.map(totalSize, stagingBufferOffset);
+        std::uint64_t totalSize = renderer::Buffer::size(mesh.vertexBuffer) + renderer::Buffer::size(mesh.instanceBuffer);
+        auto mapping = renderer::Buffer::map(stagingBuffer, totalSize, stagingBufferOffset);
 
-        std::memcpy(stagingBufferData.data(), vertices.data(), mesh.vertexBuffer->size());
-        std::memcpy(stagingBufferData.data() + mesh.vertexBuffer->size(), map.tiles.data(), mesh.instanceBuffer->size());
+        std::memcpy(mapping.data.data(), vertices.data(), renderer::Buffer::size(mesh.vertexBuffer));
+        std::memcpy(mapping.data.data() + renderer::Buffer::size(mesh.vertexBuffer), map.tiles.data(), renderer::Buffer::size(mesh.instanceBuffer));
 
-        stagingBuffer.unmap();
+        renderer::Buffer::unmap(stagingBuffer, mapping);
 
         renderer::BufferCopyRegion vertexBufferCopyRegion = {
             .sourceOffsetBytes = stagingBufferOffset,
             .destinationOffsetBytes = 0,
-            .sizeBytes = mesh.vertexBuffer->size(),
+            .sizeBytes = renderer::Buffer::size(mesh.vertexBuffer),
         };
 
         renderer::BufferCopyRegion instanceBufferCopyRegion = {
-            .sourceOffsetBytes = stagingBufferOffset + mesh.vertexBuffer->size(),
+            .sourceOffsetBytes = stagingBufferOffset + renderer::Buffer::size(mesh.vertexBuffer),
             .destinationOffsetBytes = 0,
-            .sizeBytes = mesh.instanceBuffer->size(),
+            .sizeBytes = renderer::Buffer::size(mesh.instanceBuffer),
         };
 
-        stagingBufferOffset += mesh.vertexBuffer->size() + mesh.instanceBuffer->size();
+        stagingBufferOffset += totalSize;
 
-        transferBuffer.copyBuffer(stagingBuffer, mesh.vertexBuffer.ref(), {vertexBufferCopyRegion});
-        transferBuffer.copyBuffer(stagingBuffer, mesh.instanceBuffer.ref(), {instanceBufferCopyRegion});
+        renderer::CommandBuffer::copyBuffer(transferBuffer, stagingBuffer, mesh.vertexBuffer, {vertexBufferCopyRegion});
+        renderer::CommandBuffer::copyBuffer(transferBuffer, stagingBuffer, mesh.instanceBuffer, {instanceBufferCopyRegion});
     }
 
     void renderMap(TileMesh& mesh, Map& map, renderer::CommandBuffer& commandBuffer) {
-        commandBuffer.bindVertexBuffers({mesh.vertexBuffer.ref(), mesh.instanceBuffer.ref()}, {0, 0}, 0);
-        commandBuffer.draw(4, static_cast<std::uint32_t>(map.tiles.size()), 0, 0);
+        renderer::CommandBuffer::bindVertexBuffers(commandBuffer, {mesh.vertexBuffer, mesh.instanceBuffer}, {0, 0}, 0);
+        renderer::CommandBuffer::draw(commandBuffer, 4, static_cast<std::uint32_t>(map.tiles.size()), 0, 0);
+    }
+
+    void destroyMap(TileMesh& mesh) {
+        if (mesh.instanceBuffer) {
+            renderer::Buffer::destroy(mesh.instanceBuffer);
+        }
+
+        if (mesh.vertexBuffer) {
+            renderer::Buffer::destroy(mesh.vertexBuffer);
+        }
     }
 
     void loadMapFromFile(Map& map, const std::string& path) {

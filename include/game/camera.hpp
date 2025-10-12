@@ -1,12 +1,9 @@
 #pragma once
 
-#include <data/unique.hpp>
-
 #include <app/window.hpp>
 
-#include <renderer/resources/buffer.hpp>
-
-#include <renderer/commands/buffer.hpp>
+#include <renderer/buffer.hpp>
+#include <renderer/command_buffer.hpp>
 
 #include <renderer/swapchain.hpp>
 
@@ -24,11 +21,12 @@ namespace game {
 
         glm::uvec2 extent = {0, 0};
 
-        data::Unique<renderer::Buffer> uniformBuffer;
+        renderer::Buffer uniformBuffer;
     };
 
     void createCamera(Camera& camera, renderer::Device& device, renderer::Buffer& stagingBuffer, std::uint64_t& stagingBufferOffset, renderer::CommandBuffer& transferBuffer);
     void updateCamera(Camera& camera, renderer::Buffer& stagingBuffer, std::uint64_t& stagingBufferOffset, renderer::CommandBuffer& transferBuffer);
+    void destroyCamera(Camera& camera);
 
     void easeCameraTowards(Camera& camera, glm::vec2 position, float deltaTime);
 }

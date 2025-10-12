@@ -1,35 +1,28 @@
+#include <renderer/command_buffer.hpp>
+#include <renderer/fence.hpp>
 #include <renderer/instance.hpp>
 #include <renderer/queue.hpp>
+#include <renderer/semaphore.hpp>
 #include <renderer/surface.hpp>
 
-#include <renderer/commands/buffer.hpp>
-
-#include <renderer/resources/fence.hpp>
-#include <renderer/resources/semaphore.hpp>
-
-#include <stdexcept>
-
 namespace renderer {
-    Queue::~Queue() {
-    }
-
-    void Queue::submit(const SubmitInfo& submitInfo) {
+    bool Queue::submit(Queue& queue, const QueueSubmitInfo& submitInfo) {
         std::vector<VkCommandBuffer> buffers(submitInfo.commandBuffers.size());
         std::vector<VkSemaphore> waits(submitInfo.waits.size());
         std::vector<VkSemaphore> signals(submitInfo.signals.size());
         std::vector<VkPipelineStageFlags> flags(submitInfo.waitFlags.size());
 
         for (std::size_t i = 0; i < buffers.size(); i++) {
-            buffers[i] = submitInfo.commandBuffers[i]->getVkCommandBuffer();
+            buffers[i] = submitInfo.commandBuffers[i].commandBuffer_;
         }
 
         for (std::size_t i = 0; i < waits.size(); i++) {
             flags[i] = PipelineStageFlags::mapFrom(submitInfo.waitFlags[i]);
-            waits[i] = submitInfo.waits[i]->getVkSemaphore();
+            waits[i] = submitInfo.waits[i].semaphore_;
         }
 
         for (std::size_t i = 0; i < signals.size(); i++) {
-            signals[i] = submitInfo.signals[i]->getVkSemaphore();
+            signals[i] = submitInfo.signals[i].semaphore_;
         }
 
         VkSubmitInfo vkSubmitInfo = {
@@ -44,24 +37,6 @@ namespace renderer {
             .pSignalSemaphores = signals.data(),
         };
 
-        if (vkQueueSubmit(queue_, static_cast<std::uint32_t>(buffers.size()), &vkSubmitInfo, (submitInfo.fence != nullptr) ? submitInfo.fence->getVkFence() : VK_NULL_HANDLE)) {
-            throw std::runtime_error("Call failed: renderer::Queue::submit(): Failed to submit command buffers to queue");
-        }
-    }
-
-    VkQueue& Queue::getVkQueue() {
-        return queue_;
-    }
-
-    const VkQueue& Queue::getVkQueue() const {
-        return queue_;
-    }
-
-    std::uint32_t Queue::getVkFamilyIndex() const {
-        return familyIndex_;
-    }
-
-    std::uint32_t Queue::getVkQueueIndex() const {
-        return queueIndex_;
+        return vkQueueSubmit(queue.queue_, static_cast<std::uint32_t>(buffers.size()), &vkSubmitInfo, (submitInfo.fence.fence_ != nullptr) ? submitInfo.fence.fence_ : VK_NULL_HANDLE) == VK_SUCCESS;
     }
 }

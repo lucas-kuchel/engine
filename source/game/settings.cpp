@@ -1,5 +1,7 @@
 #include <game/settings.hpp>
 
+#include <app/configuration.hpp>
+
 #include <fstream>
 
 #include <nlohmann/json.hpp>

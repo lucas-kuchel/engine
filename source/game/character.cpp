@@ -3,15 +3,14 @@
 #include <game/physics.hpp>
 #include <game/settings.hpp>
 
+#include <renderer/buffer.hpp>
 #include <renderer/device.hpp>
+#include <renderer/fence.hpp>
 #include <renderer/queue.hpp>
+#include <renderer/sampler.hpp>
 
-#include <renderer/resources/buffer.hpp>
-#include <renderer/resources/fence.hpp>
-#include <renderer/resources/sampler.hpp>
-
-#include <cstring>
 #include <array>
+#include <cstring>
 
 #include <glm/gtc/matrix_transform.hpp>
 
@@ -38,56 +37,68 @@ namespace game {
             .sizeBytes = instances.size() * sizeof(CharacterInstance),
         };
 
-        mesh.vertexBuffer = data::makeUnique<renderer::Buffer>(vertexBufferCreateInfo);
-        mesh.instanceBuffer = data::makeUnique<renderer::Buffer>(instanceBufferCreateInfo);
+        mesh.vertexBuffer = renderer::Buffer::create(vertexBufferCreateInfo);
+        mesh.instanceBuffer = renderer::Buffer::create(instanceBufferCreateInfo);
 
-        std::uint64_t totalSize = mesh.vertexBuffer->size() + mesh.instanceBuffer->size();
-        std::span<std::uint8_t> stagingBufferData = stagingBuffer.map(totalSize, stagingBufferOffset);
+        std::uint64_t totalSize = renderer::Buffer::size(mesh.vertexBuffer) + renderer::Buffer::size(mesh.instanceBuffer);
+        auto mapping = renderer::Buffer::map(stagingBuffer, totalSize, stagingBufferOffset);
 
-        std::memcpy(stagingBufferData.data(), vertices.data(), mesh.vertexBuffer->size());
-        std::memcpy(stagingBufferData.data() + mesh.vertexBuffer->size(), instances.data(), mesh.instanceBuffer->size());
+        std::memcpy(mapping.data.data(), vertices.data(), renderer::Buffer::size(mesh.vertexBuffer));
+        std::memcpy(mapping.data.data() + renderer::Buffer::size(mesh.vertexBuffer), instances.data(), renderer::Buffer::size(mesh.instanceBuffer));
 
-        stagingBuffer.unmap();
+        renderer::Buffer::unmap(stagingBuffer, mapping);
 
         renderer::BufferCopyRegion vertexBufferCopyRegion = {
             .sourceOffsetBytes = stagingBufferOffset,
             .destinationOffsetBytes = 0,
-            .sizeBytes = mesh.vertexBuffer->size(),
+            .sizeBytes = renderer::Buffer::size(mesh.vertexBuffer),
         };
 
         renderer::BufferCopyRegion instanceBufferCopyRegion = {
-            .sourceOffsetBytes = stagingBufferOffset + mesh.vertexBuffer->size(),
+            .sourceOffsetBytes = stagingBufferOffset + renderer::Buffer::size(mesh.vertexBuffer),
             .destinationOffsetBytes = 0,
-            .sizeBytes = mesh.instanceBuffer->size(),
+            .sizeBytes = renderer::Buffer::size(mesh.instanceBuffer),
         };
 
-        stagingBufferOffset += mesh.vertexBuffer->size() + mesh.instanceBuffer->size();
+        stagingBufferOffset += totalSize;
 
-        transferBuffer.copyBuffer(stagingBuffer, mesh.vertexBuffer.ref(), {vertexBufferCopyRegion});
-        transferBuffer.copyBuffer(stagingBuffer, mesh.instanceBuffer.ref(), {instanceBufferCopyRegion});
+        renderer::CommandBuffer::copyBuffer(transferBuffer, stagingBuffer, mesh.vertexBuffer, {vertexBufferCopyRegion});
+        renderer::CommandBuffer::copyBuffer(transferBuffer, stagingBuffer, mesh.instanceBuffer, {instanceBufferCopyRegion});
     }
 
     void updateCharacterInstances(CharacterMesh& mesh, std::span<CharacterInstance> instances, renderer::Buffer& stagingBuffer, std::uint64_t& stagingBufferOffset, renderer::CommandBuffer& transferBuffer) {
-        std::span<std::uint8_t> stagingBufferData = stagingBuffer.map(mesh.instanceBuffer->size(), stagingBufferOffset);
+        std::size_t instanceBufferSize = renderer::Buffer::size(mesh.instanceBuffer);
 
-        std::memcpy(stagingBufferData.data(), instances.data(), mesh.instanceBuffer->size());
+        auto mapping = renderer::Buffer::map(stagingBuffer, instanceBufferSize, stagingBufferOffset);
 
-        stagingBuffer.unmap();
+        std::memcpy(mapping.data.data(), instances.data(), instanceBufferSize);
+
+        renderer::Buffer::unmap(stagingBuffer, mapping);
 
         renderer::BufferCopyRegion instanceBufferCopyRegion = {
             .sourceOffsetBytes = stagingBufferOffset,
             .destinationOffsetBytes = 0,
-            .sizeBytes = mesh.instanceBuffer->size(),
+            .sizeBytes = instanceBufferSize,
         };
 
-        stagingBufferOffset += mesh.instanceBuffer->size();
+        stagingBufferOffset += instanceBufferSize;
 
-        transferBuffer.copyBuffer(stagingBuffer, mesh.instanceBuffer.ref(), {instanceBufferCopyRegion});
+        renderer::CommandBuffer::copyBuffer(transferBuffer, stagingBuffer, mesh.instanceBuffer, {instanceBufferCopyRegion});
     }
 
-    void renderCharacterInstances(CharacterMesh& character, std::span<CharacterInstance> instances, renderer::CommandBuffer& commandBuffer) {
-        commandBuffer.bindVertexBuffers({character.vertexBuffer.ref(), character.instanceBuffer.ref()}, {0, 0}, 0);
-        commandBuffer.draw(4, static_cast<std::uint32_t>(instances.size()), 0, 0);
+    void renderCharacterInstances(CharacterMesh& mesh, std::span<CharacterInstance> instances, renderer::CommandBuffer& commandBuffer) {
+        renderer::CommandBuffer::bindVertexBuffers(commandBuffer, {mesh.vertexBuffer, mesh.instanceBuffer}, {0, 0}, 0);
+        renderer::CommandBuffer::draw(commandBuffer, 4, static_cast<std::uint32_t>(instances.size()), 0, 0);
+    }
+
+    void destroyCharacterInstances(CharacterMesh& mesh) {
+        if (mesh.instanceBuffer) {
+            renderer::Buffer::destroy(mesh.instanceBuffer);
+        }
+
+        if (mesh.vertexBuffer) {
+            renderer::Buffer::destroy(mesh.vertexBuffer);
+        }
     }
 
     float currentCharacterSpeed(const Character& character) {

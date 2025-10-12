@@ -1,3 +1,4 @@
+#include <app/configuration.hpp>
 #include <app/context.hpp>
 
 #include <stdexcept>

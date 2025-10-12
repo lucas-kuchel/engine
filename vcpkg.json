@@ -7,6 +7,8 @@
         "vulkan-memory-allocator",
         "nlohmann-json",
         "stb",
-        "glm"
+        "glm",
+        "entt",
+        "boost-headers"
     ]
 }

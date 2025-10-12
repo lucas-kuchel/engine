@@ -1,3 +1,4 @@
+#include <app/configuration.hpp>
 #include <app/window.hpp>
 
 #include <stdexcept>
@@ -9,7 +10,7 @@ namespace app {
         : extent_(createInfo.extent), title_(createInfo.title), visibility_(createInfo.visibility) {
         glfwWindowHint(GLFW_RESIZABLE, createInfo.resizable);
 
-        handle_ = glfwCreateWindow(static_cast<std::int32_t>(extent_.width), static_cast<std::int32_t>(extent_.height), title_.c_str(), nullptr, nullptr);
+        handle_ = glfwCreateWindow(static_cast<std::int32_t>(extent_.x), static_cast<std::int32_t>(extent_.y), title_.c_str(), nullptr, nullptr);
 
         if (!handle_) {
             throw std::runtime_error("Call failed: app::Window::Window(): Failed to create window");
@@ -58,14 +59,14 @@ namespace app {
         }
     }
 
-    void Window::setExtent(const data::Extent2D<std::uint32_t>& extent) {
+    void Window::setExtent(const glm::uvec2& extent) {
         if (!handle_) {
             throw std::runtime_error("Illegal call to app::Window::setExtent(): Window is invalid");
         }
 
         extent_ = extent;
 
-        glfwSetWindowSize(handle_, static_cast<std::int32_t>(extent_.width), static_cast<std::int32_t>(extent_.height));
+        glfwSetWindowSize(handle_, static_cast<std::int32_t>(extent_.x), static_cast<std::int32_t>(extent_.y));
     }
 
     void Window::setTitle(const std::string& title) {
@@ -93,8 +94,8 @@ namespace app {
                     glfwRestoreWindow(handle_);
                 }
                 else if (visibility_ == WindowVisibility::FULLSCREEN) {
-                    std::uint32_t width = lastWindowedExtent_.width;
-                    std::uint32_t height = lastWindowedExtent_.height;
+                    std::uint32_t width = lastWindowedExtent_.x;
+                    std::uint32_t height = lastWindowedExtent_.y;
 
                     glfwSetWindowMonitor(handle_, nullptr, GLFW_DONT_CARE, GLFW_DONT_CARE, static_cast<std::int32_t>(width), static_cast<std::int32_t>(height), 0);
                 }
@@ -124,7 +125,7 @@ namespace app {
         visibility_ = visibility;
     }
 
-    const data::Extent2D<std::uint32_t>& Window::extent() const {
+    const glm::uvec2& Window::extent() const {
         if (!handle_) {
             throw std::runtime_error("Illegal call to app::Window::extent(): Window is invalid");
         }
@@ -180,8 +181,8 @@ namespace app {
         }
 
         self->extent_ = {
-            .width = static_cast<std::uint32_t>(width),
-            .height = static_cast<std::uint32_t>(height),
+            static_cast<std::uint32_t>(width),
+            static_cast<std::uint32_t>(height),
         };
 
         WindowResizeEventInfo eventInfo = {

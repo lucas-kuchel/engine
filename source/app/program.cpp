@@ -3,14 +3,11 @@
 #include <cstring>
 #include <fstream>
 
+#define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 
 namespace app {
     void Program::start() {
-        renderer::CommandBufferCreateInfo transferCommandBuffersCreateInfo = {
-            .count = 1,
-        };
-
         std::int32_t width = 0;
         std::int32_t height = 0;
         std::int32_t channels = 0;
@@ -18,7 +15,7 @@ namespace app {
         std::uint8_t* tilemapImageData = stbi_load("assets/images/tilemap.png", &width, &height, &channels, STBI_rgb_alpha);
 
         renderer::SamplerCreateInfo samplerCreateInfo = {
-            .device = device_.ref(),
+            .device = device_,
             .minFilter = renderer::Filter::NEAREST,
             .magFilter = renderer::Filter::NEAREST,
             .mipmapMode = renderer::MipmapMode::NEAREST,
@@ -26,20 +23,18 @@ namespace app {
             .addressModeV = renderer::AddressMode::REPEAT,
             .addressModeW = renderer::AddressMode::REPEAT,
             .borderColour = renderer::BorderColour::FLOAT_OPAQUE_BLACK,
-            .enableAnisotropy = false,
-            .maxAnisotropy = 0.0f,
-            .enableCompare = false,
+            .maxAnisotropy = {},
+            .comparison = {},
             .unnormalisedCoordinates = false,
-            .comparison = renderer::CompareOperation::ALWAYS,
             .mipLodBias = 0.0f,
             .minLod = 0.0f,
             .maxLod = 0.0f,
         };
 
-        sampler_ = data::makeUnique<renderer::Sampler>(samplerCreateInfo);
+        sampler_ = renderer::Sampler::create(samplerCreateInfo);
 
         renderer::ImageCreateInfo tilemapImageCreateInfo = {
-            .device = device_.ref(),
+            .device = device_,
             .type = renderer::ImageType::IMAGE_2D,
             .format = renderer::ImageFormat::R8G8B8A8_UNORM,
             .memoryType = renderer::MemoryType::DEVICE_LOCAL,
@@ -50,9 +45,9 @@ namespace app {
             .arrayLayers = 1,
         };
 
-        tilemapImage_ = data::makeUnique<renderer::Image>(tilemapImageCreateInfo);
+        tilemapImage_ = renderer::Image::create(tilemapImageCreateInfo);
 
-        transferCommandBuffers_ = transferCommandPool_->allocateCommandBuffers(transferCommandBuffersCreateInfo);
+        transferCommandBuffers_ = renderer::CommandPool::allocateCommandBuffers(transferCommandPool_, 1);
         transferCommandBuffer_ = transferCommandBuffers_.front();
 
         renderer::DescriptorSetInputInfo bufferInputInfo = {
@@ -70,11 +65,11 @@ namespace app {
         };
 
         renderer::DescriptorSetLayoutCreateInfo layoutCreateInfo = {
-            .device = device_.ref(),
+            .device = device_,
             .inputs = {bufferInputInfo, samplerInputInfo},
         };
 
-        descriptorSetLayout_ = data::makeUnique<renderer::DescriptorSetLayout>(layoutCreateInfo);
+        descriptorSetLayout_ = renderer::DescriptorSetLayout::create(layoutCreateInfo);
 
         renderer::DescriptorPoolSize bufferSize = {
             .type = renderer::DescriptorInputType::UNIFORM_BUFFER,
@@ -87,18 +82,18 @@ namespace app {
         };
 
         renderer::DescriptorPoolCreateInfo poolCreateInfo = {
-            .device = device_.ref(),
+            .device = device_,
             .poolSizes = {bufferSize, imageSize},
             .maximumSetCount = 1,
         };
 
-        descriptorPool_ = data::makeUnique<renderer::DescriptorPool>(poolCreateInfo);
+        descriptorPool_ = renderer::DescriptorPool::create(poolCreateInfo);
 
         renderer::DescriptorSetCreateInfo setCreateInfo = {
-            .layouts = {descriptorSetLayout_.ref()},
+            .layouts = {descriptorSetLayout_},
         };
 
-        descriptorSets_ = descriptorPool_->allocateDescriptorSets(setCreateInfo);
+        descriptorSets_ = renderer::DescriptorPool::allocateDescriptorSets(descriptorPool_, setCreateInfo);
         basicDescriptorSet_ = descriptorSets_[0];
 
         controller_.leftBinding = app::Key::A;
@@ -170,20 +165,20 @@ namespace app {
         std::uint64_t mapSizeBytes = map_.tiles.size() * sizeof(game::TileInstance);
 
         renderer::BufferCreateInfo stagingBufferCreateInfo = {
-            .device = device_.ref(),
+            .device = device_,
             .memoryType = renderer::MemoryType::HOST_VISIBLE,
             .usageFlags = renderer::BufferUsageFlags::TRANSFER_SOURCE,
             .sizeBytes = 8 * 1024 * 1024 + mapSizeBytes,
         };
 
-        stagingBuffer_ = data::makeUnique<renderer::Buffer>(stagingBufferCreateInfo);
+        stagingBuffer_ = renderer::Buffer::create(stagingBufferCreateInfo);
 
         std::uint64_t stagingBufferOffset = 0;
 
-        transferCommandBuffer_->beginCapture();
+        renderer::CommandBuffer::beginCapture(transferCommandBuffer_);
 
         renderer::ImageMemoryBarrier memoryBarrier0 = {
-            .image = tilemapImage_.ref(),
+            .image = tilemapImage_,
             .sourceQueue = {},
             .destinationQueue = {},
             .oldLayout = renderer::ImageLayout::UNDEFINED,
@@ -197,13 +192,13 @@ namespace app {
             .destinationAccessFlags = renderer::AccessFlags::TRANSFER_WRITE,
         };
 
-        transferCommandBuffer_->pipelineBarrier(renderer::PipelineStageFlags::TOP_OF_PIPE, renderer::PipelineStageFlags::TRANSFER, {memoryBarrier0});
+        renderer::CommandBuffer::pipelineBarrier(transferCommandBuffer_, renderer::PipelineStageFlags::TOP_OF_PIPE, renderer::PipelineStageFlags::TRANSFER, {memoryBarrier0});
 
-        auto tilemapStagingMapping = stagingBuffer_->map(static_cast<std::uint32_t>(width * height * channels), stagingBufferOffset);
+        auto mapping = renderer::Buffer::map(stagingBuffer_, static_cast<std::uint32_t>(width * height * channels), stagingBufferOffset);
 
-        std::memcpy(tilemapStagingMapping.data(), tilemapImageData, static_cast<std::uint32_t>(width * height * channels));
+        std::memcpy(mapping.data.data(), tilemapImageData, static_cast<std::uint32_t>(width * height * channels));
 
-        stagingBuffer_->unmap();
+        renderer::Buffer::unmap(stagingBuffer_, mapping);
 
         renderer::BufferImageCopyRegion tilemapCopyRegion = {
             .bufferOffset = stagingBufferOffset,
@@ -219,10 +214,10 @@ namespace app {
 
         stagingBufferOffset += static_cast<std::uint32_t>(width * height * channels);
 
-        transferCommandBuffer_->copyBufferToImage(stagingBuffer_.ref(), tilemapImage_.ref(), renderer::ImageLayout::TRANSFER_DESTINATION_OPTIMAL, {tilemapCopyRegion});
+        renderer::CommandBuffer::copyBufferToImage(transferCommandBuffer_, stagingBuffer_, tilemapImage_, renderer::ImageLayout::TRANSFER_DESTINATION_OPTIMAL, {tilemapCopyRegion});
 
         renderer::ImageMemoryBarrier memoryBarrier1 = {
-            .image = tilemapImage_.ref(),
+            .image = tilemapImage_,
             .sourceQueue = {},
             .destinationQueue = {},
             .oldLayout = renderer::ImageLayout::TRANSFER_DESTINATION_OPTIMAL,
@@ -236,38 +231,41 @@ namespace app {
             .destinationAccessFlags = renderer::AccessFlags::SHADER_READ,
         };
 
-        transferCommandBuffer_->pipelineBarrier(renderer::PipelineStageFlags::TRANSFER, renderer::PipelineStageFlags::FRAGMENT_SHADER, {memoryBarrier1});
+        renderer::CommandBuffer::pipelineBarrier(transferCommandBuffer_, renderer::PipelineStageFlags::TRANSFER, renderer::PipelineStageFlags::FRAGMENT_SHADER, {memoryBarrier1});
 
-        game::createMap(tileMesh_, map_, device_.ref(), stagingBuffer_.ref(), stagingBufferOffset, transferCommandBuffer_.get());
-        game::createCharacterInstances(characterMesh_, characterInstances_, device_.ref(), stagingBuffer_.ref(), stagingBufferOffset, transferCommandBuffer_.get());
-        game::createCamera(camera_, device_.ref(), stagingBuffer_.ref(), stagingBufferOffset, transferCommandBuffer_.get());
+        game::createMap(tileMesh_, map_, device_, stagingBuffer_, stagingBufferOffset, transferCommandBuffer_);
+        game::createCharacterInstances(characterMesh_, characterInstances_, device_, stagingBuffer_, stagingBufferOffset, transferCommandBuffer_);
+        game::createCamera(camera_, device_, stagingBuffer_, stagingBufferOffset, transferCommandBuffer_);
 
-        transferCommandBuffer_->endCapture();
+        renderer::CommandBuffer::endCapture(transferCommandBuffer_);
 
-        renderer::Fence fence({device_.ref(), 0});
+        renderer::Fence fence = renderer::Fence::create({device_, 0});
 
-        renderer::SubmitInfo submitInfo = {
+        renderer::QueueSubmitInfo submitInfo = {
             .fence = fence,
-            .commandBuffers = {transferCommandBuffer_.get()},
+            .commandBuffers = {transferCommandBuffer_},
             .waits = {},
             .signals = {},
             .waitFlags = {},
         };
 
-        transferQueue_->submit(submitInfo);
+        renderer::Queue::submit(transferQueue_, submitInfo);
+        renderer::Device::waitForFences(device_, {fence});
+        renderer::Fence::destroy(fence);
 
-        device_->waitForFences({fence});
+        stagingBufferFence_ = renderer::Fence::create({device_, renderer::FenceCreateFlags::START_SIGNALED});
+        stagingBufferSemaphore_ = renderer::Semaphore::create(device_);
 
         createBasicPipelineResources();
 
         renderer::DescriptorSetBufferBinding cameraBufferBinding = {
-            .buffer = camera_.uniformBuffer.ref(),
+            .buffer = camera_.uniformBuffer,
             .offsetBytes = 0,
-            .rangeBytes = camera_.uniformBuffer->size(),
+            .rangeBytes = renderer::Buffer::size(camera_.uniformBuffer),
         };
 
         renderer::DescriptorSetUpdateInfo uniformBufferUpdateInfo = {
-            .set = basicDescriptorSet_.get(),
+            .set = basicDescriptorSet_,
             .inputType = renderer::DescriptorInputType::UNIFORM_BUFFER,
             .binding = 0,
             .arrayElement = 0,
@@ -275,10 +273,10 @@ namespace app {
             .images = {},
         };
 
-        descriptorPool_->updateDescriptorSets({uniformBufferUpdateInfo});
+        renderer::DescriptorPool::updateDescriptorSets(descriptorPool_, {uniformBufferUpdateInfo});
 
         renderer::ImageViewCreateInfo tilemapImageViewCreateInfo = {
-            .image = tilemapImage_.ref(),
+            .image = tilemapImage_,
             .type = renderer::ImageViewType::IMAGE_2D,
             .aspectFlags = renderer::ImageAspectFlags::COLOUR,
             .baseMipLevel = 0,
@@ -287,16 +285,16 @@ namespace app {
             .layerCount = 1,
         };
 
-        tilemapImageView_ = data::makeUnique<renderer::ImageView>(tilemapImageViewCreateInfo);
+        tilemapImageView_ = renderer::ImageView::create(tilemapImageViewCreateInfo);
 
         renderer::DescriptorSetImageBinding samplerBinding = {
-            .image = tilemapImageView_.ref(),
-            .sampler = sampler_.ref(),
+            .image = tilemapImageView_,
+            .sampler = sampler_,
             .layout = renderer::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
         };
 
         renderer::DescriptorSetUpdateInfo samplerUpdateInfo = {
-            .set = basicDescriptorSet_.get(),
+            .set = basicDescriptorSet_,
             .inputType = renderer::DescriptorInputType::IMAGE_SAMPLER,
             .binding = 1,
             .arrayElement = 0,
@@ -304,14 +302,15 @@ namespace app {
             .images = {samplerBinding},
         };
 
-        descriptorPool_->updateDescriptorSets({samplerUpdateInfo});
+        renderer::DescriptorPool::updateDescriptorSets(descriptorPool_, {samplerUpdateInfo});
 
         lastFrameTime_ = std::chrono::high_resolution_clock::now();
 
         stagingBufferCreateInfo.sizeBytes = 4 * 1024 * 1024;
 
-        stagingBuffer_.reset();
-        stagingBuffer_ = data::makeUnique<renderer::Buffer>(stagingBufferCreateInfo);
+        renderer::Buffer::destroy(stagingBuffer_);
+
+        stagingBuffer_ = renderer::Buffer::create(stagingBufferCreateInfo);
 
         stbi_image_free(tilemapImageData);
     }
@@ -327,9 +326,9 @@ namespace app {
 
         lastFrameTime_ = currentTime;
 
-        camera_.extent = {swapchain_->extent().width, swapchain_->extent().height};
+        camera_.extent = renderer::Swapchain::getExtent(swapchain_);
 
-        transferCommandBuffer_->beginCapture();
+        renderer::CommandBuffer::beginCapture(transferCommandBuffer_);
 
         auto& focusedCharacter = characters_[focusedCharacterIndex_];
         auto& focusedCharacterMovableBody = characterMovableBodies_[focusedCharacterIndex_];
@@ -404,7 +403,7 @@ namespace app {
             bool moving = glm::length(velocity) > 0.0f;
 
             if (characterCollisionResults_[i].collided && moving && (!accelerating || reversing)) {
-                friction = (characterCollisionResults_[i].other.get().physics.friction + characterColliders_[i].physics.friction) * 0.5f;
+                friction = (characterCollisionResults_[i].other->physics.friction + characterColliders_[i].physics.friction) * 0.5f;
             }
 
             game::updateMovement(characterMovableBodies_[i], deltaTime, map_.physics.gravity, friction, map_.physics.airResistance);
@@ -414,23 +413,21 @@ namespace app {
         }
 
         game::resolveMapCollisions(map_, characterMovableBodies_, characterColliders_, characterCollisionResults_);
-
-        game::updateCharacterInstances(characterMesh_, characterInstances_, stagingBuffer_.ref(), stagingBufferOffset, transferCommandBuffer_.get());
-
+        game::updateCharacterInstances(characterMesh_, characterInstances_, stagingBuffer_, stagingBufferOffset, transferCommandBuffer_);
         game::easeCameraTowards(camera_, focusedCharacterMovableBody.position, deltaTime);
-        game::updateCamera(camera_, stagingBuffer_.ref(), stagingBufferOffset, transferCommandBuffer_.get());
+        game::updateCamera(camera_, stagingBuffer_, stagingBufferOffset, transferCommandBuffer_);
 
-        transferCommandBuffer_->endCapture();
+        renderer::CommandBuffer::endCapture(transferCommandBuffer_);
 
-        renderer::SubmitInfo submitInfo = {
-            .fence = stagingBufferFence_.ref(),
-            .commandBuffers = {transferCommandBuffer_.get()},
+        renderer::QueueSubmitInfo submitInfo = {
+            .fence = stagingBufferFence_,
+            .commandBuffers = {transferCommandBuffer_},
             .waits = {},
-            .signals = {stagingBufferSemaphore_.ref()},
+            .signals = {stagingBufferSemaphore_},
             .waitFlags = {},
         };
 
-        transferQueue_->submit(submitInfo);
+        renderer::Queue::submit(transferQueue_, submitInfo);
     }
 
     void Program::render() {
@@ -440,23 +437,21 @@ namespace app {
         auto& acquireSemaphore = acquireSemaphores_[frameCounter_.index];
         auto& presentSemaphore = presentSemaphores_[imageCounter_.index];
 
-        data::Rect2D<std::int32_t, std::uint32_t> renderArea = {
-            .offset = {0, 0},
-            .extent = swapchain_->extent(),
-        };
-
-        data::ColourRGBA clearColour = {
-            .r = 0.0f,
-            .g = 0.2f,
-            .b = 0.9f,
-            .a = 1.0f,
+        glm::fvec4 clearColour = {
+            0.0f,
+            0.2f,
+            0.9f,
+            1.0f,
         };
 
         renderer::RenderPassBeginInfo renderPassBeginInfo = {
-            .renderPass = renderPass_.ref(),
+            .renderPass = renderPass_,
             .framebuffer = framebuffer,
-            .renderArea = renderArea,
-            .clearValues = {
+            .region = {
+                .position = {0, 0},
+                .extent = renderer::Swapchain::getExtent(swapchain_),
+            },
+            .colourClearValues = {
                 clearColour,
             },
             .depthClearValue = 0.0f,
@@ -464,45 +459,34 @@ namespace app {
         };
 
         renderer::Viewport viewport = {
-            .position = {
-                .x = 0.0,
-                .y = 0.0,
-            },
-            .extent = {
-                .width = static_cast<float>(swapchain_->extent().width),
-                .height = static_cast<float>(swapchain_->extent().height),
-            },
-            .depth = {
-                .min = 0.0,
-                .max = 1.0,
-            },
+            .position = {0.0, 0.0},
+            .extent = renderer::Swapchain::getExtent(swapchain_),
+            .minDepth = 0.0f,
+            .maxDepth = 1.0f,
         };
 
         renderer::Scissor scissor = {
             .offset = {0, 0},
-            .extent = swapchain_->extent(),
+            .extent = renderer::Swapchain::getExtent(swapchain_),
         };
 
-        commandBuffer.beginCapture();
-        commandBuffer.beginRenderPass(renderPassBeginInfo);
-        commandBuffer.bindPipeline(basicPipeline_.get());
-
-        commandBuffer.setPipelineViewports({viewport}, 0);
-        commandBuffer.setPipelineScissors({scissor}, 0);
-
-        commandBuffer.bindDescriptorSets(renderer::DeviceOperation::GRAPHICS, basicPipelineLayout_.ref(), 0, {basicDescriptorSet_.get()});
+        renderer::CommandBuffer::beginCapture(commandBuffer);
+        renderer::CommandBuffer::beginRenderPass(commandBuffer, renderPassBeginInfo);
+        renderer::CommandBuffer::bindPipeline(commandBuffer, basicPipeline_);
+        renderer::CommandBuffer::setPipelineViewports(commandBuffer, {viewport}, 0);
+        renderer::CommandBuffer::setPipelineScissors(commandBuffer, {scissor}, 0);
+        renderer::CommandBuffer::bindDescriptorSets(commandBuffer, renderer::DeviceOperation::GRAPHICS, basicPipelineLayout_, 0, {basicDescriptorSet_});
 
         game::renderMap(tileMesh_, map_, commandBuffer);
-
         game::renderCharacterInstances(characterMesh_, characterInstances_, commandBuffer);
 
-        commandBuffer.endRenderPass();
-        commandBuffer.endCapture();
+        renderer::CommandBuffer::endRenderPass(commandBuffer);
+        renderer::CommandBuffer::endCapture(commandBuffer);
 
-        renderer::SubmitInfo submitInfo = {
+        renderer::QueueSubmitInfo submitInfo = {
             .fence = inFlightFence,
             .commandBuffers = {commandBuffer},
-            .waits = {stagingBufferSemaphore_.ref(), acquireSemaphore},
+            .waits = {stagingBufferSemaphore_, acquireSemaphore},
             .signals = {presentSemaphore},
             .waitFlags = {
                 renderer::PipelineStageFlags::VERTEX_INPUT,
@@ -510,10 +494,27 @@ namespace app {
             },
         };
 
-        graphicsQueue_->submit(submitInfo);
+        renderer::Queue::submit(graphicsQueue_, submitInfo);
     }
 
     void Program::close() {
+        renderer::Device::waitIdle(device_);
+
+        game::destroyCharacterInstances(characterMesh_);
+        game::destroyMap(tileMesh_);
+        game::destroyCamera(camera_);
+
+        renderer::Fence::destroy(stagingBufferFence_);
+        renderer::Semaphore::destroy(stagingBufferSemaphore_);
+
+        renderer::DescriptorPool::destroy(descriptorPool_);
+        renderer::DescriptorSetLayout::destroy(descriptorSetLayout_);
+        renderer::Pipeline::destroy(basicPipeline_);
+        renderer::PipelineLayout::destroy(basicPipelineLayout_);
+        renderer::Buffer::destroy(stagingBuffer_);
+        renderer::ImageView::destroy(tilemapImageView_);
+        renderer::Image::destroy(tilemapImage_);
+        renderer::Sampler::destroy(sampler_);
     }
 
     void Program::createBasicPipelineResources() {
@@ -533,31 +534,29 @@ namespace app {
         fragmentShader.read(reinterpret_cast<char*>(fragmentShaderBinary.data()), static_cast<std::uint32_t>(fragmentShaderSize));
 
         renderer::ShaderModuleCreateInfo vertexShaderModuleCreateInfo = {
-            .device = device_.ref(),
+            .device = device_,
             .data = vertexShaderBinary,
         };
 
         renderer::ShaderModuleCreateInfo fragmentShaderModuleCreateInfo = {
-            .device = device_.ref(),
+            .device = device_,
             .data = fragmentShaderBinary,
         };
 
-        renderer::ShaderModule vertexShaderModule(vertexShaderModuleCreateInfo);
-        renderer::ShaderModule fragmentShaderModule(fragmentShaderModuleCreateInfo);
+        renderer::ShaderModule vertexShaderModule = renderer::ShaderModule::create(vertexShaderModuleCreateInfo);
+        renderer::ShaderModule fragmentShaderModule = renderer::ShaderModule::create(fragmentShaderModuleCreateInfo);
 
         renderer::PipelineLayoutCreateInfo pipelineLayoutCreateInfo = {
-            .device = device_.ref(),
-            .inputLayouts = {
-                descriptorSetLayout_.ref(),
-            },
+            .device = device_,
+            .inputLayouts = {descriptorSetLayout_},
             .pushConstants = {},
         };
 
-        basicPipelineLayout_ = data::makeUnique<renderer::PipelineLayout>(pipelineLayoutCreateInfo);
+        basicPipelineLayout_ = renderer::PipelineLayout::create(pipelineLayoutCreateInfo);
 
         renderer::PipelineCreateInfo pipelineCreateInfo = {
-            .renderPass = renderPass_.ref(),
-            .layout = basicPipelineLayout_.ref(),
+            .renderPass = renderPass_,
+            .layout = basicPipelineLayout_,
             .subpassIndex = 0,
             .shaderStages = {
                 {
@@ -656,8 +655,11 @@ namespace app {
             },
         };
 
-        pipelines_ = device_->createPipelines({pipelineCreateInfo});
+        pipelines_ = renderer::Device::createPipelines(device_, {pipelineCreateInfo});
 
         basicPipeline_ = pipelines_.front();
+
+        renderer::ShaderModule::destroy(vertexShaderModule);
+        renderer::ShaderModule::destroy(fragmentShaderModule);
     }
 }

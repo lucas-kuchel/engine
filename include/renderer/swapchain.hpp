@@ -1,23 +1,24 @@
 #pragma once
 
-#include <data/references.hpp>
+#include <renderer/configuration.hpp>
 
-#include <renderer/resources/fence.hpp>
-#include <renderer/resources/image.hpp>
-#include <renderer/resources/pass.hpp>
-#include <renderer/resources/semaphore.hpp>
+#include <cstdint>
+#include <span>
+#include <vector>
 
-#include <renderer/commands/buffer.hpp>
+#include <glm/glm.hpp>
 
 #include <vulkan/vulkan.h>
-
-#include <span>
 
 namespace renderer {
     class Instance;
     class Surface;
     class Device;
     class Queue;
+    class Semaphore;
+    class ImageView;
+    class Image;
+    class Swapchain;
 
     // @brief Creation information for a swapchain
     struct SwapchainCreateInfo {
@@ -34,126 +35,51 @@ namespace renderer {
         // @brief Whether presentation should be synchronised with vertical refresh rate (VSync)
         // @note Vulkan will always prefer VK_PRESENT_MODE_MAILBOX_KHR when available
         bool synchronise;
+
+        Swapchain* oldSwapchain = nullptr;
     };
 
-    // @brief Recreation information for a swapchain
-    struct SwapchainRecreateInfo {
-        // @brief How many images you want the swapchain to possess
-        // @note This may be disregarded as the driver has the final say
-        std::uint32_t imageCount;
-
-        // @brief Whether presentation should be synchronised with vertical refresh rate (VSync)
-        // @note Vulkan will always prefer VK_PRESENT_MODE_MAILBOX_KHR when available
-        bool synchronise;
-    };
-
-    // @brief Manages images shown to window
-    // @not Not safe to copy
     class Swapchain {
     public:
-        Swapchain(const SwapchainCreateInfo& createInfo);
-        ~Swapchain();
+        static Swapchain create(const SwapchainCreateInfo& createInfo);
+        static void destroy(Swapchain& swapchain);
 
-        Swapchain(const Swapchain&) = delete;
-        Swapchain(Swapchain&&) noexcept = default;
+        static bool acquireNextImage(Swapchain& swapchain, Semaphore& acquireSemaphore);
+        static bool presentNextImage(Swapchain& swapchain, Semaphore& presentSemaphore);
 
-        Swapchain& operator=(const Swapchain&) = delete;
-        Swapchain& operator=(Swapchain&&) noexcept = default;
-
-        // @brief Selects the next image to render to
-        // @param The semaphore to signal GPU availability
-        // @return The next image index
-        // @throws std::runtime_error if the swapchain is invalid
-        [[nodiscard]] std::uint32_t acquireNextImage(Semaphore& available);
-
-        // @brief Recreates the swapchain with the provided information
-        // @param The recreation information
-        void recreate(const SwapchainRecreateInfo& recreateInfo);
-
-        // @brief Presents the selected next image
-        // @param The semaphore for indicating GPU operation completion
-        // @note Blocks while the provided command sync is not complete
-        // @throws std::runtime_error if the swapchain is invalid or if presentation fails
-        void presentNextImage(Semaphore& finished);
-
-        // @brief Provides the backend-agnostic image format
-        // @return The image format of all images in the Swapchain
-        [[nodiscard]] ImageFormat format() const;
-
-        // @brief Provides the number of images in the swapchain
-        // @return Frame count of the swapchain
-        [[nodiscard]] std::uint32_t imageCount() const;
-
-        // @brief Provides the current image index of the swapchain
-        // @return Current frame index of the swapchain
-        [[nodiscard]] std::uint32_t getImageIndex() const;
-
-        // @brief Provides all image views of the swapchain
-        // @return Image views of the swapchain
-        [[nodiscard]] std::span<ImageView> images();
-
-        // @brief Returns if synchronisation is enabled (VSync)
-        // @return Whether synchronisation is enabled
-        [[nodiscard]] bool synchronised() const;
-
-        // @brief Returns if the swapchain is flagged for recreation
-        // @note This flag must be acted upon if true
-        // @return Whether the swapchain will be recreated
-        [[nodiscard]] bool shouldRecreate() const;
-
-        // @brief Returns the current extent of the swapchain
-        // @return The current extent of the swapchain
-        [[nodiscard]] data::Extent2D<std::uint32_t> extent() const;
-
-        // @brief Provides the Vulkan swapchain handle
-        // @return the VkSwapchainKHR handle
-        [[nodiscard]] VkSwapchainKHR& getVkSwapchainKHR();
-
-        // @brief Provides the selected Vulkan presentation mode
-        // @return the VkPresentModeKHR enum
-        [[nodiscard]] VkPresentModeKHR& getVkPresentModeKHR();
-
-        // @brief Provides the selected Vulkan surface format
-        // @return the VkSurfaceFormatKHR handle
-        [[nodiscard]] VkSurfaceFormatKHR& getVkSurfaceFormatKHR();
-
-        // @brief Provides the Vulkan swapchain handle
-        // @return the VkSwapchainKHR handle
-        [[nodiscard]] const VkSwapchainKHR& getVkSwapchainKHR() const;
-
-        // @brief Provides the selected Vulkan presentation mode
-        // @return the VkPresentModeKHR enum
-        [[nodiscard]] const VkPresentModeKHR& getVkPresentModeKHR() const;
-
-        // @brief Provides the selected Vulkan surface format
-        // @return the VkSurfaceFormatKHR handle
-        [[nodiscard]] const VkSurfaceFormatKHR& getVkSurfaceFormatKHR() const;
+        static ImageFormat getFormat(Swapchain& swapchain);
+        static std::uint32_t getImageCount(Swapchain& swapchain);
+        static std::uint32_t getImageIndex(Swapchain& swapchain);
+        static std::span<Image> getImages(Swapchain& swapchain);
+        static std::span<ImageView> getImageViews(Swapchain& swapchain);
+        static bool isSynchronised(Swapchain& swapchain);
+        static bool shouldRecreate(Swapchain& swapchain);
+        static glm::uvec2 getExtent(Swapchain& swapchain);
 
     private:
-        VkSwapchainKHR swapchain_ = VK_NULL_HANDLE;
+        VkSwapchainKHR swapchain_ = nullptr;
+        Instance* instance_ = nullptr;
+        Surface* surface_ = nullptr;
+        Device* device_ = nullptr;
+        Queue* presentQueue_ = nullptr;
+
         VkPresentModeKHR presentMode_;
         VkSurfaceFormatKHR surfaceFormat_;
         VkExtent2D extent_;
 
-        data::Ref<Instance> instance_;
-        data::Ref<Surface> surface_;
-        data::Ref<Device> device_;
-        data::Ref<Queue> presentQueue_;
-
-        std::uint32_t imageCount_;
+        std::uint32_t imageCount_ = 0;
         std::uint32_t imageIndex_ = 0;
 
         std::vector<Image> images_;
         std::vector<ImageView> imageViews_;
 
-        bool synchronise_;
+        bool synchronise_ = false;
         bool recreate_ = false;
 
-        VkSurfaceCapabilitiesKHR getSurfaceCapabilities();
+        static VkSurfaceCapabilitiesKHR getSurfaceCapabilities(Swapchain& swapchain);
 
-        void createImageResources();
-        void selectSurfaceFormat();
-        void selectPresentMode();
-        void recreateSwapchain();
+        static void createImageResources(Swapchain& swapchain);
+        static void selectSurfaceFormat(Swapchain& swapchain);
+        static void selectPresentMode(Swapchain& swapchain);
     };
 }

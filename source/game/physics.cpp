@@ -50,7 +50,7 @@ namespace game {
                 }
             }
 
-            result.other = b;
+            result.other = &b;
 
             if (overlapX < overlapY) {
                 result.penetration = {overlapX, 0.0f};

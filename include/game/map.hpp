@@ -1,14 +1,11 @@
 #pragma once
 
-#include <data/unique.hpp>
-
 #include <app/window.hpp>
 
 #include <game/physics.hpp>
 
-#include <renderer/resources/buffer.hpp>
-
-#include <renderer/commands/buffer.hpp>
+#include <renderer/buffer.hpp>
+#include <renderer/command_buffer.hpp>
 
 #include <glm/glm.hpp>
 
@@ -25,8 +22,8 @@ namespace game {
     };
 
     struct TileMesh {
-        data::Unique<renderer::Buffer> vertexBuffer;
-        data::Unique<renderer::Buffer> instanceBuffer;
+        renderer::Buffer vertexBuffer;
+        renderer::Buffer instanceBuffer;
     };
 
     struct Map {
@@ -41,6 +38,7 @@ namespace game {
 
     void createMap(TileMesh& mesh, Map& map, renderer::Device& device, renderer::Buffer& stagingBuffer, std::uint64_t& stagingBufferOffset, renderer::CommandBuffer& transferBuffer);
     void renderMap(TileMesh& mesh, Map& map, renderer::CommandBuffer& commandBuffer);
+    void destroyMap(TileMesh& mesh);
 
     void loadMapFromFile(Map& map, const std::string& path);
 
