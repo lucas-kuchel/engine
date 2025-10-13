@@ -313,50 +313,6 @@ namespace app {
         stagingBuffer_ = renderer::Buffer::create(stagingBufferCreateInfo);
 
         stbi_image_free(tilemapImageData);
-
-        for (std::size_t i = 0; i < commandBuffers_.size(); i++) {
-            auto& framebuffer = framebuffers_[i];
-            auto& commandBuffer = commandBuffers_[i];
-
-            renderer::Viewport viewport = {
-                .position = {0.0, 0.0},
-                .extent = renderer::Swapchain::getExtent(swapchain_),
-                .minDepth = 0.0f,
-                .maxDepth = 1.0f,
-            };
-
-            renderer::Scissor scissor = {
-                .offset = {0, 0},
-                .extent = renderer::Swapchain::getExtent(swapchain_),
-            };
-
-            renderer::RenderPassBeginInfo renderPassBeginInfo = {
-                .renderPass = renderPass_,
-                .framebuffer = framebuffer,
-                .region = {
-                    .position = {0, 0},
-                    .extent = renderer::Swapchain::getExtent(swapchain_),
-                },
-                .colourClearValues = {
-                    glm::fvec4{0.0, 0.0, 0.0, 1.0},
-                },
-                .depthClearValue = 1.0f,
-                .stencilClearValue = 0xFF,
-            };
-
-            renderer::CommandBuffer::beginCapture(commandBuffer);
-            renderer::CommandBuffer::beginRenderPass(commandBuffer, renderPassBeginInfo);
-            renderer::CommandBuffer::bindPipeline(commandBuffer, basicPipeline_);
-            renderer::CommandBuffer::setPipelineViewports(commandBuffer, {viewport}, 0);
-            renderer::CommandBuffer::setPipelineScissors(commandBuffer, {scissor}, 0);
-            renderer::CommandBuffer::bindDescriptorSets(commandBuffer, renderer::DeviceOperation::GRAPHICS, basicPipelineLayout_, 0, {basicDescriptorSet_});
-
-            game::renderMap(tileMesh_, map_, commandBuffer);
-            game::renderCharacterInstances(characterMesh_, characterInstances_, commandBuffer);
-
-            renderer::CommandBuffer::endRenderPass(commandBuffer);
-            renderer::CommandBuffer::endCapture(commandBuffer);
-        }
     }
 
     void Program::update() {
@@ -475,62 +431,57 @@ namespace app {
     }
 
     void Program::render() {
-        auto& graphicsBuffer = commandBuffers_[frameCounter_.index];
+        auto& commandBuffer = commandBuffers_[frameCounter_.index];
         auto& inFlightFence = inFlightFences_[frameCounter_.index];
         auto& acquireSemaphore = acquireSemaphores_[frameCounter_.index];
+
+        auto& framebuffer = framebuffers_[imageCounter_.index];
         auto& presentSemaphore = presentSemaphores_[imageCounter_.index];
 
-        if (resized_) {
-            renderer::CommandPool::resetAllCommandBuffers(graphicsCommandPool_);
+        renderer::CommandBuffer::reset(commandBuffer);
 
-            for (std::size_t i = 0; i < commandBuffers_.size(); i++) {
-                auto& framebuffer = framebuffers_[i];
-                auto& commandBuffer = commandBuffers_[i];
+        renderer::Viewport viewport = {
+            .position = {0.0, 0.0},
+            .extent = renderer::Swapchain::getExtent(swapchain_),
+            .minDepth = 0.0f,
+            .maxDepth = 1.0f,
+        };
 
-                renderer::Viewport viewport = {
-                    .position = {0.0, 0.0},
-                    .extent = renderer::Swapchain::getExtent(swapchain_),
-                    .minDepth = 0.0f,
-                    .maxDepth = 1.0f,
-                };
+        renderer::Scissor scissor = {
+            .offset = {0, 0},
+            .extent = renderer::Swapchain::getExtent(swapchain_),
+        };
 
-                renderer::Scissor scissor = {
-                    .offset = {0, 0},
-                    .extent = renderer::Swapchain::getExtent(swapchain_),
-                };
+        renderer::RenderPassBeginInfo renderPassBeginInfo = {
+            .renderPass = renderPass_,
+            .framebuffer = framebuffer,
+            .region = {
+                .position = {0, 0},
+                .extent = renderer::Swapchain::getExtent(swapchain_),
+            },
+            .colourClearValues = {
+                glm::fvec4{0.0, 0.0, 0.0, 1.0},
+            },
+            .depthClearValue = 1.0f,
+            .stencilClearValue = 0xFF,
+        };
 
-                renderer::RenderPassBeginInfo renderPassBeginInfo = {
-                    .renderPass = renderPass_,
-                    .framebuffer = framebuffer,
-                    .region = {
-                        .position = {0, 0},
-                        .extent = renderer::Swapchain::getExtent(swapchain_),
-                    },
-                    .colourClearValues = {
-                        glm::fvec4{0.0, 0.0, 0.0, 1.0},
-                    },
-                    .depthClearValue = 1.0f,
-                    .stencilClearValue = 0xFF,
-                };
+        renderer::CommandBuffer::beginCapture(commandBuffer);
+        renderer::CommandBuffer::beginRenderPass(commandBuffer, renderPassBeginInfo);
+        renderer::CommandBuffer::bindPipeline(commandBuffer, basicPipeline_);
+        renderer::CommandBuffer::setPipelineViewports(commandBuffer, {viewport}, 0);
+        renderer::CommandBuffer::setPipelineScissors(commandBuffer, {scissor}, 0);
+        renderer::CommandBuffer::bindDescriptorSets(commandBuffer, renderer::DeviceOperation::GRAPHICS, basicPipelineLayout_, 0, {basicDescriptorSet_});
 
-                renderer::CommandBuffer::beginCapture(commandBuffer);
-                renderer::CommandBuffer::beginRenderPass(commandBuffer, renderPassBeginInfo);
-                renderer::CommandBuffer::bindPipeline(commandBuffer, basicPipeline_);
-                renderer::CommandBuffer::setPipelineViewports(commandBuffer, {viewport}, 0);
-                renderer::CommandBuffer::setPipelineScissors(commandBuffer, {scissor}, 0);
-                renderer::CommandBuffer::bindDescriptorSets(commandBuffer, renderer::DeviceOperation::GRAPHICS, basicPipelineLayout_, 0, {basicDescriptorSet_});
+        game::renderMap(tileMesh_, map_, commandBuffer);
+        game::renderCharacterInstances(characterMesh_, characterInstances_, commandBuffer);
 
-                game::renderMap(tileMesh_, map_, commandBuffer);
-                game::renderCharacterInstances(characterMesh_, characterInstances_, commandBuffer);
-
-                renderer::CommandBuffer::endRenderPass(commandBuffer);
-                renderer::CommandBuffer::endCapture(commandBuffer);
-            }
-        }
+        renderer::CommandBuffer::endRenderPass(commandBuffer);
+        renderer::CommandBuffer::endCapture(commandBuffer);
 
         renderer::QueueSubmitInfo submitInfo = {
             .fence = inFlightFence,
-            .commandBuffers = {graphicsBuffer},
+            .commandBuffers = {commandBuffer},
             .waits = {stagingBufferSemaphore_, acquireSemaphore},
             .signals = {presentSemaphore},
             .waitFlags = {

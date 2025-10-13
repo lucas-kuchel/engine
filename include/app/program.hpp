@@ -45,8 +45,8 @@ namespace app {
         ~Program();
 
     private:
-        void manageEvents(bool& running);
-        void acquireImage(bool& resized);
+        void manageEvents();
+        void acquireImage();
         void presentImage();
 
         void run();
@@ -101,6 +101,7 @@ namespace app {
         Counter frameCounter_;
 
         bool resized_ = false;
+        bool running_ = true;
 
         game::CharacterMesh characterMesh_;
         game::TileMesh tileMesh_;

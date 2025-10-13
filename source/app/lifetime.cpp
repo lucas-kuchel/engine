@@ -269,8 +269,8 @@ namespace app {
         renderer::Instance::destroy(instance_);
     }
 
-    void Program::acquireImage(bool& resized) {
-        resized = false;
+    void Program::acquireImage() {
+        resized_ = false;
 
         renderer::Semaphore& acquireSemaphore = acquireSemaphores_[frameCounter_.index];
         renderer::Fence& inFlightFence = inFlightFences_[frameCounter_.index];
@@ -293,7 +293,7 @@ namespace app {
 
                 swapchain_ = renderer::Swapchain::create(swapchainCreateInfo);
 
-                resized = true;
+                resized_ = true;
             }
 
             renderer::Swapchain::acquireNextImage(swapchain_, acquireSemaphore);
@@ -304,7 +304,7 @@ namespace app {
             }
         }
 
-        if (resized) {
+        if (resized_) {
             imageCounter_.count = renderer::Swapchain::getImageCount(swapchain_);
             frameCounter_.count = std::min(imageCounter_.count, settings_.graphics.renderAheadLimit);
             frameCounter_.index = std::min(frameCounter_.index, frameCounter_.count - 1);
@@ -391,8 +391,6 @@ namespace app {
                 framebuffer = renderer::Framebuffer::create(framebufferCreateInfo);
                 semaphore = renderer::Semaphore::create(device_);
             }
-
-            resized = false;
         }
     }
 
@@ -404,7 +402,7 @@ namespace app {
         frameCounter_.index = (frameCounter_.index + 1) % frameCounter_.count;
     }
 
-    void Program::manageEvents(bool& running) {
+    void Program::manageEvents() {
         context_->pollEvents();
 
         while (window_->hasEvents()) {
@@ -412,7 +410,7 @@ namespace app {
 
             switch (event.type) {
                 case WindowEventType::CLOSED:
-                    running = false;
+                    running_ = false;
                     break;
 
                 case WindowEventType::KEY_PRESSED:
@@ -451,9 +449,7 @@ namespace app {
     void Program::run() {
         start();
 
-        bool running = true;
-
-        while (running) {
+        while (running_) {
             for (auto& pressed : keysPressed_) {
                 pressed = false;
             }
@@ -462,8 +458,8 @@ namespace app {
                 released = false;
             }
 
-            manageEvents(running);
-            acquireImage(resized_);
+            manageEvents();
+            acquireImage();
 
             update();
             render();
