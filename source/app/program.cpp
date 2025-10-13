@@ -1,5 +1,6 @@
 #include <app/program.hpp>
 
+#include <algorithm>
 #include <cstring>
 #include <fstream>
 
@@ -322,7 +323,7 @@ namespace app {
 
         std::chrono::duration<float> delta = currentTime - lastFrameTime_;
 
-        float deltaTime = delta.count();
+        float deltaTime = std::clamp(delta.count(), 0.0f, 0.1f);
 
         lastFrameTime_ = currentTime;
 

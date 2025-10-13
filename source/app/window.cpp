@@ -237,9 +237,17 @@ namespace app {
         }
 
         WindowEvent event = {
-            .type = iconified ? WindowEventType::MINIMIZED : WindowEventType::RESTORED,
+            .type = iconified ? WindowEventType::MINIMISED : WindowEventType::RESTORED,
             .info = {},
         };
+
+        if (event.type == WindowEventType::MINIMISED) {
+            self->lastVisibility_ = self->visibility_;
+            self->visibility_ = WindowVisibility::MINIMISED;
+        }
+        else {
+            self->visibility_ = self->lastVisibility_;
+        }
 
         self->events_.push(event);
     }

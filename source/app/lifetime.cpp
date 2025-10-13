@@ -1,3 +1,7 @@
+#include "app/configuration.hpp"
+#include "renderer/semaphore.hpp"
+#include "renderer/surface.hpp"
+#include "renderer/swapchain.hpp"
 #include <app/program.hpp>
 
 namespace app {
@@ -77,7 +81,13 @@ namespace app {
             .synchronise = settings_.graphics.vsync,
         };
 
-        swapchain_ = renderer::Swapchain::create(swapchainCreateInfo);
+        auto [newSwapchain, swapchainResult] = renderer::Swapchain::create(swapchainCreateInfo);
+
+        if (swapchainResult == renderer::SwapchainCreateResult::FAILED) {
+            throw std::runtime_error("Call failed: app::Program::Program(): Failed to create swapchain");
+        }
+
+        swapchain_ = newSwapchain;
 
         renderer::CommandPoolCreateInfo graphicsCommandPoolCreateInfo = {
             .device = device_,
@@ -227,28 +237,16 @@ namespace app {
     Program::~Program() {
         renderer::Device::waitIdle(device_);
 
-        for (auto& semaphore : acquireSemaphores_) {
-            renderer::Semaphore::destroy(semaphore);
+        for (std::size_t i = 0; i < imageCounter_.count; i++) {
+            renderer::Image::destroy(depthImages_[i]);
+            renderer::ImageView::destroy(depthImageViews_[i]);
+            renderer::Framebuffer::destroy(framebuffers_[i]);
+            renderer::Semaphore::destroy(presentSemaphores_[i]);
         }
 
-        for (auto& fence : inFlightFences_) {
-            renderer::Fence::destroy(fence);
-        }
-
-        for (auto& semaphore : presentSemaphores_) {
-            renderer::Semaphore::destroy(semaphore);
-        }
-
-        for (auto& image : depthImages_) {
-            renderer::Image::destroy(image);
-        }
-
-        for (auto& imageView : depthImageViews_) {
-            renderer::ImageView::destroy(imageView);
-        }
-
-        for (auto& framebuffer : framebuffers_) {
-            renderer::Framebuffer::destroy(framebuffer);
+        for (std::size_t i = 0; i < frameCounter_.count; i++) {
+            renderer::Semaphore::destroy(acquireSemaphores_[i]);
+            renderer::Fence::destroy(inFlightFences_[i]);
         }
 
         acquireSemaphores_.clear();
@@ -270,13 +268,15 @@ namespace app {
     }
 
     void Program::acquireImage() {
-        resized_ = false;
-
-        renderer::Semaphore& acquireSemaphore = acquireSemaphores_[frameCounter_.index];
         renderer::Fence& inFlightFence = inFlightFences_[frameCounter_.index];
+        renderer::Semaphore& acquireSemaphore = acquireSemaphores_[frameCounter_.index];
 
-        renderer::Device::waitForFences(device_, {inFlightFence, stagingBufferFence_});
-        renderer::Device::resetFences(device_, {inFlightFence, stagingBufferFence_});
+        if (!awaitRestore_) {
+            renderer::Device::waitForFences(device_, {inFlightFence, stagingBufferFence_});
+            renderer::Device::resetFences(device_, {inFlightFence, stagingBufferFence_});
+        }
+
+        resized_ = false;
 
         while (true) {
             if (renderer::Swapchain::shouldRecreate(swapchain_)) {
@@ -291,7 +291,19 @@ namespace app {
 
                 renderer::Device::waitIdle(device_);
 
-                swapchain_ = renderer::Swapchain::create(swapchainCreateInfo);
+                auto [newSwapchain, swapchainResult] = renderer::Swapchain::create(swapchainCreateInfo);
+
+                if (swapchainResult == renderer::SwapchainCreateResult::PENDING) {
+                    awaitRestore_ = true;
+                    resized_ = false;
+
+                    return;
+                }
+                else if (swapchainResult == renderer::SwapchainCreateResult::FAILED) {
+                    throw std::runtime_error("Call failed: app::Program::acquireImage(): Failed to recreate swapchain");
+                }
+
+                swapchain_ = newSwapchain;
 
                 resized_ = true;
             }
@@ -420,12 +432,14 @@ namespace app {
 
                     switch (event.info.keyPress.key) {
                         case Key::F11: {
+#if !defined(PLATFORM_APPLE)
                             if (window_->getVisibility() != WindowVisibility::FULLSCREEN) {
                                 window_->setVisibility(WindowVisibility::FULLSCREEN);
                             }
                             else {
                                 window_->setVisibility(WindowVisibility::WINDOWED);
                             }
+#endif
 
                             break;
                         }
@@ -450,16 +464,21 @@ namespace app {
         start();
 
         while (running_) {
-            for (auto& pressed : keysPressed_) {
-                pressed = false;
-            }
-
-            for (auto& released : keysReleased_) {
-                released = false;
+            for (std::size_t i = 0; i < keysPressed_.size(); i++) {
+                keysPressed_[i] = keysPressed_[i] && !keysHeld_[i];
+                keysReleased_[i] = keysReleased_[i] && keysHeld_[i];
             }
 
             manageEvents();
             acquireImage();
+
+            if (awaitRestore_) {
+                if (window_->getVisibility() == WindowVisibility::MINIMISED) {
+                    continue;
+                }
+
+                awaitRestore_ = false;
+            }
 
             update();
             render();

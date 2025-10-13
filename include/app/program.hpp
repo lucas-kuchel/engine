@@ -102,6 +102,7 @@ namespace app {
 
         bool resized_ = false;
         bool running_ = true;
+        bool awaitRestore_ = false;
 
         game::CharacterMesh characterMesh_;
         game::TileMesh tileMesh_;

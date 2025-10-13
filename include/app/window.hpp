@@ -134,6 +134,7 @@ namespace app {
         std::queue<WindowEvent> events_;
 
         WindowVisibility visibility_;
+        WindowVisibility lastVisibility_;
 
         GLFWwindow* handle_ = nullptr;
 

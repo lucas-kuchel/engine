@@ -39,9 +39,15 @@ namespace renderer {
         Swapchain* oldSwapchain = nullptr;
     };
 
+    enum class SwapchainCreateResult {
+        SUCCESS,
+        PENDING,
+        FAILED,
+    };
+
     class Swapchain {
     public:
-        static Swapchain create(const SwapchainCreateInfo& createInfo);
+        static std::pair<Swapchain, SwapchainCreateResult> create(const SwapchainCreateInfo& createInfo);
         static void destroy(Swapchain& swapchain);
 
         static bool acquireNextImage(Swapchain& swapchain, Semaphore& acquireSemaphore);
@@ -55,6 +61,10 @@ namespace renderer {
         static bool isSynchronised(Swapchain& swapchain);
         static bool shouldRecreate(Swapchain& swapchain);
         static glm::uvec2 getExtent(Swapchain& swapchain);
+
+        bool operator==(const Swapchain& other) const {
+            return swapchain_ == other.swapchain_;
+        }
 
     private:
         VkSwapchainKHR swapchain_ = nullptr;

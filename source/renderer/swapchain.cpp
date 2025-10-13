@@ -14,23 +14,10 @@
 #include <stdexcept>
 
 namespace renderer {
-    Swapchain Swapchain::create(const SwapchainCreateInfo& createInfo) {
+    std::pair<Swapchain, SwapchainCreateResult> Swapchain::create(const SwapchainCreateInfo& createInfo) {
         Swapchain swapchain;
 
         VkSwapchainKHR oldSwapchain = nullptr;
-
-        if (createInfo.oldSwapchain) {
-            oldSwapchain = createInfo.oldSwapchain->swapchain_;
-
-            createInfo.oldSwapchain->swapchain_ = nullptr;
-            createInfo.oldSwapchain->images_.clear();
-
-            for (auto& imageView : createInfo.oldSwapchain->imageViews_) {
-                ImageView::destroy(imageView);
-            }
-
-            createInfo.oldSwapchain->imageViews_.clear();
-        }
 
         swapchain.synchronise_ = createInfo.synchronise;
         swapchain.instance_ = createInfo.device.instance_;
@@ -38,17 +25,23 @@ namespace renderer {
         swapchain.surface_ = &createInfo.surface;
         swapchain.presentQueue_ = &createInfo.presentQueue;
         swapchain.recreate_ = false;
-        swapchain.extent_ = {
-            Surface::extent(createInfo.surface).x,
-            Surface::extent(createInfo.surface).y,
-        };
 
         VkSurfaceCapabilitiesKHR surfaceCapabilities = getSurfaceCapabilities(swapchain);
+
+        if (surfaceCapabilities.currentExtent.width == 0 || surfaceCapabilities.currentExtent.height == 0) {
+            return {Swapchain(), SwapchainCreateResult::PENDING};
+        }
 
         selectSurfaceFormat(swapchain);
         selectPresentMode(swapchain);
 
-        swapchain.imageCount_ = std::max(std::min(createInfo.imageCount, surfaceCapabilities.maxImageCount), surfaceCapabilities.minImageCount);
+        std::uint32_t imageCountMaximum = std::min(createInfo.imageCount, surfaceCapabilities.maxImageCount);
+        swapchain.imageCount_ = std::max(imageCountMaximum, surfaceCapabilities.minImageCount);
+
+        if (surfaceCapabilities.currentExtent.width != std::numeric_limits<std::uint32_t>::max()) {
+            swapchain.extent_ = surfaceCapabilities.currentExtent;
+        }
+
         swapchain.extent_.width = std::clamp(swapchain.extent_.width, surfaceCapabilities.minImageExtent.width, surfaceCapabilities.maxImageExtent.width);
         swapchain.extent_.height = std::clamp(swapchain.extent_.height, surfaceCapabilities.minImageExtent.height, surfaceCapabilities.maxImageExtent.height);
 
@@ -73,18 +66,38 @@ namespace renderer {
             .oldSwapchain = oldSwapchain,
         };
 
-        if (vkCreateSwapchainKHR(createInfo.device.device_, &swapchainCreateInfo, nullptr, &swapchain.swapchain_) != VK_SUCCESS) {
-            swapchain.swapchain_ = nullptr;
+        SwapchainCreateResult createResult = SwapchainCreateResult::SUCCESS;
+
+        VkResult error = vkCreateSwapchainKHR(createInfo.device.device_, &swapchainCreateInfo, nullptr, &swapchain.swapchain_);
+
+        if (error == VK_ERROR_NATIVE_WINDOW_IN_USE_KHR) {
+            if (createInfo.oldSwapchain) {
+                Swapchain::destroy(*createInfo.oldSwapchain);
+            }
+
+            swapchainCreateInfo.oldSwapchain = nullptr;
+
+            error = vkCreateSwapchainKHR(createInfo.device.device_, &swapchainCreateInfo, nullptr, &swapchain.swapchain_);
+        }
+
+        if (error == VK_ERROR_NATIVE_WINDOW_IN_USE_KHR) {
+            createResult = SwapchainCreateResult::FAILED;
+        }
+        else if (error == VK_ERROR_OUT_OF_DATE_KHR) {
+            createResult = SwapchainCreateResult::PENDING;
+        }
+        else if (error != VK_SUCCESS) {
+            createResult = SwapchainCreateResult::FAILED;
         }
         else {
-            if (oldSwapchain) {
-                vkDestroySwapchainKHR(createInfo.device.device_, oldSwapchain, nullptr);
+            if (createInfo.oldSwapchain) {
+                Swapchain::destroy(*createInfo.oldSwapchain);
             }
 
             createImageResources(swapchain);
         }
 
-        return swapchain;
+        return {swapchain, createResult};
     }
 
     void Swapchain::destroy(Swapchain& swapchain) {
