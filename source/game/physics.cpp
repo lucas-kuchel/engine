@@ -1,5 +1,7 @@
 #include <game/physics.hpp>
 
+#include <algorithm>
+
 namespace game {
     void updateMovement(MovableBody& body, float deltaTime, float gravity, float friction, float airResistance) {
         body.acceleration.y -= gravity;

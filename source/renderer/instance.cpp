@@ -57,6 +57,10 @@ namespace renderer {
             requestedExtensions.emplace_back(windowExtensions[i]);
         }
 
+#if defined(PLATFORM_APPLE)
+        requestedExtensions.emplace_back(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME);
+#endif
+
         for (std::size_t i = 0; i < extensionProperties.size(); i++) {
             auto& available = extensionProperties[i];
 
@@ -110,7 +114,11 @@ namespace renderer {
             .ppEnabledExtensionNames = selectedExtensions.data(),
         };
 
-        if (vkCreateInstance(&instanceCreateInfo, nullptr, &instance.instance_) != VK_SUCCESS) {
+#if defined(PLATFORM_APPLE)
+        instanceCreateInfo.flags = VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
+#endif
+
+        if (VkResult result = vkCreateInstance(&instanceCreateInfo, nullptr, &instance.instance_); result != VK_SUCCESS) {
             instance.instance_ = nullptr;
 
             return instance;

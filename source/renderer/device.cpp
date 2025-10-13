@@ -134,22 +134,15 @@ namespace renderer {
 
         std::vector<const char*> selectedExtensions;
 
-        bool foundSwapchain = false;
-
         for (auto& extensionInfo : extensionProperties) {
             bool match = false;
 
             match |= std::string_view(extensionInfo.extensionName) == "VK_KHR_swapchain";
+            match |= std::string_view(extensionInfo.extensionName) == "VK_KHR_portability_subset";
 
             if (match) {
-                foundSwapchain = true;
-
                 selectedExtensions.push_back(extensionInfo.extensionName);
             }
-        }
-
-        if (!foundSwapchain) {
-            throw std::runtime_error("Construction failed: renderer::Device: Swapchain is unsupported on this system");
         }
 
         std::uint32_t extensionInfoCount = static_cast<std::uint32_t>(selectedExtensions.size());

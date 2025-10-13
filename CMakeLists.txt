@@ -8,7 +8,7 @@ find_package(glfw3 CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
 find_package(Stb REQUIRED)
 
-find_package(VulkanHeaders CONFIG REQUIRED)
+find_package(Vulkan REQUIRED)
 find_package(VulkanMemoryAllocator CONFIG REQUIRED)
 
 add_executable(engine ${SOURCES})
@@ -17,7 +17,7 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     target_compile_options(engine PRIVATE
         $<$<CONFIG:Release>:-O3 -flto -fomit-frame-pointer>
         -Wall -Wextra -Wpedantic -Wshadow -Wnon-virtual-dtor
-        -Wold-style-cast -Wcast-align -Wunused -Wconversion -Wsign-conversion
+        -Wcast-align -Wunused -Wconversion -Wsign-conversion
         -Wzero-as-null-pointer-constant
         -Wnull-dereference -Wdouble-promotion -Wformat=2 -Werror
     )
@@ -28,18 +28,13 @@ endif()
 target_include_directories(engine PRIVATE "include" ${Stb_INCLUDE_DIR})
 
 if(APPLE)
-    find_library(MOLTENVK_LIB MoltenVK REQUIRED)
-    target_link_libraries(engine PRIVATE ${MOLTENVK_LIB})
     target_compile_definitions(engine PRIVATE PLATFORM_APPLE)
-else()
-    find_package(Vulkan REQUIRED)
-    target_link_libraries(engine PRIVATE Vulkan::Vulkan)
 endif()
 
 target_link_libraries(engine PRIVATE
     glfw
     nlohmann_json::nlohmann_json
-    Vulkan::Headers
+    Vulkan::Vulkan
     GPUOpen::VulkanMemoryAllocator
 )
 
