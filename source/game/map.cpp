@@ -7,18 +7,18 @@
 
 namespace game {
     void createMap(TileMesh& mesh, Map& map, renderer::Device& device, renderer::Buffer& stagingBuffer, std::uint64_t& stagingBufferOffset, renderer::CommandBuffer& transferBuffer) {
-        std::array<TileVertex, 4> vertices = {
-            TileVertex({0.5, -0.5}, {0.5, 0.0}),
-            TileVertex({-0.5, -0.5}, {0.0, 0.0}),
-            TileVertex({0.5, 0.5}, {0.5, 0.5}),
-            TileVertex({-0.5, 0.5}, {0.0, 0.5}),
+        std::array<glm::vec2, 4> vertices = {
+            glm::vec2{0.5, -0.5},
+            glm::vec2{-0.5, -0.5},
+            glm::vec2{0.5, 0.5},
+            glm::vec2{-0.5, 0.5},
         };
 
         renderer::BufferCreateInfo vertexBufferCreateInfo = {
             .device = device,
             .memoryType = renderer::MemoryType::DEVICE_LOCAL,
             .usageFlags = renderer::BufferUsageFlags::VERTEX | renderer::BufferUsageFlags::TRANSFER_DESTINATION,
-            .sizeBytes = vertices.size() * sizeof(TileVertex),
+            .sizeBytes = vertices.size() * sizeof(glm::vec2),
         };
 
         renderer::BufferCreateInfo instanceBufferCreateInfo = {
@@ -93,23 +93,53 @@ namespace game {
             for (const auto& tileJson : json["tiles"]) {
                 TileInstance instance;
 
-                if (tileJson.contains("position")) {
-                    auto p = tileJson["position"];
-                    instance.position.x = p.size() > 0 ? p[0].get<float>() : 0.0f;
-                    instance.position.y = p.size() > 1 ? p[1].get<float>() : 0.0f;
-                    instance.position.z = p.size() > 2 ? p[2].get<float>() : 0.0f;
+                if (tileJson.contains("transform") && tileJson["transform"].is_object()) {
+                    const auto& t = tileJson["transform"];
+
+                    if (t.contains("position")) {
+                        auto p = t["position"];
+                        instance.position.x = p.size() > 0 ? p[0].get<float>() : 0.0f;
+                        instance.position.y = p.size() > 1 ? p[1].get<float>() : 0.0f;
+                        instance.position.z = p.size() > 2 ? p[2].get<float>() : 0.0f;
+                    }
+
+                    if (t.contains("scale")) {
+                        auto s = t["scale"];
+                        instance.scale.x = s.size() > 0 ? s[0].get<float>() : 1.0f;
+                        instance.scale.y = s.size() > 1 ? s[1].get<float>() : 1.0f;
+                    }
+
+                    if (t.contains("shear")) {
+                        auto sh = t["shear"];
+                        instance.shear.x = sh.size() > 0 ? sh[0].get<float>() : 0.0f;
+                        instance.shear.y = sh.size() > 1 ? sh[1].get<float>() : 0.0f;
+                    }
+
+                    if (t.contains("rotation")) {
+                        instance.rotation = t["rotation"].get<float>();
+                    }
                 }
 
-                if (tileJson.contains("scale")) {
-                    auto s = tileJson["scale"];
-                    instance.scale.x = s.size() > 0 ? s[0].get<float>() : 1.0f;
-                    instance.scale.y = s.size() > 1 ? s[1].get<float>() : 1.0f;
-                }
+                if (tileJson.contains("texture") && tileJson["texture"].is_object()) {
+                    const auto& tex = tileJson["texture"];
 
-                if (tileJson.contains("texOffset")) {
-                    auto t = tileJson["texOffset"];
-                    instance.texOffset.x = t.size() > 0 ? t[0].get<float>() : 0.0f;
-                    instance.texOffset.y = t.size() > 1 ? t[1].get<float>() : 0.0f;
+                    if (tex.contains("location")) {
+                        auto l = tex["location"];
+                        instance.textureLocation.x = l.size() > 0 ? l[0].get<float>() : 0.0f;
+                        instance.textureLocation.y = l.size() > 1 ? l[1].get<float>() : 0.0f;
+                    }
+
+                    if (tex.contains("offset")) {
+                        auto o = tex["offset"];
+                        instance.textureOffset.x = o.size() > 0 ? o[0].get<float>() : 0.0f;
+                        instance.textureOffset.y = o.size() > 1 ? o[1].get<float>() : 0.0f;
+                    }
+
+                    if (tex.contains("scale")) {
+                        auto s = tex["scale"];
+                        instance.textureScale.x = s.size() > 0 ? s[0].get<float>() : 1.0f;
+                        instance.textureScale.y = s.size() > 1 ? s[1].get<float>() : 1.0f;
+                    }
                 }
 
                 map.tiles.push_back(instance);

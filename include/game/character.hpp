@@ -10,25 +10,26 @@ namespace game {
     struct MovableBody;
     struct BoxCollisionResult;
 
-    enum class CharacterFacing {
-        LEFT,
-        RIGHT,
-    };
-
-    struct CharacterVertex {
-        glm::vec2 position;
-        glm::vec2 texCoord;
-    };
-
-    struct alignas(32) CharacterInstance {
+    struct alignas(64) CharacterInstance {
         glm::vec3 position = {0.0f, 0.0f, 0.0f};
         glm::vec2 scale = {1.0f, 1.0f};
-        glm::vec2 texOffset = {0.0f, 0.0f};
+        glm::vec2 shear = {0.0f, 0.0f};
+
+        float rotation = 0.0f;
+
+        glm::vec2 textureLocation = {0.0f, 0.0f};
+        glm::vec2 textureOffset = {0.0f, 0.0f};
+        glm::vec2 textureScale = {1.0f, 1.0f};
     };
 
     struct CharacterMesh {
         renderer::Buffer vertexBuffer;
         renderer::Buffer instanceBuffer;
+    };
+
+    enum class CharacterFacing {
+        LEFT,
+        RIGHT,
     };
 
     struct Character {

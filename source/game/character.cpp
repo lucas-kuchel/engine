@@ -16,18 +16,18 @@
 
 namespace game {
     void createCharacterInstances(CharacterMesh& mesh, std::span<CharacterInstance> instances, renderer::Device& device, renderer::Buffer& stagingBuffer, std::uint64_t& stagingBufferOffset, renderer::CommandBuffer& transferBuffer) {
-        std::array<CharacterVertex, 4> vertices = {
-            CharacterVertex({0.5, -0.5}, {0.5, 0.0}),
-            CharacterVertex({-0.5, -0.5}, {0.0, 0.0}),
-            CharacterVertex({0.5, 0.5}, {0.5, 0.5}),
-            CharacterVertex({-0.5, 0.5}, {0.0, 0.5}),
+        std::array<glm::vec2, 4> vertices = {
+            glm::vec2{0.5, -0.5},
+            glm::vec2{-0.5, -0.5},
+            glm::vec2{0.5, 0.5},
+            glm::vec2{-0.5, 0.5},
         };
 
         renderer::BufferCreateInfo vertexBufferCreateInfo = {
             .device = device,
             .memoryType = renderer::MemoryType::DEVICE_LOCAL,
             .usageFlags = renderer::BufferUsageFlags::VERTEX | renderer::BufferUsageFlags::TRANSFER_DESTINATION,
-            .sizeBytes = vertices.size() * sizeof(CharacterVertex),
+            .sizeBytes = vertices.size() * sizeof(glm::vec2),
         };
 
         renderer::BufferCreateInfo instanceBufferCreateInfo = {

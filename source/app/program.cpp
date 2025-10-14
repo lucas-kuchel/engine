@@ -5,6 +5,7 @@
 #include <fstream>
 
 #define STB_IMAGE_IMPLEMENTATION
+#define STBI_NO_LINEAR
 #include <stb_image.h>
 
 namespace app {
@@ -13,7 +14,11 @@ namespace app {
         std::int32_t height = 0;
         std::int32_t channels = 0;
 
-        std::uint8_t* tilemapImageData = stbi_load("assets/images/tilemap.png", &width, &height, &channels, STBI_rgb_alpha);
+        std::uint8_t* tilemapImageData = stbi_load("assets/images/tilemap.png", &width, &height, &channels, 4);
+
+        for (int i = 0; i < width * height; i++) {
+            std::swap(tilemapImageData[i * 4 + 0], tilemapImageData[i * 4 + 2]);
+        }
 
         renderer::SamplerCreateInfo samplerCreateInfo = {
             .device = device_,
@@ -37,7 +42,7 @@ namespace app {
         renderer::ImageCreateInfo tilemapImageCreateInfo = {
             .device = device_,
             .type = renderer::ImageType::IMAGE_2D,
-            .format = renderer::ImageFormat::R8G8B8A8_UNORM,
+            .format = renderer::ImageFormat::B8G8R8A8_SRGB,
             .memoryType = renderer::MemoryType::DEVICE_LOCAL,
             .usageFlags = renderer::ImageUsageFlags::SAMPLED | renderer::ImageUsageFlags::TRANSFER_DESTINATION,
             .extent = {static_cast<std::uint32_t>(width), static_cast<std::uint32_t>(height), 1},
@@ -111,24 +116,16 @@ namespace app {
             .jumpForce = 8.0f,
         });
 
-        characterInstances_.push_back(game::CharacterInstance{
-            .position = {0.0f, 7.0f, 0.0f},
-            .scale = {1.0f, 1.0f},
-            .texOffset = {0.0f, 0.0f},
-        });
+        characterInstances_.push_back(game::CharacterInstance{});
 
         characterMovableBodies_.push_back(game::MovableBody{
-            .position = {0.0f, 7.0f},
-            .velocity = {0.0f, 0.0f},
-            .acceleration = {0.0f, 0.0f},
+            .position = {-2.0f, 5.0f},
         });
 
         characterColliders_.push_back(game::BoxCollider{
             .physics = {
                 .friction = 0.1f,
             },
-            .position = {0.0f, 7.0f},
-            .scale = {1.0f, 1.0f},
         });
 
         characterCollisionResults_.emplace_back();
@@ -139,24 +136,16 @@ namespace app {
             .jumpForce = 9.5f,
         });
 
-        characterInstances_.push_back(game::CharacterInstance{
-            .position = {2.0f, 7.0f, 0.0f},
-            .scale = {1.0f, 1.0f},
-            .texOffset = {0.0f, 0.0f},
-        });
+        characterInstances_.push_back(game::CharacterInstance{});
 
         characterMovableBodies_.push_back(game::MovableBody{
-            .position = {2.0f, 7.0f},
-            .velocity = {0.0f, 0.0f},
-            .acceleration = {0.0f, 0.0f},
+            .position = {2.0f, 5.0f},
         });
 
         characterColliders_.push_back(game::BoxCollider{
             .physics = {
                 .friction = 0.05f,
             },
-            .position = {2.0f, 7.0f},
-            .scale = {1.0f, 1.0f},
         });
 
         characterCollisionResults_.emplace_back();
@@ -195,9 +184,9 @@ namespace app {
 
         renderer::CommandBuffer::pipelineBarrier(transferCommandBuffer_, renderer::PipelineStageFlags::TOP_OF_PIPE, renderer::PipelineStageFlags::TRANSFER, {memoryBarrier0});
 
-        auto mapping = renderer::Buffer::map(stagingBuffer_, static_cast<std::uint32_t>(width * height * channels), stagingBufferOffset);
+        auto mapping = renderer::Buffer::map(stagingBuffer_, renderer::Image::getSize(tilemapImage_), stagingBufferOffset);
 
-        std::memcpy(mapping.data.data(), tilemapImageData, static_cast<std::uint32_t>(width * height * channels));
+        std::memcpy(mapping.data.data(), tilemapImageData, renderer::Image::getSize(tilemapImage_));
 
         renderer::Buffer::unmap(stagingBuffer_, mapping);
 
@@ -213,7 +202,7 @@ namespace app {
             .imageExtent = {static_cast<std::uint32_t>(width), static_cast<std::uint32_t>(height), 1},
         };
 
-        stagingBufferOffset += static_cast<std::uint32_t>(width * height * channels);
+        stagingBufferOffset += renderer::Image::getSize(tilemapImage_);
 
         renderer::CommandBuffer::copyBufferToImage(transferCommandBuffer_, stagingBuffer_, tilemapImage_, renderer::ImageLayout::TRANSFER_DESTINATION_OPTIMAL, {tilemapCopyRegion});
 
@@ -409,7 +398,7 @@ namespace app {
 
             game::updateMovement(characterMovableBodies_[i], deltaTime, map_.physics.gravity, friction, map_.physics.airResistance);
 
-            characterInstances_[i].position = glm::vec3(characterMovableBodies_[i].position, 0.0f);
+            characterInstances_[i].position = glm::vec3(characterMovableBodies_[i].position, 0.5f);
             characterColliders_[i].position = characterInstances_[i].position;
         }
 
@@ -461,7 +450,7 @@ namespace app {
                 .extent = renderer::Swapchain::getExtent(swapchain_),
             },
             .colourClearValues = {
-                glm::fvec4{0.0, 0.0, 0.0, 1.0},
+                glm::fvec4{0.29, 0.36, 0.92, 1.0},
             },
             .depthClearValue = 1.0f,
             .stencilClearValue = 0xFF,
@@ -572,7 +561,7 @@ namespace app {
                     renderer::VertexInputBindingDescription{
                         .inputRate = renderer::VertexInputRate::PER_VERTEX,
                         .binding = 0,
-                        .strideBytes = sizeof(game::CharacterVertex),
+                        .strideBytes = sizeof(glm::vec2),
                     },
                     renderer::VertexInputBindingDescription{
                         .inputRate = renderer::VertexInputRate::PER_INSTANCE,
@@ -587,12 +576,12 @@ namespace app {
                         .location = 0,
                     },
                     renderer::VertexAttributeDescription{
-                        .format = renderer::VertexAttributeFormat::R32G32_FLOAT,
-                        .binding = 0,
+                        .format = renderer::VertexAttributeFormat::R32G32B32_FLOAT,
+                        .binding = 1,
                         .location = 1,
                     },
                     renderer::VertexAttributeDescription{
-                        .format = renderer::VertexAttributeFormat::R32G32B32_FLOAT,
+                        .format = renderer::VertexAttributeFormat::R32G32_FLOAT,
                         .binding = 1,
                         .location = 2,
                     },
@@ -602,14 +591,24 @@ namespace app {
                         .location = 3,
                     },
                     renderer::VertexAttributeDescription{
-                        .format = renderer::VertexAttributeFormat::R32G32_FLOAT,
+                        .format = renderer::VertexAttributeFormat::R32_FLOAT,
                         .binding = 1,
                         .location = 4,
                     },
                     renderer::VertexAttributeDescription{
-                        .format = renderer::VertexAttributeFormat::R32_FLOAT,
+                        .format = renderer::VertexAttributeFormat::R32G32_FLOAT,
                         .binding = 1,
                         .location = 5,
+                    },
+                    renderer::VertexAttributeDescription{
+                        .format = renderer::VertexAttributeFormat::R32G32_FLOAT,
+                        .binding = 1,
+                        .location = 6,
+                    },
+                    renderer::VertexAttributeDescription{
+                        .format = renderer::VertexAttributeFormat::R32G32_FLOAT,
+                        .binding = 1,
+                        .location = 7,
                     },
                 },
             },
