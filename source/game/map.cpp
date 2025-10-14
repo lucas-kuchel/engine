@@ -90,58 +90,29 @@ namespace game {
         }
 
         if (json.contains("tiles") && json["tiles"].is_array()) {
-            for (const auto& gridJson : json["tiles"]) {
-
-                glm::uvec2 dimensions{0, 0};
-
-                if (gridJson.contains("dimensions")) {
-                    auto g = gridJson["dimensions"];
-                    dimensions.x = g.size() > 0 ? g[0].get<std::uint32_t>() : 0;
-                    dimensions.y = g.size() > 1 ? g[1].get<std::uint32_t>() : 0;
-                }
-
-                if (dimensions.x == 0 || dimensions.y == 0) {
-                    continue;
-                }
-
-                glm::vec2 offset{0.0f};
-                if (gridJson.contains("offset")) {
-                    auto o = gridJson["offset"];
-                    offset.x = o.size() > 0 ? o[0].get<float>() : 0.0f;
-                    offset.y = o.size() > 1 ? o[1].get<float>() : 0.0f;
-                }
-
+            for (const auto& tileJson : json["tiles"]) {
                 TileInstance instance;
 
-                if (gridJson.contains("position")) {
-                    auto p = gridJson["position"];
+                if (tileJson.contains("position")) {
+                    auto p = tileJson["position"];
                     instance.position.x = p.size() > 0 ? p[0].get<float>() : 0.0f;
                     instance.position.y = p.size() > 1 ? p[1].get<float>() : 0.0f;
-                    instance.position.z = p.size() > 1 ? p[2].get<float>() : 0.0f;
+                    instance.position.z = p.size() > 2 ? p[2].get<float>() : 0.0f;
                 }
 
-                if (gridJson.contains("scale")) {
-                    auto s = gridJson["scale"];
+                if (tileJson.contains("scale")) {
+                    auto s = tileJson["scale"];
                     instance.scale.x = s.size() > 0 ? s[0].get<float>() : 1.0f;
                     instance.scale.y = s.size() > 1 ? s[1].get<float>() : 1.0f;
                 }
 
-                if (gridJson.contains("texOffset")) {
-                    auto t = gridJson["texOffset"];
+                if (tileJson.contains("texOffset")) {
+                    auto t = tileJson["texOffset"];
                     instance.texOffset.x = t.size() > 0 ? t[0].get<float>() : 0.0f;
                     instance.texOffset.y = t.size() > 1 ? t[1].get<float>() : 0.0f;
                 }
 
-                for (std::size_t i = 0; i < dimensions.x; i++) {
-                    for (std::size_t j = 0; j < dimensions.y; j++) {
-                        TileInstance tile = instance;
-
-                        tile.position.x += offset.x * static_cast<float>(i);
-                        tile.position.y += offset.y * static_cast<float>(j);
-
-                        map.tiles.push_back(tile);
-                    }
-                }
+                map.tiles.push_back(instance);
             }
         }
 
@@ -159,13 +130,11 @@ namespace game {
                     collider.position.y = p.size() > 1 ? p[1].get<float>() : 0.0f;
                 }
 
-                if (collJson.contains("extent")) {
-                    auto e = collJson["extent"];
-                    collider.extent.x = e.size() > 0 ? e[0].get<float>() : 1.0f;
-                    collider.extent.y = e.size() > 1 ? e[1].get<float>() : 1.0f;
+                if (collJson.contains("scale")) {
+                    auto s = collJson["scale"];
+                    collider.scale.x = s.size() > 0 ? s[0].get<float>() : 1.0f;
+                    collider.scale.y = s.size() > 1 ? s[1].get<float>() : 1.0f;
                 }
-
-                collider.position += (collider.extent - 1.0f) * 0.5f;
 
                 map.colliders.push_back(collider);
             }

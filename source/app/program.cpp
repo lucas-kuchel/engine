@@ -128,7 +128,7 @@ namespace app {
                 .friction = 0.1f,
             },
             .position = {0.0f, 7.0f},
-            .extent = {1.0f, 1.0f},
+            .scale = {1.0f, 1.0f},
         });
 
         characterCollisionResults_.emplace_back();
@@ -156,7 +156,7 @@ namespace app {
                 .friction = 0.05f,
             },
             .position = {2.0f, 7.0f},
-            .extent = {1.0f, 1.0f},
+            .scale = {1.0f, 1.0f},
         });
 
         characterCollisionResults_.emplace_back();
@@ -410,7 +410,7 @@ namespace app {
             game::updateMovement(characterMovableBodies_[i], deltaTime, map_.physics.gravity, friction, map_.physics.airResistance);
 
             characterInstances_[i].position = glm::vec3(characterMovableBodies_[i].position, 0.0f);
-            characterColliders_[i].position = characterMovableBodies_[i].position;
+            characterColliders_[i].position = characterInstances_[i].position;
         }
 
         game::resolveMapCollisions(map_, characterMovableBodies_, characterColliders_, characterCollisionResults_);
