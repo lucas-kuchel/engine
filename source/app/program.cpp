@@ -113,12 +113,14 @@ namespace app {
         controller_.sprintBinding = app::Key::LSHIFT;
 
         camera_.ease = settings_.camera.ease;
-        camera_.scale = 10.0f;
+        camera_.scale = 30.0f;
         camera_.rotation = {-45.0f, 0.0f};
 
         characterCollisionResults_.emplace_back();
         characterModels_.emplace_back(1.0f);
-        characterInstances_.push_back(game::CharacterInstance{});
+        characterInstances_.push_back(game::CharacterInstance{
+            .textureLocation = {0.5, 0.5},
+        });
         characterMovableBodies_.push_back(game::MovableBody{
             .position = {-2.0f, 0.5f, 5.0f},
         });
@@ -131,7 +133,9 @@ namespace app {
 
         characterCollisionResults_.emplace_back();
         characterModels_.emplace_back(1.0f);
-        characterInstances_.push_back(game::CharacterInstance{});
+        characterInstances_.push_back(game::CharacterInstance{
+            .textureLocation = {0.5, 0.5},
+        });
         characterMovableBodies_.push_back(game::MovableBody{
             .position = {2.0f, 0.5f, 5.0f},
         });
@@ -337,15 +341,11 @@ namespace app {
         }
 
         if (forwardKeyPressed) {
-            focusedCharacterMovableBody.acceleration.y += game::currentCharacterSpeed(focusedCharacter);
+            focusedCharacterMovableBody.acceleration.z -= game::currentCharacterSpeed(focusedCharacter);
         }
 
         if (backwardKeyPressed) {
-            focusedCharacterMovableBody.acceleration.y -= game::currentCharacterSpeed(focusedCharacter);
-        }
-
-        if (rightKeyPressed) {
-            focusedCharacterMovableBody.acceleration.x += game::currentCharacterSpeed(focusedCharacter);
+            focusedCharacterMovableBody.acceleration.z += game::currentCharacterSpeed(focusedCharacter);
         }
 
         if (keysPressed_[keyIndex(Key::TAB)]) {
@@ -360,34 +360,18 @@ namespace app {
         for (std::size_t i = 0; i < characters_.size(); i++) {
             auto& body = characterMovableBodies_[i];
 
-            // --- Physics update ---
             body.velocity += body.acceleration * deltaTime;
             body.position += body.velocity * deltaTime;
             body.acceleration = {0.0f, 0.0f, 0.0f};
-
-            // Update collider
             characterColliders_[i].position = body.position;
 
-            // --- Build model matrix ---
-            glm::mat4 model = glm::mat4(1.0f); // identity
-
-            // Translate to current position
-            model = glm::translate(model, body.position);
-
-            // Optional: add rotation here if you have orientation
-            // model = glm::rotate(model, body.rotation, glm::vec3(0,0,1));
-
-            // Optional: add uniform or non-uniform scale
-            //\model = glm::scale(model, glm::vec3(body.scale, body.scale, 1.0f));
-
-            // Store in models array
-            characterModels_[i] = model;
+            characterModels_[i] = glm::translate(glm::mat4{1.0}, body.position);
         }
 
         //  game::resolveMapCollisions(map_, characterMovableBodies_, characterColliders_, characterCollisionResults_);
         game::updateCharacterInstances(characterMesh_, characterModels_, stagingBuffer_, stagingBufferOffset, transferCommandBuffer_);
 
-        game::easeCameraTowards(camera_, glm::vec3(focusedCharacterMovableBody.position.x, 10.0f, focusedCharacterMovableBody.position.z), deltaTime);
+        game::easeCameraTowards(camera_, focusedCharacterMovableBody.position, deltaTime);
         game::updateCamera(camera_, stagingBuffer_, stagingBufferOffset, transferCommandBuffer_);
 
         renderer::CommandBuffer::endCapture(transferCommandBuffer_);
@@ -608,7 +592,7 @@ namespace app {
             .scissorCount = 1,
             .rasterisation = {
                 .frontFaceWinding = renderer::PolygonFaceWinding::ANTICLOCKWISE,
-                .cullMode = renderer::PolygonCullMode::NEVER,
+                .cullMode = renderer::PolygonCullMode::BACK,
                 .frontface = {
                     .depthComparison = renderer::CompareOperation::LESS_EQUAL,
                     .stencilComparison = renderer::CompareOperation::ALWAYS,

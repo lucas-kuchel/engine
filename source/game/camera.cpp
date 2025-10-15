@@ -52,55 +52,42 @@ namespace game {
         float extentY = static_cast<float>(std::max(camera.extent.y, 1u));
         float aspect = extentX / extentY;
 
-        // --- Vulkan-friendly perspective (RH, depth 0..1) ---
-        float fovRad = glm::radians(camera.fov);
+        float fovRadians = glm::radians(camera.fov);
+        float pitchRadians = glm::radians(camera.rotation.x);
+        float yawRadians = glm::radians(camera.rotation.y);
 
-        // --- build orientation using yaw (Y axis) and pitch (X axis) ---
-        // camera.rotation.x == pitch (degrees)  -> rotation about X (look up/down)
-        // camera.rotation.y == yaw   (degrees)  -> rotation about Y (turn left/right)
-        float pitchRad = glm::radians(camera.rotation.x);
-        float yawRad = glm::radians(camera.rotation.y);
-
-        // Build rotations: yaw then pitch (yaw rotates around world Y, pitch about local X)
-        glm::mat4 rotYaw = glm::rotate(glm::mat4(1.0f), yawRad, glm::vec3(0.0f, 1.0f, 0.0f));
-        glm::mat4 rotPitch = glm::rotate(glm::mat4(1.0f), pitchRad, glm::vec3(1.0f, 0.0f, 0.0f));
+        // --- Construct forward direction from yaw + pitch ---
+        glm::mat4 rotYaw = glm::rotate(glm::mat4{1.0f}, yawRadians, glm::vec3(0.0f, 1.0f, 0.0f));
+        glm::mat4 rotPitch = glm::rotate(glm::mat4{1.0f}, pitchRadians, glm::vec3(1.0f, 0.0f, 0.0f));
         glm::mat4 rotation = rotYaw * rotPitch;
 
-        // Local forward is -Z; rotate to world space
         glm::vec3 forward = glm::normalize(glm::vec3(rotation * glm::vec4(0.0f, 0.0f, -1.0f, 0.0f)));
         glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f);
 
-        // halfHeight calculation - if you have a 'scale' field similar to the ortho camera:
-        float minExtent = static_cast<float>(std::min(camera.extent.x, camera.extent.y));
-        float halfHeight = camera.scale * (static_cast<float>(camera.extent.y) / minExtent);
+        // --- Compute camera position: move backward from target along forward vector ---
+        float distance = camera.scale;
+        camera.position = camera.target - forward * distance;
 
-        float tanHalfFov = std::tan(fovRad * 0.5f);
-        // compensate for pitch so the projected vertical half-height matches `halfHeight`
-        float cameraDistance = (halfHeight / tanHalfFov) / std::cos(pitchRad);
+        // --- Projection ---
+        camera.projection = glm::perspectiveRH_ZO(
+            fovRadians,
+            aspect,
+            camera.near,
+            camera.far);
+        camera.projection[1][1] *= -1.0f; // Vulkan convention (Y-flip)
 
-        // treat camera.position.xz as the world centre you want on-screen
-        glm::vec3 groundCenter = glm::vec3(camera.position.x, 0.0f, camera.position.z);
-        glm::vec3 cameraPosAbove = groundCenter - forward * cameraDistance;
+        // --- View ---
+        camera.view = glm::lookAt(camera.position, camera.target, up);
 
-        camera.projection = glm::perspectiveRH_ZO(fovRad, aspect, std::max(camera.near, cameraDistance * 0.01f), cameraDistance + 1000.0f);
-        camera.projection[1][1] *= -1.0f;
-
-        camera.view = glm::lookAt(cameraPosAbove, groundCenter, up);
-
-        std::array<glm::mat4, 2> matrices = {
-            camera.projection,
-            camera.view,
-        };
-
+        // --- Upload to uniform buffer ---
+        std::array<glm::mat4, 2> matrices = {camera.projection, camera.view};
         std::size_t uniformBufferSize = renderer::Buffer::size(camera.uniformBuffer);
 
         auto mapping = renderer::Buffer::map(stagingBuffer, uniformBufferSize, stagingBufferOffset);
-
         std::memcpy(mapping.data.data(), matrices.data(), uniformBufferSize);
-
         renderer::Buffer::unmap(stagingBuffer, mapping);
 
-        renderer::BufferCopyRegion bufferCopyRegion = {
+        renderer::BufferCopyRegion copyRegion = {
             .sourceOffsetBytes = stagingBufferOffset,
             .destinationOffsetBytes = 0,
             .sizeBytes = uniformBufferSize,
@@ -108,7 +95,8 @@ namespace game {
 
         stagingBufferOffset += uniformBufferSize;
 
-        renderer::CommandBuffer::copyBuffer(transferBuffer, stagingBuffer, camera.uniformBuffer, {bufferCopyRegion});
+        renderer::CommandBuffer::copyBuffer(
+            transferBuffer, stagingBuffer, camera.uniformBuffer, {copyRegion});
     }
 
     void destroyCamera(Camera& camera) {
@@ -119,7 +107,7 @@ namespace game {
 
     void easeCameraTowards(Camera& camera, glm::vec3 position, float deltaTime) {
         float frameEase = 1.0f - std::pow(1.0f - camera.ease, deltaTime);
-        glm::vec3 delta = position - camera.position;
-        camera.position += delta * frameEase;
+        glm::vec3 delta = position - camera.target;
+        camera.target += delta * frameEase;
     }
 }

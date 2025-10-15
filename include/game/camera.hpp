@@ -20,6 +20,8 @@ namespace game {
         glm::vec2 rotation = {0.0f, 0.0f};
         glm::vec3 orientation = {0.0f, 0.0f, 1.0f};
         glm::vec3 position = {0.0f, 0.0f, 0.0f};
+        glm::vec3 target = {0.0f, 0.0f, 0.0f};
+
         glm::mat4 projection = {1.0f};
         glm::mat4 view = {1.0f};
 

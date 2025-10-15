@@ -26,8 +26,8 @@ void main() {
     instanceScale.y = length(instanceModel[1].xyz);
     instanceScale.z = length(instanceModel[2].xyz);
 
-    vec2 texturePosition = vertexPosition.xz + vec2(0.5, 0.5);
-    vec2 texturePositionScale = vec2(abs(instanceScale.x), -abs(instanceScale.z));
+    vec2 texturePosition = vertexPosition.xy + vec2(0.5, 0.5);
+    vec2 texturePositionScale = vec2(abs(instanceScale.x), -abs(instanceScale.y));
 
     outLocalPosition = texturePosition * texturePositionScale * instanceTextureScale;
     outTextureLocation = instanceTextureLocation;
