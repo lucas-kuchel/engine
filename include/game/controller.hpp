@@ -6,7 +6,8 @@ namespace game {
     struct Controller {
         app::Key leftBinding;
         app::Key rightBinding;
-        app::Key jumpBinding;
+        app::Key forwardBinding;
+        app::Key backwardBinding;
         app::Key sprintBinding;
     };
 }

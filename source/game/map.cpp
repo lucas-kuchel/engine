@@ -5,70 +5,95 @@
 
 #include <nlohmann/json.hpp>
 
+#include <glm/gtc/matrix_transform.hpp>
+
 namespace game {
-    void createMap(TileMesh& mesh, Map& map, renderer::Device& device, renderer::Buffer& stagingBuffer, std::uint64_t& stagingBufferOffset, renderer::CommandBuffer& transferBuffer) {
-        std::array<glm::vec2, 4> vertices = {
-            glm::vec2{0.5, -0.5},
-            glm::vec2{-0.5, -0.5},
-            glm::vec2{0.5, 0.5},
-            glm::vec2{-0.5, 0.5},
+    void createMap(Map& map, renderer::Device& device, renderer::Buffer& stagingBuffer, std::uint64_t& stagingBufferOffset, renderer::CommandBuffer& transferBuffer) {
+        std::array<glm::vec3, 4> vertices = {
+            glm::vec3{0.5, 0.5, 0.0},
+            glm::vec3{-0.5, 0.5, 0.0},
+            glm::vec3{0.5, -0.5, 0.0},
+            glm::vec3{-0.5, -0.5, 0.0},
         };
 
         renderer::BufferCreateInfo vertexBufferCreateInfo = {
             .device = device,
             .memoryType = renderer::MemoryType::DEVICE_LOCAL,
             .usageFlags = renderer::BufferUsageFlags::VERTEX | renderer::BufferUsageFlags::TRANSFER_DESTINATION,
-            .sizeBytes = vertices.size() * sizeof(glm::vec2),
+            .sizeBytes = vertices.size() * sizeof(glm::vec3),
         };
 
         renderer::BufferCreateInfo instanceBufferCreateInfo = {
             .device = device,
             .memoryType = renderer::MemoryType::DEVICE_LOCAL,
             .usageFlags = renderer::BufferUsageFlags::VERTEX | renderer::BufferUsageFlags::TRANSFER_DESTINATION,
-            .sizeBytes = map.tiles.size() * sizeof(TileInstance),
+            .sizeBytes = map.instances.size() * sizeof(TileInstance),
         };
 
-        mesh.vertexBuffer = renderer::Buffer::create(vertexBufferCreateInfo);
-        mesh.instanceBuffer = renderer::Buffer::create(instanceBufferCreateInfo);
+        renderer::BufferCreateInfo modelBufferCreateInfo = {
+            .device = device,
+            .memoryType = renderer::MemoryType::DEVICE_LOCAL,
+            .usageFlags = renderer::BufferUsageFlags::VERTEX | renderer::BufferUsageFlags::TRANSFER_DESTINATION,
+            .sizeBytes = map.models.size() * sizeof(glm::mat4),
+        };
 
-        std::uint64_t totalSize = renderer::Buffer::size(mesh.vertexBuffer) + renderer::Buffer::size(mesh.instanceBuffer);
+        map.mesh.vertexBuffer = renderer::Buffer::create(vertexBufferCreateInfo);
+        map.mesh.instanceBuffer = renderer::Buffer::create(instanceBufferCreateInfo);
+        map.mesh.modelBuffer = renderer::Buffer::create(modelBufferCreateInfo);
+
+        std::uint64_t teritarySize = renderer::Buffer::size(map.mesh.vertexBuffer);
+        std::uint64_t secondarySize = teritarySize + renderer::Buffer::size(map.mesh.instanceBuffer);
+        std::uint64_t totalSize = secondarySize + renderer::Buffer::size(map.mesh.modelBuffer);
+
         auto mapping = renderer::Buffer::map(stagingBuffer, totalSize, stagingBufferOffset);
 
-        std::memcpy(mapping.data.data(), vertices.data(), renderer::Buffer::size(mesh.vertexBuffer));
-        std::memcpy(mapping.data.data() + renderer::Buffer::size(mesh.vertexBuffer), map.tiles.data(), renderer::Buffer::size(mesh.instanceBuffer));
+        std::memcpy(mapping.data.data(), vertices.data(), renderer::Buffer::size(map.mesh.vertexBuffer));
+        std::memcpy(mapping.data.data() + secondarySize, map.models.data(), renderer::Buffer::size(map.mesh.modelBuffer));
+        std::memcpy(mapping.data.data() + teritarySize, map.instances.data(), renderer::Buffer::size(map.mesh.instanceBuffer));
 
         renderer::Buffer::unmap(stagingBuffer, mapping);
 
         renderer::BufferCopyRegion vertexBufferCopyRegion = {
             .sourceOffsetBytes = stagingBufferOffset,
             .destinationOffsetBytes = 0,
-            .sizeBytes = renderer::Buffer::size(mesh.vertexBuffer),
+            .sizeBytes = renderer::Buffer::size(map.mesh.vertexBuffer),
+        };
+
+        renderer::BufferCopyRegion modelBufferCopyRegion = {
+            .sourceOffsetBytes = stagingBufferOffset + secondarySize,
+            .destinationOffsetBytes = 0,
+            .sizeBytes = renderer::Buffer::size(map.mesh.modelBuffer),
         };
 
         renderer::BufferCopyRegion instanceBufferCopyRegion = {
-            .sourceOffsetBytes = stagingBufferOffset + renderer::Buffer::size(mesh.vertexBuffer),
+            .sourceOffsetBytes = stagingBufferOffset + teritarySize,
             .destinationOffsetBytes = 0,
-            .sizeBytes = renderer::Buffer::size(mesh.instanceBuffer),
+            .sizeBytes = renderer::Buffer::size(map.mesh.instanceBuffer),
         };
 
         stagingBufferOffset += totalSize;
 
-        renderer::CommandBuffer::copyBuffer(transferBuffer, stagingBuffer, mesh.vertexBuffer, {vertexBufferCopyRegion});
-        renderer::CommandBuffer::copyBuffer(transferBuffer, stagingBuffer, mesh.instanceBuffer, {instanceBufferCopyRegion});
+        renderer::CommandBuffer::copyBuffer(transferBuffer, stagingBuffer, map.mesh.vertexBuffer, {vertexBufferCopyRegion});
+        renderer::CommandBuffer::copyBuffer(transferBuffer, stagingBuffer, map.mesh.modelBuffer, {modelBufferCopyRegion});
+        renderer::CommandBuffer::copyBuffer(transferBuffer, stagingBuffer, map.mesh.instanceBuffer, {instanceBufferCopyRegion});
     }
 
-    void renderMap(TileMesh& mesh, Map& map, renderer::CommandBuffer& commandBuffer) {
-        renderer::CommandBuffer::bindVertexBuffers(commandBuffer, {mesh.vertexBuffer, mesh.instanceBuffer}, {0, 0}, 0);
-        renderer::CommandBuffer::draw(commandBuffer, 4, static_cast<std::uint32_t>(map.tiles.size()), 0, 0);
+    void renderMap(Map& map, renderer::CommandBuffer& commandBuffer) {
+        renderer::CommandBuffer::bindVertexBuffers(commandBuffer, {map.mesh.vertexBuffer, map.mesh.instanceBuffer, map.mesh.modelBuffer}, {0, 0, 0}, 0);
+        renderer::CommandBuffer::draw(commandBuffer, 4, static_cast<std::uint32_t>(map.instances.size()), 0, 0);
     }
 
-    void destroyMap(TileMesh& mesh) {
-        if (mesh.instanceBuffer) {
-            renderer::Buffer::destroy(mesh.instanceBuffer);
+    void destroyMap(Map& map) {
+        if (map.mesh.instanceBuffer) {
+            renderer::Buffer::destroy(map.mesh.instanceBuffer);
         }
 
-        if (mesh.vertexBuffer) {
-            renderer::Buffer::destroy(mesh.vertexBuffer);
+        if (map.mesh.vertexBuffer) {
+            renderer::Buffer::destroy(map.mesh.vertexBuffer);
+        }
+
+        if (map.mesh.modelBuffer) {
+            renderer::Buffer::destroy(map.mesh.modelBuffer);
         }
     }
 
@@ -82,43 +107,66 @@ namespace game {
         std::string contents(std::istreambuf_iterator<char>(file), {});
         nlohmann::json json = nlohmann::json::parse(contents);
 
-        if (json.contains("physics") && json["physics"].is_object()) {
-            const auto& physicsJson = json["physics"];
-
-            map.physics.gravity = physicsJson.value("gravity", 0.0f);
-            map.physics.airResistance = physicsJson.value("airResistance", 0.0f);
-        }
-
         if (json.contains("tiles") && json["tiles"].is_array()) {
             for (const auto& tileJson : json["tiles"]) {
                 TileInstance instance;
+                glm::mat4 model = {1.0f};
+                glm::vec3 position = {0.0f, 0.0f, 0.0f};
+                glm::vec3 scale = {1.0f, 1.0f, 1.0f};
+                glm::vec3 shear = {0.0f, 0.0f, 0.0f};
+                glm::vec3 rotation = {0.0f, 0.0f, 0.0f};
 
                 if (tileJson.contains("transform") && tileJson["transform"].is_object()) {
                     const auto& t = tileJson["transform"];
 
                     if (t.contains("position")) {
                         auto p = t["position"];
-                        instance.position.x = p.size() > 0 ? p[0].get<float>() : 0.0f;
-                        instance.position.y = p.size() > 1 ? p[1].get<float>() : 0.0f;
-                        instance.position.z = p.size() > 2 ? p[2].get<float>() : 0.0f;
+
+                        position.x = p.size() > 0 ? p[0].get<float>() : 0.0f;
+                        position.y = p.size() > 1 ? p[1].get<float>() : 0.0f;
+                        position.z = p.size() > 2 ? p[2].get<float>() : 0.0f;
                     }
 
                     if (t.contains("scale")) {
                         auto s = t["scale"];
-                        instance.scale.x = s.size() > 0 ? s[0].get<float>() : 1.0f;
-                        instance.scale.y = s.size() > 1 ? s[1].get<float>() : 1.0f;
+
+                        scale.x = s.size() > 0 ? s[0].get<float>() : 1.0f;
+                        scale.y = s.size() > 1 ? s[1].get<float>() : 1.0f;
                     }
 
                     if (t.contains("shear")) {
                         auto sh = t["shear"];
-                        instance.shear.x = sh.size() > 0 ? sh[0].get<float>() : 0.0f;
-                        instance.shear.y = sh.size() > 1 ? sh[1].get<float>() : 0.0f;
+
+                        shear.x = sh.size() > 0 ? sh[0].get<float>() : 0.0f;
+                        shear.y = sh.size() > 1 ? sh[1].get<float>() : 0.0f;
                     }
 
                     if (t.contains("rotation")) {
-                        instance.rotation = t["rotation"].get<float>();
+                        auto r = t["rotation"];
+
+                        rotation.x = r.size() > 0 ? r[0].get<float>() : 0.0f;
+                        rotation.y = r.size() > 1 ? r[1].get<float>() : 0.0f;
+                        rotation.z = r.size() > 2 ? r[2].get<float>() : 0.0f;
                     }
                 }
+
+                model = glm::scale(model, scale);
+
+                if (glm::any(glm::notEqual(shear, glm::vec3(0.0f)))) {
+                    glm::mat4 shearMatrix = {1.0f};
+
+                    shearMatrix[1][0] = shear.x;
+                    shearMatrix[2][0] = shear.y;
+                    shearMatrix[2][1] = shear.z;
+
+                    model *= shearMatrix;
+                }
+
+                model = glm::rotate(model, glm::radians(rotation.z), glm::vec3(0, 0, 1));
+                model = glm::rotate(model, glm::radians(rotation.y), glm::vec3(0, 1, 0));
+                model = glm::rotate(model, glm::radians(rotation.x), glm::vec3(1, 0, 0));
+
+                model = glm::translate(glm::mat4(1.0f), position) * model;
 
                 if (tileJson.contains("texture") && tileJson["texture"].is_object()) {
                     const auto& tex = tileJson["texture"];
@@ -142,16 +190,17 @@ namespace game {
                     }
                 }
 
-                map.tiles.push_back(instance);
+                map.instances.push_back(instance);
+                map.models.push_back(model);
             }
         }
 
         if (json.contains("colliders") && json["colliders"].is_array()) {
             for (const auto& collJson : json["colliders"]) {
-                BoxCollider collider;
+                Collider collider;
 
-                if (collJson.contains("physics") && collJson["physics"].is_object()) {
-                    collider.physics.friction = collJson["physics"].value("friction", 1.0f);
+                if (collJson.contains("rotation") && collJson["rotation"].is_number_float()) {
+                    collider.rotation = collJson.value("rotation", 0.0f);
                 }
 
                 if (collJson.contains("position")) {
@@ -171,25 +220,26 @@ namespace game {
         }
     }
 
-    void resolveMapCollisions(const Map& map, std::span<MovableBody> bodies, std::span<BoxCollider> colliders, std::span<BoxCollisionResult> results) {
+    void resolveMapCollisions(const Map& map, std::span<MovableBody> bodies, std::span<Collider> colliders, std::span<CollisionResult> results) {
         for (std::size_t i = 0; i < bodies.size(); i++) {
             MovableBody& body = bodies[i];
-            BoxCollider& box = colliders[i];
-            BoxCollisionResult& resultOut = results[i];
+            Collider& box = colliders[i];
+            CollisionResult& resultOut = results[i];
 
             resultOut = {};
 
-            for (const BoxCollider& mapBox : map.colliders) {
-                BoxCollisionResult result;
+            for (const Collider& mapBox : map.colliders) {
+                CollisionResult result;
 
-                game::testCollisionAABB(box, mapBox, result);
+                game::testCollisionOBB(box, mapBox, result);
 
                 if (!result.collided) {
                     continue;
                 }
 
                 box.position += result.normal * result.penetration;
-                body.position = box.position;
+                body.position.x = box.position.x;
+                body.position.z = box.position.y;
 
                 if (result.penetration.x > 0.0f) {
                     body.velocity.x = 0.0f;

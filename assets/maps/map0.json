@@ -1,20 +1,16 @@
 {
-    "physics": {
-        "gravity": 9.81,
-        "airResistance": 0.3
-    },
     "tiles": [
         {
             "transform": {
-                "position": [26.0, 0.0, 0.0],
+                "position": [0.0, 0.0, 0.0],
                 "scale": [50.0, 200.0],
                 "shear": [0.0, 0.0],
-                "rotation": 0.0
+                "rotation": [0.0, 0.0, 0.0]
             },
             "texture": {
                 "location": [0.0, 0.5],
                 "offset": [0.0, 0.0],
-                "scale": [1.0, 1.0]
+                "scale": [0.5, 0.5]
             }
         },
         {
@@ -22,12 +18,12 @@
                 "position": [0.0, 0.0, 0.0],
                 "scale": [2.0, 200.0],
                 "shear": [0.0, 0.0],
-                "rotation": 0.0
+                "rotation": [0.0, 0.0, 0.0]
             },
             "texture": {
                 "location": [0.5, 0.5],
                 "offset": [0.0, 0.0],
-                "scale": [1.0, 1.0]
+                "scale": [0.5, 0.5]
             }
         },
         {
@@ -35,29 +31,25 @@
                 "position": [-26.0, 0.0, 0.0],
                 "scale": [50.0, 200.0],
                 "shear": [0.0, 0.0],
-                "rotation": 0.0
+                "rotation": [0.0, 0.0, 0.0]
             },
             "texture": {
                 "location": [0.0, 0.5],
                 "offset": [0.0, 0.0],
-                "scale": [1.0, 1.0]
+                "scale": [0.5, 0.5]
             }
         }
     ],
     "colliders": [
         {
-            "physics": {
-                "friction": 10.0
-            },
-            "position": [0.0, -50.5, 0.0],
-            "scale": [600.0, 100.0]
+            "position": [51.5, 0.0],
+            "scale": [1.0, 200.0],
+            "rotation": 0.0
         },
         {
-            "physics": {
-                "friction": 10.0
-            },
-            "position": [0.0, 0.0, 0.0],
-            "scale": [600.0, 1.0]
+            "position": [51.5, 0.0],
+            "scale": [1.0, 200.0],
+            "rotation": 0.0
         }
     ]
 }

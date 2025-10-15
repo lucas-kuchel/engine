@@ -15,7 +15,7 @@ void main() {
 
     outColour = texture(inAlbedoTexture, texturePosition);
 
-    if (outColour.a == 0.0) {
-        discard;
-    }
+   // if (outColour.a == 0.0) {
+   //     discard;
+   // }
 }

@@ -3,6 +3,11 @@
 #include <algorithm>
 #include <cstring>
 #include <fstream>
+#include <glm/ext/matrix_transform.hpp>
+#include <print>
+
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE
+#include <glm/ext/matrix_projection.hpp>
 
 #define STB_IMAGE_IMPLEMENTATION
 #define STBI_NO_LINEAR
@@ -104,55 +109,41 @@ namespace app {
 
         controller_.leftBinding = app::Key::A;
         controller_.rightBinding = app::Key::D;
-        controller_.jumpBinding = app::Key::SPACE;
+        controller_.forwardBinding = app::Key::W;
+        controller_.backwardBinding = app::Key::S;
         controller_.sprintBinding = app::Key::LSHIFT;
 
         camera_.ease = settings_.camera.ease;
-        camera_.scale = settings_.camera.scale;
 
+        characterCollisionResults_.emplace_back();
+        characterModels_.emplace_back(1.0f);
+        characterInstances_.push_back(game::CharacterInstance{});
+        characterMovableBodies_.push_back(game::MovableBody{
+            .position = {-2.0f, 0.5f, 5.0f},
+        });
+        characterColliders_.push_back(game::Collider{});
         characters_.push_back(game::Character{
-            .baseSpeed = 3.0,
+            .baseSpeed = 7.0,
             .sprintMultiplier = 1.75f,
             .jumpForce = 8.0f,
         });
 
-        characterInstances_.push_back(game::CharacterInstance{});
-
-        characterMovableBodies_.push_back(game::MovableBody{
-            .position = {-2.0f, 5.0f},
-        });
-
-        characterColliders_.push_back(game::BoxCollider{
-            .physics = {
-                .friction = 0.1f,
-            },
-        });
-
         characterCollisionResults_.emplace_back();
-
+        characterModels_.emplace_back(1.0f);
+        characterInstances_.push_back(game::CharacterInstance{});
+        characterMovableBodies_.push_back(game::MovableBody{
+            .position = {2.0f, 0.5f, 5.0f},
+        });
+        characterColliders_.push_back(game::Collider{});
         characters_.push_back(game::Character{
-            .baseSpeed = 4.5,
+            .baseSpeed = 8.5,
             .sprintMultiplier = 1.2f,
             .jumpForce = 9.5f,
         });
 
-        characterInstances_.push_back(game::CharacterInstance{});
-
-        characterMovableBodies_.push_back(game::MovableBody{
-            .position = {2.0f, 5.0f},
-        });
-
-        characterColliders_.push_back(game::BoxCollider{
-            .physics = {
-                .friction = 0.05f,
-            },
-        });
-
-        characterCollisionResults_.emplace_back();
-
         game::loadMapFromFile(map_, "assets/maps/map0.json");
 
-        std::uint64_t mapSizeBytes = map_.tiles.size() * sizeof(game::TileInstance);
+        std::uint64_t mapSizeBytes = map_.instances.size() * sizeof(game::TileInstance);
 
         renderer::BufferCreateInfo stagingBufferCreateInfo = {
             .device = device_,
@@ -223,8 +214,8 @@ namespace app {
 
         renderer::CommandBuffer::pipelineBarrier(transferCommandBuffer_, renderer::PipelineStageFlags::TRANSFER, renderer::PipelineStageFlags::FRAGMENT_SHADER, {memoryBarrier1});
 
-        game::createMap(tileMesh_, map_, device_, stagingBuffer_, stagingBufferOffset, transferCommandBuffer_);
-        game::createCharacterInstances(characterMesh_, characterInstances_, device_, stagingBuffer_, stagingBufferOffset, transferCommandBuffer_);
+        game::createMap(map_, device_, stagingBuffer_, stagingBufferOffset, transferCommandBuffer_);
+        game::createCharacterInstances(characterMesh_, characterInstances_, characterModels_, device_, stagingBuffer_, stagingBufferOffset, transferCommandBuffer_);
         game::createCamera(camera_, device_, stagingBuffer_, stagingBufferOffset, transferCommandBuffer_);
 
         renderer::CommandBuffer::endCapture(transferCommandBuffer_);
@@ -316,21 +307,18 @@ namespace app {
 
         lastFrameTime_ = currentTime;
 
-        camera_.extent = renderer::Swapchain::getExtent(swapchain_);
+        camera_.extent = window_->extent();
 
         renderer::CommandBuffer::beginCapture(transferCommandBuffer_);
 
         auto& focusedCharacter = characters_[focusedCharacterIndex_];
         auto& focusedCharacterMovableBody = characterMovableBodies_[focusedCharacterIndex_];
-        auto& focusedCharacterCollisionResult = characterCollisionResults_[focusedCharacterIndex_];
-        auto& focusedCharacterInstance = characterInstances_[focusedCharacterIndex_];
 
         bool sprintKeyPressed = keysHeld_[keyIndex(controller_.sprintBinding)];
         bool leftKeyPressed = keysHeld_[keyIndex(controller_.leftBinding)];
         bool rightKeyPressed = keysHeld_[keyIndex(controller_.rightBinding)];
-        bool jumpKeyPressed = keysHeld_[keyIndex(controller_.jumpBinding)];
-        bool isColliding = focusedCharacterCollisionResult.collided;
-        bool bottomCollision = focusedCharacterCollisionResult.bottom;
+        bool forwardKeyPressed = keysHeld_[keyIndex(controller_.forwardBinding)];
+        bool backwardKeyPressed = keysHeld_[keyIndex(controller_.backwardBinding)];
 
         if (sprintKeyPressed) {
             focusedCharacter.sprinting = true;
@@ -340,37 +328,23 @@ namespace app {
         }
 
         if (leftKeyPressed) {
-            float multiplier = 1.0f;
-
-            if (!focusedCharacterCollisionResult.bottom) {
-                multiplier = 0.25f;
-            }
-
-            if (focusedCharacter.facing == game::CharacterFacing::RIGHT) {
-                focusedCharacterInstance.scale.x *= -1.0f;
-                focusedCharacter.facing = game::CharacterFacing::LEFT;
-            }
-
-            focusedCharacterMovableBody.acceleration.x -= multiplier * game::currentCharacterSpeed(focusedCharacter);
+            focusedCharacterMovableBody.acceleration.x -= game::currentCharacterSpeed(focusedCharacter);
         }
 
         if (rightKeyPressed) {
-            float multiplier = 1.0f;
-
-            if (!focusedCharacterCollisionResult.bottom) {
-                multiplier = 0.25f;
-            }
-
-            if (focusedCharacter.facing == game::CharacterFacing::LEFT) {
-                focusedCharacterInstance.scale.x *= -1.0f;
-                focusedCharacter.facing = game::CharacterFacing::RIGHT;
-            }
-
-            focusedCharacterMovableBody.acceleration.x += multiplier * game::currentCharacterSpeed(focusedCharacter);
+            focusedCharacterMovableBody.acceleration.x += game::currentCharacterSpeed(focusedCharacter);
         }
 
-        if (jumpKeyPressed && isColliding && bottomCollision && focusedCharacterCollisionResult.bottom) {
-            focusedCharacterMovableBody.velocity.y += focusedCharacter.jumpForce;
+        if (forwardKeyPressed) {
+            focusedCharacterMovableBody.acceleration.y += game::currentCharacterSpeed(focusedCharacter);
+        }
+
+        if (backwardKeyPressed) {
+            focusedCharacterMovableBody.acceleration.y -= game::currentCharacterSpeed(focusedCharacter);
+        }
+
+        if (rightKeyPressed) {
+            focusedCharacterMovableBody.acceleration.x += game::currentCharacterSpeed(focusedCharacter);
         }
 
         if (keysPressed_[keyIndex(Key::TAB)]) {
@@ -383,28 +357,19 @@ namespace app {
         }
 
         for (std::size_t i = 0; i < characters_.size(); i++) {
-            float friction = 0.0f;
+            characterMovableBodies_[i].velocity += characterMovableBodies_[i].acceleration * deltaTime;
+            characterMovableBodies_[i].position += characterMovableBodies_[i].velocity * deltaTime;
+            characterMovableBodies_[i].acceleration = {0.0f, 0.0f, 0.0f};
 
-            const glm::vec2& acceleration = characterMovableBodies_[i].acceleration;
-            const glm::vec2& velocity = characterMovableBodies_[i].velocity;
+            // TODO: transform
 
-            bool accelerating = glm::length(acceleration) > 0.0f;
-            bool reversing = glm::length(velocity) > 0.0f && glm::length(acceleration) > 0.0f && glm::dot(velocity, acceleration) < 0.0f;
-            bool moving = glm::length(velocity) > 0.0f;
-
-            if (characterCollisionResults_[i].collided && moving && (!accelerating || reversing)) {
-                friction = (characterCollisionResults_[i].other->physics.friction + characterColliders_[i].physics.friction) * 0.5f;
-            }
-
-            game::updateMovement(characterMovableBodies_[i], deltaTime, map_.physics.gravity, friction, map_.physics.airResistance);
-
-            characterInstances_[i].position = glm::vec3(characterMovableBodies_[i].position, 0.5f);
-            characterColliders_[i].position = characterInstances_[i].position;
+            characterColliders_[i].position = characterMovableBodies_[i].position;
         }
 
-        game::resolveMapCollisions(map_, characterMovableBodies_, characterColliders_, characterCollisionResults_);
-        game::updateCharacterInstances(characterMesh_, characterInstances_, stagingBuffer_, stagingBufferOffset, transferCommandBuffer_);
-        game::easeCameraTowards(camera_, focusedCharacterMovableBody.position, deltaTime);
+        //  game::resolveMapCollisions(map_, characterMovableBodies_, characterColliders_, characterCollisionResults_);
+        game::updateCharacterInstances(characterMesh_, characterModels_, stagingBuffer_, stagingBufferOffset, transferCommandBuffer_);
+
+        game::easeCameraTowards(camera_, glm::vec3(focusedCharacterMovableBody.position.x, 10.0f, focusedCharacterMovableBody.position.z), deltaTime);
         game::updateCamera(camera_, stagingBuffer_, stagingBufferOffset, transferCommandBuffer_);
 
         renderer::CommandBuffer::endCapture(transferCommandBuffer_);
@@ -463,8 +428,8 @@ namespace app {
         renderer::CommandBuffer::setPipelineScissors(commandBuffer, {scissor}, 0);
         renderer::CommandBuffer::bindDescriptorSets(commandBuffer, renderer::DeviceOperation::GRAPHICS, basicPipelineLayout_, 0, {basicDescriptorSet_});
 
-        game::renderMap(tileMesh_, map_, commandBuffer);
-        game::renderCharacterInstances(characterMesh_, characterInstances_, commandBuffer);
+        game::renderMap(map_, commandBuffer);
+        game::renderCharacterInstances(characterMesh_, static_cast<std::uint32_t>(characterInstances_.size()), commandBuffer);
 
         renderer::CommandBuffer::endRenderPass(commandBuffer);
         renderer::CommandBuffer::endCapture(commandBuffer);
@@ -487,7 +452,7 @@ namespace app {
         renderer::Device::waitIdle(device_);
 
         game::destroyCharacterInstances(characterMesh_);
-        game::destroyMap(tileMesh_);
+        game::destroyMap(map_);
         game::destroyCamera(camera_);
 
         renderer::Fence::destroy(stagingBufferFence_);
@@ -561,22 +526,27 @@ namespace app {
                     renderer::VertexInputBindingDescription{
                         .inputRate = renderer::VertexInputRate::PER_VERTEX,
                         .binding = 0,
-                        .strideBytes = sizeof(glm::vec2),
+                        .strideBytes = sizeof(glm::vec3),
                     },
                     renderer::VertexInputBindingDescription{
                         .inputRate = renderer::VertexInputRate::PER_INSTANCE,
                         .binding = 1,
                         .strideBytes = sizeof(game::CharacterInstance),
                     },
+                    renderer::VertexInputBindingDescription{
+                        .inputRate = renderer::VertexInputRate::PER_INSTANCE,
+                        .binding = 2,
+                        .strideBytes = sizeof(glm::mat4),
+                    },
                 },
                 .attributes = {
                     renderer::VertexAttributeDescription{
-                        .format = renderer::VertexAttributeFormat::R32G32_FLOAT,
+                        .format = renderer::VertexAttributeFormat::R32G32B32_FLOAT,
                         .binding = 0,
                         .location = 0,
                     },
                     renderer::VertexAttributeDescription{
-                        .format = renderer::VertexAttributeFormat::R32G32B32_FLOAT,
+                        .format = renderer::VertexAttributeFormat::R32G32_FLOAT,
                         .binding = 1,
                         .location = 1,
                     },
@@ -591,23 +561,23 @@ namespace app {
                         .location = 3,
                     },
                     renderer::VertexAttributeDescription{
-                        .format = renderer::VertexAttributeFormat::R32_FLOAT,
-                        .binding = 1,
+                        .format = renderer::VertexAttributeFormat::R32G32B32A32_FLOAT,
+                        .binding = 2,
                         .location = 4,
                     },
                     renderer::VertexAttributeDescription{
-                        .format = renderer::VertexAttributeFormat::R32G32_FLOAT,
-                        .binding = 1,
+                        .format = renderer::VertexAttributeFormat::R32G32B32A32_FLOAT,
+                        .binding = 2,
                         .location = 5,
                     },
                     renderer::VertexAttributeDescription{
-                        .format = renderer::VertexAttributeFormat::R32G32_FLOAT,
-                        .binding = 1,
+                        .format = renderer::VertexAttributeFormat::R32G32B32A32_FLOAT,
+                        .binding = 2,
                         .location = 6,
                     },
                     renderer::VertexAttributeDescription{
-                        .format = renderer::VertexAttributeFormat::R32G32_FLOAT,
-                        .binding = 1,
+                        .format = renderer::VertexAttributeFormat::R32G32B32A32_FLOAT,
+                        .binding = 2,
                         .location = 7,
                     },
                 },

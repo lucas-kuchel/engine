@@ -105,17 +105,19 @@ namespace app {
         bool awaitRestore_ = false;
 
         game::CharacterMesh characterMesh_;
-        game::TileMesh tileMesh_;
         game::Controller controller_;
         game::Camera camera_;
         game::Settings settings_;
         game::Map map_;
 
+        glm::vec2 mousePosition_ = {0.0f, 0.0f};
+
         std::vector<game::Character> characters_;
         std::vector<game::MovableBody> characterMovableBodies_;
-        std::vector<game::BoxCollider> characterColliders_;
-        std::vector<game::BoxCollisionResult> characterCollisionResults_;
+        std::vector<game::Collider> characterColliders_;
+        std::vector<game::CollisionResult> characterCollisionResults_;
         std::vector<game::CharacterInstance> characterInstances_;
+        std::vector<glm::mat4> characterModels_;
 
         std::uint32_t focusedCharacterIndex_ = 0;
 
