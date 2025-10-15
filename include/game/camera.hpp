@@ -15,10 +15,11 @@ namespace game {
         float fov = 60.0f;
         float near = 0.1f;
         float far = 100.0f;
+        float scale = 1.0f;
 
-        glm::vec2 rotation = {-35.0f, 45.0f};
+        glm::vec2 rotation = {0.0f, 0.0f};
         glm::vec3 orientation = {0.0f, 0.0f, 1.0f};
-        glm::vec3 position = {0.0f, 5.0f, 5.0f};
+        glm::vec3 position = {0.0f, 0.0f, 0.0f};
         glm::mat4 projection = {1.0f};
         glm::mat4 view = {1.0f};
 

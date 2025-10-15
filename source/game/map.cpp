@@ -10,10 +10,10 @@
 namespace game {
     void createMap(Map& map, renderer::Device& device, renderer::Buffer& stagingBuffer, std::uint64_t& stagingBufferOffset, renderer::CommandBuffer& transferBuffer) {
         std::array<glm::vec3, 4> vertices = {
-            glm::vec3{0.5, 0.5, 0.0},
-            glm::vec3{-0.5, 0.5, 0.0},
-            glm::vec3{0.5, -0.5, 0.0},
-            glm::vec3{-0.5, -0.5, 0.0},
+            glm::vec3{0.5, 0.0, 0.5},
+            glm::vec3{-0.5, 0.0, 0.5},
+            glm::vec3{0.5, 0.0, -0.5},
+            glm::vec3{-0.5, 0.0, -0.5},
         };
 
         renderer::BufferCreateInfo vertexBufferCreateInfo = {
@@ -131,7 +131,7 @@ namespace game {
                         auto s = t["scale"];
 
                         scale.x = s.size() > 0 ? s[0].get<float>() : 1.0f;
-                        scale.y = s.size() > 1 ? s[1].get<float>() : 1.0f;
+                        scale.z = s.size() > 1 ? s[1].get<float>() : 1.0f;
                     }
 
                     if (t.contains("shear")) {

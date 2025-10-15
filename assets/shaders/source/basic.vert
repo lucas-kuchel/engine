@@ -18,7 +18,7 @@ layout(location = 1) out vec2 outTextureLocation;
 layout(location = 2) out vec2 outTextureOffset;
 
 void main() {
-    gl_Position = camera.projection * camera.view * vec4(vertexPosition, 1.0);
+    gl_Position = camera.projection * camera.view * instanceModel * vec4(vertexPosition, 1.0);
 
     vec3 instanceScale = {1.0, 1.0, 1.0};
 
@@ -27,7 +27,7 @@ void main() {
     instanceScale.z = length(instanceModel[2].xyz);
 
     vec2 texturePosition = vertexPosition.xz + vec2(0.5, 0.5);
-    vec2 texturePositionScale = vec2(abs(instanceScale.x), -abs(instanceScale.y));
+    vec2 texturePositionScale = vec2(abs(instanceScale.x), -abs(instanceScale.z));
 
     outLocalPosition = texturePosition * texturePositionScale * instanceTextureScale;
     outTextureLocation = instanceTextureLocation;

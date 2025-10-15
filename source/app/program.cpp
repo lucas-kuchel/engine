@@ -3,11 +3,10 @@
 #include <algorithm>
 #include <cstring>
 #include <fstream>
-#include <glm/ext/matrix_transform.hpp>
-#include <print>
 
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <glm/ext/matrix_projection.hpp>
+#include <glm/ext/matrix_transform.hpp>
 
 #define STB_IMAGE_IMPLEMENTATION
 #define STBI_NO_LINEAR
@@ -114,6 +113,8 @@ namespace app {
         controller_.sprintBinding = app::Key::LSHIFT;
 
         camera_.ease = settings_.camera.ease;
+        camera_.scale = 10.0f;
+        camera_.rotation = {-45.0f, 0.0f};
 
         characterCollisionResults_.emplace_back();
         characterModels_.emplace_back(1.0f);
@@ -357,13 +358,30 @@ namespace app {
         }
 
         for (std::size_t i = 0; i < characters_.size(); i++) {
-            characterMovableBodies_[i].velocity += characterMovableBodies_[i].acceleration * deltaTime;
-            characterMovableBodies_[i].position += characterMovableBodies_[i].velocity * deltaTime;
-            characterMovableBodies_[i].acceleration = {0.0f, 0.0f, 0.0f};
+            auto& body = characterMovableBodies_[i];
 
-            // TODO: transform
+            // --- Physics update ---
+            body.velocity += body.acceleration * deltaTime;
+            body.position += body.velocity * deltaTime;
+            body.acceleration = {0.0f, 0.0f, 0.0f};
 
-            characterColliders_[i].position = characterMovableBodies_[i].position;
+            // Update collider
+            characterColliders_[i].position = body.position;
+
+            // --- Build model matrix ---
+            glm::mat4 model = glm::mat4(1.0f); // identity
+
+            // Translate to current position
+            model = glm::translate(model, body.position);
+
+            // Optional: add rotation here if you have orientation
+            // model = glm::rotate(model, body.rotation, glm::vec3(0,0,1));
+
+            // Optional: add uniform or non-uniform scale
+            //\model = glm::scale(model, glm::vec3(body.scale, body.scale, 1.0f));
+
+            // Store in models array
+            characterModels_[i] = model;
         }
 
         //  game::resolveMapCollisions(map_, characterMovableBodies_, characterColliders_, characterCollisionResults_);
