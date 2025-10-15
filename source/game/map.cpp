@@ -173,10 +173,16 @@ namespace game {
                 if (tileJson.contains("texture") && tileJson["texture"].is_object()) {
                     const auto& tex = tileJson["texture"];
 
-                    if (tex.contains("location")) {
-                        auto l = tex["location"];
-                        instance.textureLocation.x = l.size() > 0 ? l[0].get<float>() : 0.0f;
-                        instance.textureLocation.y = l.size() > 1 ? l[1].get<float>() : 0.0f;
+                    if (tex.contains("position")) {
+                        auto l = tex["position"];
+                        instance.texturePosition.x = l.size() > 0 ? l[0].get<float>() : 0.0f;
+                        instance.texturePosition.y = l.size() > 1 ? l[1].get<float>() : 0.0f;
+                    }
+
+                    if (tex.contains("extent")) {
+                        auto l = tex["extent"];
+                        instance.textureExtent.x = l.size() > 0 ? l[0].get<float>() : 0.0f;
+                        instance.textureExtent.y = l.size() > 1 ? l[1].get<float>() : 0.0f;
                     }
 
                     if (tex.contains("offset")) {
@@ -194,30 +200,6 @@ namespace game {
 
                 map.instances.push_back(instance);
                 map.models.push_back(model);
-            }
-        }
-
-        if (json.contains("colliders") && json["colliders"].is_array()) {
-            for (const auto& collJson : json["colliders"]) {
-                Collider collider;
-
-                if (collJson.contains("rotation") && collJson["rotation"].is_number_float()) {
-                    collider.rotation = collJson.value("rotation", 0.0f);
-                }
-
-                if (collJson.contains("position")) {
-                    auto p = collJson["position"];
-                    collider.position.x = p.size() > 0 ? p[0].get<float>() : 0.0f;
-                    collider.position.y = p.size() > 1 ? p[1].get<float>() : 0.0f;
-                }
-
-                if (collJson.contains("scale")) {
-                    auto s = collJson["scale"];
-                    collider.scale.x = s.size() > 0 ? s[0].get<float>() : 1.0f;
-                    collider.scale.y = s.size() > 1 ? s[1].get<float>() : 1.0f;
-                }
-
-                map.colliders.push_back(collider);
             }
         }
     }

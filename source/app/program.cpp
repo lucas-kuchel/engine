@@ -113,13 +113,14 @@ namespace app {
         controller_.sprintBinding = app::Key::LSHIFT;
 
         camera_.ease = settings_.camera.ease;
-        camera_.scale = 30.0f;
+        camera_.scale = 15.0f;
         camera_.rotation = {-45.0f, 0.0f};
 
         characterCollisionResults_.emplace_back();
         characterModels_.emplace_back(1.0f);
         characterInstances_.push_back(game::CharacterInstance{
-            .textureLocation = {0.5, 0.5},
+            .texturePosition = {0.25, 0.25},
+            .textureExtent = {0.25, 0.25},
         });
         characterMovableBodies_.push_back(game::MovableBody{
             .position = {-2.0f, 0.5f, 5.0f},
@@ -134,7 +135,8 @@ namespace app {
         characterCollisionResults_.emplace_back();
         characterModels_.emplace_back(1.0f);
         characterInstances_.push_back(game::CharacterInstance{
-            .textureLocation = {0.5, 0.5},
+            .texturePosition = {0.25, 0.25},
+            .textureExtent = {0.25, 0.25},
         });
         characterMovableBodies_.push_back(game::MovableBody{
             .position = {2.0f, 0.5f, 5.0f},
@@ -302,6 +304,8 @@ namespace app {
     }
 
     void Program::update() {
+        renderer::CommandPool::resetAllCommandBuffers(transferCommandPool_);
+
         std::uint64_t stagingBufferOffset = 0;
 
         std::chrono::time_point<std::chrono::high_resolution_clock> currentTime = std::chrono::high_resolution_clock::now();
@@ -563,8 +567,8 @@ namespace app {
                         .location = 3,
                     },
                     renderer::VertexAttributeDescription{
-                        .format = renderer::VertexAttributeFormat::R32G32B32A32_FLOAT,
-                        .binding = 2,
+                        .format = renderer::VertexAttributeFormat::R32G32_FLOAT,
+                        .binding = 1,
                         .location = 4,
                     },
                     renderer::VertexAttributeDescription{
@@ -581,6 +585,11 @@ namespace app {
                         .format = renderer::VertexAttributeFormat::R32G32B32A32_FLOAT,
                         .binding = 2,
                         .location = 7,
+                    },
+                    renderer::VertexAttributeDescription{
+                        .format = renderer::VertexAttributeFormat::R32G32B32A32_FLOAT,
+                        .binding = 2,
+                        .location = 8,
                     },
                 },
             },

@@ -8,9 +8,10 @@
                 "rotation": [-90.0, 0.0, 0.0]
             },
             "texture": {
-                "location": [0.0, 0.5],
+                "position": [0.0, 0.25],
+                "extent": [0.25, 0.25],
                 "offset": [0.0, 0.0],
-                "scale": [0.5, 0.5]
+                "scale": [50.0, 200.0]
             }
         },
         {
@@ -21,9 +22,10 @@
                 "rotation": [-90.0, 0.0, 0.0]
             },
             "texture": {
-                "location": [0.5, 0.5],
+                "position": [0.25, 0.25],
+                "extent": [0.25, 0.25],
                 "offset": [0.0, 0.0],
-                "scale": [0.5, 0.5]
+                "scale": [2.0, 200.0]
             }
         },
         {
@@ -34,74 +36,81 @@
                 "rotation": [-90.0, 0.0, 0.0]
             },
             "texture": {
-                "location": [0.0, 0.5],
+                "position": [0.0, 0.25],
+                "extent": [0.25, 0.25],
                 "offset": [0.0, 0.0],
-                "scale": [0.5, 0.5]
+                "scale": [50.0, 200.0]
             }
         },
         {
             "transform": {
-                "position": [-14.0, 0.5, 0.0],
+                "position": [-14.0, 1.0, 0.0],
                 "scale": [20.0, 2.0, 0.0],
                 "shear": [0.0, 0.0, 0.0],
                 "rotation": [0.0, 0.0, 0.0]
             },
             "texture": {
-                "location": [0.5, 0.0],
+                "position": [0.25, 0.0],
+                "extent": [0.25, 0.25],
                 "offset": [0.0, 0.0],
-                "scale": [0.5, 0.5]
+                "scale": [20.0, 2.0]
             }
         },
         {
             "transform": {
-                "position": [-4.0, 0.5, -10.0],
+                "position": [-4.0, 1.0, -10.0],
                 "scale": [0.0, 2.0, 20.0],
                 "shear": [0.0, 0.0, 0.0],
                 "rotation": [0.0, 90.0, 0.0]
             },
             "texture": {
-                "location": [0.5, 0.0],
+                "position": [0.25, 0.0],
+                "extent": [0.25, 0.25],
                 "offset": [0.0, 0.0],
-                "scale": [0.5, 0.5]
+                "scale": [20.0, 2.0]
             }
         },
         {
             "transform": {
-                "position": [-24.0, 0.5, -10.0],
+                "position": [-24.0, 1.0, -10.0],
                 "scale": [0.0, 2.0, 20.0],
                 "shear": [0.0, 0.0, 0.0],
                 "rotation": [0.0, -90.0, 0.0]
             },
             "texture": {
-                "location": [0.5, 0.0],
+                "position": [0.25, 0.0],
+                "extent": [0.25, 0.25],
                 "offset": [0.0, 0.0],
-                "scale": [0.5, 0.5]
+                "scale": [20.0, 2.0]
             }
         },
         {
             "transform": {
-                "position": [-14.0, 1.5, -10.0],
+                "position": [-14.0, 2.0, -10.0],
                 "scale": [20.0, 0.0, 20.0],
                 "shear": [0.0, 0.0, 0.0],
                 "rotation": [-90.0, 0.0, 0.0]
             },
             "texture": {
-                "location": [0.5, 0.5],
+                "position": [0.0, 0.25],
+                "extent": [0.25, 0.25],
                 "offset": [0.0, 0.0],
-                "scale": [0.5, 0.5]
+                "scale": [20.0, 20.0]
             }
-        }
-    ],
-    "colliders": [
-        {
-            "position": [51.5, 0.0],
-            "scale": [1.0, 200.0],
-            "rotation": 0.0
         },
         {
-            "position": [51.5, 0.0],
-            "scale": [1.0, 200.0],
-            "rotation": 0.0
+            "transform": {
+                "position": [-14.0, 2.0, 4.0],
+                "scale": [2.0, 4.0, 0.0],
+                "shear": [0.0, 0.0, 0.0],
+                "rotation": [0.0, 0.0, 0.0]
+            },
+            "texture": {
+                "position": [0.5, 1.0],
+                "extent": [0.5, 1.0],
+                "offset": [0.0, 0.0],
+                "scale": [1.0, 1.0]
+            }
         }
     ]
 }

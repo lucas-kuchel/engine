@@ -11,7 +11,8 @@
 
 namespace game {
     struct alignas(32) TileInstance {
-        glm::vec2 textureLocation = {0.0f, 0.0f};
+        glm::vec2 texturePosition = {0.0f, 0.0f};
+        glm::vec2 textureExtent = {1.0f, 1.0f};
         glm::vec2 textureOffset = {0.0f, 0.0f};
         glm::vec2 textureScale = {1.0f, 1.0f};
     };
