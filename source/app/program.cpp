@@ -114,7 +114,7 @@ namespace app {
 
         camera_.ease = settings_.camera.ease;
         camera_.scale = 8.0f;
-        camera_.rotation = {-10.0f, 0.0f};
+        camera_.rotation = {-20.0f, 0.0f};
 
         characterCollisionResults_.emplace_back();
         characterModels_.emplace_back(1.0f);
@@ -396,7 +396,7 @@ namespace app {
             }
 
             body.velocity += body.acceleration * deltaTime;
-            body.velocity *= 0.95;
+            body.velocity *= std::pow(0.1f, deltaTime);
             body.position += body.velocity * deltaTime;
             body.acceleration = {0.0f, 0.0f, 0.0f};
             characterColliders_[i].position = body.position;
