@@ -85,24 +85,35 @@ namespace game {
         renderer::CommandBuffer::copyBuffer(transferBuffer, stagingBuffer, mesh.instanceBuffer, {instanceBufferCopyRegion});
     }
 
-    void updateCharacterInstances(CharacterMesh& mesh, std::span<glm::mat4> models, renderer::Buffer& stagingBuffer, std::uint64_t& stagingBufferOffset, renderer::CommandBuffer& transferBuffer) {
-        std::size_t instanceBufferSize = renderer::Buffer::size(mesh.modelBuffer);
+    void updateCharacterInstances(CharacterMesh& mesh, std::span<CharacterInstance> instances, std::span<glm::mat4> models, renderer::Buffer& stagingBuffer, std::uint64_t& stagingBufferOffset, renderer::CommandBuffer& transferBuffer) {
+        std::size_t modelBufferSize = renderer::Buffer::size(mesh.modelBuffer);
+        std::size_t instanceBufferSize = renderer::Buffer::size(mesh.instanceBuffer);
 
-        auto mapping = renderer::Buffer::map(stagingBuffer, instanceBufferSize, stagingBufferOffset);
+        std::size_t totalSize = modelBufferSize + instanceBufferSize;
 
-        std::memcpy(mapping.data.data(), models.data(), instanceBufferSize);
+        auto mapping = renderer::Buffer::map(stagingBuffer, totalSize, stagingBufferOffset);
+
+        std::memcpy(mapping.data.data(), models.data(), modelBufferSize);
+        std::memcpy(mapping.data.data() + modelBufferSize, instances.data(), instanceBufferSize);
 
         renderer::Buffer::unmap(stagingBuffer, mapping);
 
-        renderer::BufferCopyRegion instanceBufferCopyRegion = {
+        renderer::BufferCopyRegion modelBufferCopyRegion = {
             .sourceOffsetBytes = stagingBufferOffset,
+            .destinationOffsetBytes = 0,
+            .sizeBytes = modelBufferSize,
+        };
+
+        renderer::BufferCopyRegion instanceBufferCopyRegion = {
+            .sourceOffsetBytes = stagingBufferOffset + modelBufferSize,
             .destinationOffsetBytes = 0,
             .sizeBytes = instanceBufferSize,
         };
 
-        stagingBufferOffset += instanceBufferSize;
+        stagingBufferOffset += totalSize;
 
-        renderer::CommandBuffer::copyBuffer(transferBuffer, stagingBuffer, mesh.modelBuffer, {instanceBufferCopyRegion});
+        renderer::CommandBuffer::copyBuffer(transferBuffer, stagingBuffer, mesh.modelBuffer, {modelBufferCopyRegion});
+        renderer::CommandBuffer::copyBuffer(transferBuffer, stagingBuffer, mesh.instanceBuffer, {instanceBufferCopyRegion});
     }
 
     void renderCharacterInstances(CharacterMesh& mesh, std::uint32_t count, renderer::CommandBuffer& commandBuffer) {

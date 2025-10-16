@@ -113,13 +113,13 @@ namespace app {
         controller_.sprintBinding = app::Key::LSHIFT;
 
         camera_.ease = settings_.camera.ease;
-        camera_.scale = 15.0f;
-        camera_.rotation = {-45.0f, 0.0f};
+        camera_.scale = 8.0f;
+        camera_.rotation = {-10.0f, 0.0f};
 
         characterCollisionResults_.emplace_back();
         characterModels_.emplace_back(1.0f);
         characterInstances_.push_back(game::CharacterInstance{
-            .texturePosition = {0.25, 0.25},
+            .texturePosition = {0.0, 0.5},
             .textureExtent = {0.25, 0.25},
         });
         characterMovableBodies_.push_back(game::MovableBody{
@@ -135,7 +135,7 @@ namespace app {
         characterCollisionResults_.emplace_back();
         characterModels_.emplace_back(1.0f);
         characterInstances_.push_back(game::CharacterInstance{
-            .texturePosition = {0.25, 0.25},
+            .texturePosition = {0.0, 0.5},
             .textureExtent = {0.25, 0.25},
         });
         characterMovableBodies_.push_back(game::MovableBody{
@@ -364,7 +364,39 @@ namespace app {
         for (std::size_t i = 0; i < characters_.size(); i++) {
             auto& body = characterMovableBodies_[i];
 
+            if (glm::length(body.velocity) >= 0.5f) {
+                characterInstances_[i].textureScale.x = glm::sign(body.velocity.x);
+                characters_[i].animationTime += deltaTime;
+            }
+            else {
+                characters_[i].animationTime = 0.0;
+                characters_[i].animationIndex = 0;
+                characterInstances_[i].texturePosition = glm::vec2(0.0, 0.5);
+            }
+
+            if (characters_[i].animationTime >= 0.1f) {
+                characters_[i].animationTime = 0.0f;
+
+                if (characters_[i].animationIndex == 0) {
+                    characters_[i].animationIndex++;
+                    characterInstances_[i].texturePosition = glm::vec2(0.0, 0.5);
+                }
+                else if (characters_[i].animationIndex == 1) {
+                    characters_[i].animationIndex++;
+                    characterInstances_[i].texturePosition = glm::vec2(0.25, 0.5);
+                }
+                else if (characters_[i].animationIndex == 2) {
+                    characters_[i].animationIndex++;
+                    characterInstances_[i].texturePosition = glm::vec2(0.0, 0.5);
+                }
+                else if (characters_[i].animationIndex == 3) {
+                    characters_[i].animationIndex = 0;
+                    characterInstances_[i].texturePosition = glm::vec2(0.0, 0.75);
+                }
+            }
+
             body.velocity += body.acceleration * deltaTime;
+            body.velocity *= 0.95;
             body.position += body.velocity * deltaTime;
             body.acceleration = {0.0f, 0.0f, 0.0f};
             characterColliders_[i].position = body.position;
@@ -373,7 +405,7 @@ namespace app {
         }
 
         //  game::resolveMapCollisions(map_, characterMovableBodies_, characterColliders_, characterCollisionResults_);
-        game::updateCharacterInstances(characterMesh_, characterModels_, stagingBuffer_, stagingBufferOffset, transferCommandBuffer_);
+        game::updateCharacterInstances(characterMesh_, characterInstances_, characterModels_, stagingBuffer_, stagingBufferOffset, transferCommandBuffer_);
 
         game::easeCameraTowards(camera_, focusedCharacterMovableBody.position, deltaTime);
         game::updateCamera(camera_, stagingBuffer_, stagingBufferOffset, transferCommandBuffer_);
@@ -601,7 +633,7 @@ namespace app {
             .scissorCount = 1,
             .rasterisation = {
                 .frontFaceWinding = renderer::PolygonFaceWinding::ANTICLOCKWISE,
-                .cullMode = renderer::PolygonCullMode::BACK,
+                .cullMode = renderer::PolygonCullMode::NEVER,
                 .frontface = {
                     .depthComparison = renderer::CompareOperation::LESS_EQUAL,
                     .stencilComparison = renderer::CompareOperation::ALWAYS,

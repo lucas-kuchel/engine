@@ -56,7 +56,6 @@ namespace game {
         float pitchRadians = glm::radians(camera.rotation.x);
         float yawRadians = glm::radians(camera.rotation.y);
 
-        // --- Construct forward direction from yaw + pitch ---
         glm::mat4 rotYaw = glm::rotate(glm::mat4{1.0f}, yawRadians, glm::vec3(0.0f, 1.0f, 0.0f));
         glm::mat4 rotPitch = glm::rotate(glm::mat4{1.0f}, pitchRadians, glm::vec3(1.0f, 0.0f, 0.0f));
         glm::mat4 rotation = rotYaw * rotPitch;
@@ -64,27 +63,29 @@ namespace game {
         glm::vec3 forward = glm::normalize(glm::vec3(rotation * glm::vec4(0.0f, 0.0f, -1.0f, 0.0f)));
         glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f);
 
-        // --- Compute camera position: move backward from target along forward vector ---
         float distance = camera.scale;
         camera.position = camera.target - forward * distance;
 
-        // --- Projection ---
         camera.projection = glm::perspectiveRH_ZO(
             fovRadians,
             aspect,
             camera.near,
             camera.far);
-        camera.projection[1][1] *= -1.0f; // Vulkan convention (Y-flip)
+        camera.projection[1][1] *= -1.0f;
 
-        // --- View ---
         camera.view = glm::lookAt(camera.position, camera.target, up);
 
-        // --- Upload to uniform buffer ---
-        std::array<glm::mat4, 2> matrices = {camera.projection, camera.view};
+        std::array<glm::mat4, 2> matrices = {
+            camera.projection,
+            camera.view,
+        };
+
         std::size_t uniformBufferSize = renderer::Buffer::size(camera.uniformBuffer);
 
         auto mapping = renderer::Buffer::map(stagingBuffer, uniformBufferSize, stagingBufferOffset);
+
         std::memcpy(mapping.data.data(), matrices.data(), uniformBufferSize);
+
         renderer::Buffer::unmap(stagingBuffer, mapping);
 
         renderer::BufferCopyRegion copyRegion = {
@@ -95,8 +96,7 @@ namespace game {
 
         stagingBufferOffset += uniformBufferSize;
 
-        renderer::CommandBuffer::copyBuffer(
-            transferBuffer, stagingBuffer, camera.uniformBuffer, {copyRegion});
+        renderer::CommandBuffer::copyBuffer(transferBuffer, stagingBuffer, camera.uniformBuffer, {copyRegion});
     }
 
     void destroyCamera(Camera& camera) {

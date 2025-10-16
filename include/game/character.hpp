@@ -27,12 +27,14 @@ namespace game {
         float baseSpeed = 0.0f;
         float sprintMultiplier = 0.0f;
         float jumpForce = 0.0f;
+        float animationTime = 0.0f;
+        std::uint32_t animationIndex = 0;
 
         bool sprinting = false;
     };
 
     void createCharacterInstances(CharacterMesh& mesh, std::span<CharacterInstance> instances, std::span<glm::mat4> models, renderer::Device& device, renderer::Buffer& stagingBuffer, std::uint64_t& stagingBufferOffset, renderer::CommandBuffer& transferBuffer);
-    void updateCharacterInstances(CharacterMesh& mesh, std::span<glm::mat4> models, renderer::Buffer& stagingBuffer, std::uint64_t& stagingBufferOffset, renderer::CommandBuffer& transferBuffer);
+    void updateCharacterInstances(CharacterMesh& mesh, std::span<CharacterInstance> instances, std::span<glm::mat4> models, renderer::Buffer& stagingBuffer, std::uint64_t& stagingBufferOffset, renderer::CommandBuffer& transferBuffer);
     void renderCharacterInstances(CharacterMesh& mesh, std::uint32_t count, renderer::CommandBuffer& commandBuffer);
     void destroyCharacterInstances(CharacterMesh& mesh);
     float currentCharacterSpeed(const Character& character);
