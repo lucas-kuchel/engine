@@ -1,15 +1,14 @@
 #include <app/program.hpp>
 
+#include <game/map.hpp>
+
 #include <algorithm>
 #include <cstring>
 #include <fstream>
 
-#define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <glm/ext/matrix_projection.hpp>
 #include <glm/ext/matrix_transform.hpp>
 
-#define STB_IMAGE_IMPLEMENTATION
-#define STBI_NO_LINEAR
 #include <stb_image.h>
 
 namespace app {
@@ -106,57 +105,47 @@ namespace app {
         descriptorSets_ = renderer::DescriptorPool::allocateDescriptorSets(descriptorPool_, setCreateInfo);
         basicDescriptorSet_ = descriptorSets_[0];
 
-        controller_.leftBinding = app::Key::A;
-        controller_.rightBinding = app::Key::D;
-        controller_.forwardBinding = app::Key::W;
-        controller_.backwardBinding = app::Key::S;
-        controller_.sprintBinding = app::Key::LSHIFT;
+        auto character = registry_.create();
+        auto characterTexture = registry_.emplace<game::MeshTexture>(character);
+        auto characterPosition = registry_.emplace<game::Position>(character);
 
-        camera_.ease = settings_.camera.ease;
-        camera_.scale = 8.0f;
-        camera_.rotation = {-20.0f, 0.0f};
+        characterTexture.extent = {0.25, 0.25};
+        characterTexture.offset = {0.0, 0.5};
+        characterTexture.scale = {1.0, 1.0};
+        characterPosition.position = {0.0, 3.0, 0.0};
 
-        characterCollisionResults_.emplace_back();
-        characterModels_.emplace_back(1.0f);
-        characterInstances_.push_back(game::CharacterInstance{
-            .texturePosition = {0.0, 0.5},
-            .textureExtent = {0.25, 0.25},
-        });
-        characterMovableBodies_.push_back(game::MovableBody{
-            .position = {-2.0f, 0.5f, 5.0f},
-        });
-        characterColliders_.push_back(game::Collider{});
-        characters_.push_back(game::Character{
-            .baseSpeed = 7.0,
-            .sprintMultiplier = 1.75f,
-            .jumpForce = 8.0f,
-        });
+        registry_.emplace<game::Character>(character);
+        registry_.emplace<game::PositionController>(character, app::Key::W, app::Key::S, app::Key::A, app::Key::D);
+        registry_.emplace<game::Velocity>(character);
+        registry_.emplace<game::Acceleration>(character);
+        registry_.emplace<game::Rotation>(character);
+        registry_.emplace<game::Transform>(character);
 
-        characterCollisionResults_.emplace_back();
-        characterModels_.emplace_back(1.0f);
-        characterInstances_.push_back(game::CharacterInstance{
-            .texturePosition = {0.0, 0.5},
-            .textureExtent = {0.25, 0.25},
-        });
-        characterMovableBodies_.push_back(game::MovableBody{
-            .position = {2.0f, 0.5f, 5.0f},
-        });
-        characterColliders_.push_back(game::Collider{});
-        characters_.push_back(game::Character{
-            .baseSpeed = 8.5,
-            .sprintMultiplier = 1.2f,
-            .jumpForce = 9.5f,
-        });
+        auto camera = registry_.create();
+        auto cameraSettings = registry_.emplace<game::Camera>(camera);
+        auto cameraFocus = registry_.emplace<game::PositionTracker>(camera);
+        auto cameraAngle = registry_.emplace<game::Rotation>(camera);
 
-        game::loadMapFromFile(map_, "assets/maps/map0.json");
+        cameraSettings.ease = 1.0f;
+        cameraSettings.extent = window_->extent();
+        cameraSettings.near = 0.1f;
+        cameraSettings.far = 100.0f;
+        cameraSettings.fov = 45.0f;
+        cameraSettings.scale = 15.0f;
+        cameraFocus.position = &characterPosition.position;
+        cameraAngle.rotation = {30.0f, 0.0f, 0.0f};
 
-        std::uint64_t mapSizeBytes = map_.instances.size() * sizeof(game::TileInstance);
+        registry_.emplace<game::Position>(camera);
+        registry_.emplace<game::Acceleration>(camera);
+        registry_.emplace<game::Velocity>(camera);
+
+        game::loadMap(registry_, "assets/maps/map0.json");
 
         renderer::BufferCreateInfo stagingBufferCreateInfo = {
             .device = device_,
             .memoryType = renderer::MemoryType::HOST_VISIBLE,
             .usageFlags = renderer::BufferUsageFlags::TRANSFER_SOURCE,
-            .sizeBytes = 8 * 1024 * 1024 + mapSizeBytes,
+            .sizeBytes = 32 * 1024 * 1024,
         };
 
         stagingBuffer_ = renderer::Buffer::create(stagingBufferCreateInfo);
@@ -220,11 +209,6 @@ namespace app {
         };
 
         renderer::CommandBuffer::pipelineBarrier(transferCommandBuffer_, renderer::PipelineStageFlags::TRANSFER, renderer::PipelineStageFlags::FRAGMENT_SHADER, {memoryBarrier1});
-
-        game::createMap(map_, device_, stagingBuffer_, stagingBufferOffset, transferCommandBuffer_);
-        game::createCharacterInstances(characterMesh_, characterInstances_, characterModels_, device_, stagingBuffer_, stagingBufferOffset, transferCommandBuffer_);
-        game::createCamera(camera_, device_, stagingBuffer_, stagingBufferOffset, transferCommandBuffer_);
-
         renderer::CommandBuffer::endCapture(transferCommandBuffer_);
 
         renderer::Fence fence = renderer::Fence::create({device_, 0});
@@ -246,10 +230,17 @@ namespace app {
 
         createBasicPipelineResources();
 
+        game::updateScales(registry_);
+        game::updateShears(registry_);
+        game::updateRotations(registry_);
+        game::updatePositions(registry_);
+
+        game::createCameraBuffer(device_, cameraBuffer_, 2 * sizeof(glm::mat4));
+
         renderer::DescriptorSetBufferBinding cameraBufferBinding = {
-            .buffer = camera_.uniformBuffer,
+            .buffer = cameraBuffer_,
             .offsetBytes = 0,
-            .rangeBytes = renderer::Buffer::size(camera_.uniformBuffer),
+            .rangeBytes = renderer::Buffer::size(cameraBuffer_),
         };
 
         renderer::DescriptorSetUpdateInfo uniformBufferUpdateInfo = {
@@ -316,99 +307,40 @@ namespace app {
 
         lastFrameTime_ = currentTime;
 
-        camera_.extent = window_->extent();
-
         renderer::CommandBuffer::beginCapture(transferCommandBuffer_);
 
-        auto& focusedCharacter = characters_[focusedCharacterIndex_];
-        auto& focusedCharacterMovableBody = characterMovableBodies_[focusedCharacterIndex_];
+        game::updateCameras(registry_);
 
-        bool sprintKeyPressed = keysHeld_[keyIndex(controller_.sprintBinding)];
-        bool leftKeyPressed = keysHeld_[keyIndex(controller_.leftBinding)];
-        bool rightKeyPressed = keysHeld_[keyIndex(controller_.rightBinding)];
-        bool forwardKeyPressed = keysHeld_[keyIndex(controller_.forwardBinding)];
-        bool backwardKeyPressed = keysHeld_[keyIndex(controller_.backwardBinding)];
+        auto view = registry_.view<game::PositionController, game::Speed, game::Acceleration>();
 
-        if (sprintKeyPressed) {
-            focusedCharacter.sprinting = true;
-        }
-        else {
-            focusedCharacter.sprinting = false;
-        }
+        for (auto& entity : view) {
+            auto& controller = registry_.get<game::PositionController>(entity);
+            auto& acceleration = registry_.get<game::Acceleration>(entity);
+            auto& speed = registry_.get<game::Speed>(entity);
 
-        if (leftKeyPressed) {
-            focusedCharacterMovableBody.acceleration.x -= game::currentCharacterSpeed(focusedCharacter);
-        }
-
-        if (rightKeyPressed) {
-            focusedCharacterMovableBody.acceleration.x += game::currentCharacterSpeed(focusedCharacter);
-        }
-
-        if (forwardKeyPressed) {
-            focusedCharacterMovableBody.acceleration.z -= game::currentCharacterSpeed(focusedCharacter);
-        }
-
-        if (backwardKeyPressed) {
-            focusedCharacterMovableBody.acceleration.z += game::currentCharacterSpeed(focusedCharacter);
-        }
-
-        if (keysPressed_[keyIndex(Key::TAB)]) {
-            if (focusedCharacterIndex_ + 1 == characters_.size()) {
-                focusedCharacterIndex_ = 0;
+            if (keysHeld_[keyIndex(controller.forwardBinding)]) {
+                acceleration.acceleration.x -= speed.speed;
             }
-            else {
-                focusedCharacterIndex_++;
+
+            if (keysHeld_[keyIndex(controller.backwardBinding)]) {
+                acceleration.acceleration.x += speed.speed;
+            }
+
+            if (keysHeld_[keyIndex(controller.leftBinding)]) {
+                acceleration.acceleration.x -= speed.speed;
+            }
+
+            if (keysHeld_[keyIndex(controller.rightBinding)]) {
+                acceleration.acceleration.x += speed.speed;
             }
         }
 
-        for (std::size_t i = 0; i < characters_.size(); i++) {
-            auto& body = characterMovableBodies_[i];
+        game::integrate(registry_, deltaTime);
 
-            if (glm::length(body.velocity) >= 0.5f) {
-                characterInstances_[i].textureScale.x = glm::sign(body.velocity.x);
-                characters_[i].animationTime += deltaTime;
-            }
-            else {
-                characters_[i].animationTime = 0.0;
-                characters_[i].animationIndex = 0;
-                characterInstances_[i].texturePosition = glm::vec2(0.0, 0.5);
-            }
-
-            if (characters_[i].animationTime >= 0.1f) {
-                characters_[i].animationTime = 0.0f;
-
-                if (characters_[i].animationIndex == 0) {
-                    characters_[i].animationIndex++;
-                    characterInstances_[i].texturePosition = glm::vec2(0.0, 0.5);
-                }
-                else if (characters_[i].animationIndex == 1) {
-                    characters_[i].animationIndex++;
-                    characterInstances_[i].texturePosition = glm::vec2(0.25, 0.5);
-                }
-                else if (characters_[i].animationIndex == 2) {
-                    characters_[i].animationIndex++;
-                    characterInstances_[i].texturePosition = glm::vec2(0.0, 0.5);
-                }
-                else if (characters_[i].animationIndex == 3) {
-                    characters_[i].animationIndex = 0;
-                    characterInstances_[i].texturePosition = glm::vec2(0.0, 0.75);
-                }
-            }
-
-            body.velocity += body.acceleration * deltaTime;
-            body.velocity *= std::pow(0.1f, deltaTime);
-            body.position += body.velocity * deltaTime;
-            body.acceleration = {0.0f, 0.0f, 0.0f};
-            characterColliders_[i].position = body.position;
-
-            characterModels_[i] = glm::translate(glm::mat4{1.0}, body.position);
-        }
-
-        //  game::resolveMapCollisions(map_, characterMovableBodies_, characterColliders_, characterCollisionResults_);
-        game::updateCharacterInstances(characterMesh_, characterInstances_, characterModels_, stagingBuffer_, stagingBufferOffset, transferCommandBuffer_);
-
-        game::easeCameraTowards(camera_, focusedCharacterMovableBody.position, deltaTime);
-        game::updateCamera(camera_, stagingBuffer_, stagingBufferOffset, transferCommandBuffer_);
+        game::updateScales(registry_);
+        game::updateShears(registry_);
+        game::updateRotations(registry_);
+        game::updatePositions(registry_);
 
         renderer::CommandBuffer::endCapture(transferCommandBuffer_);
 
@@ -466,8 +398,10 @@ namespace app {
         renderer::CommandBuffer::setPipelineScissors(commandBuffer, {scissor}, 0);
         renderer::CommandBuffer::bindDescriptorSets(commandBuffer, renderer::DeviceOperation::GRAPHICS, basicPipelineLayout_, 0, {basicDescriptorSet_});
 
-        game::renderMap(map_, commandBuffer);
-        game::renderCharacterInstances(characterMesh_, static_cast<std::uint32_t>(characterInstances_.size()), commandBuffer);
+        std::uint32_t instanceCount = static_cast<std::uint32_t>(std::min(registry_.storage<game::MeshTexture>().size(), registry_.storage<game::Transform>().size()));
+
+        renderer::CommandBuffer::bindVertexBuffers(commandBuffer, {tileMesh_.vertexBuffer, tileMesh_.textureBuffer, tileMesh_.transformBuffer}, {0, 0, 0}, 0);
+        renderer::CommandBuffer::draw(commandBuffer, 4, instanceCount, 0, 0);
 
         renderer::CommandBuffer::endRenderPass(commandBuffer);
         renderer::CommandBuffer::endCapture(commandBuffer);

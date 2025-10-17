@@ -448,11 +448,6 @@ namespace app {
                     }
                     break;
 
-                case app::WindowEventType::MOUSE_MOVED:
-                    mousePosition_ = glm::vec2(event.info.mouseMove.position);
-
-                    break;
-
                 case WindowEventType::KEY_RELEASED:
                     keysPressed_[keyIndex(event.info.keyRelease.key)] = false;
                     keysHeld_[keyIndex(event.info.keyRelease.key)] = false;

@@ -1,4 +1,7 @@
 #include <game/map.hpp>
+#include <game/mesh.hpp>
+#include <game/tile.hpp>
+#include <game/transforms.hpp>
 
 #include <cstring>
 #include <fstream>
@@ -8,6 +11,94 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 namespace game {
+    void loadMap(entt::registry& registry, const std::string& filepath) {
+        std::ifstream mapFile(filepath);
+        std::string mapFileContents(std::istreambuf_iterator<char>{mapFile}, {});
+        nlohmann::json mapFileJson = nlohmann::json::parse(mapFileContents);
+
+        if (mapFileJson.contains("tiles") && mapFileJson["tiles"].is_array()) {
+            for (const auto& tileJson : mapFileJson["tiles"]) {
+                auto tile = registry.create();
+                auto tilePosition = registry.emplace<Position>(tile);
+                auto tileScale = registry.emplace<Scale>(tile);
+                auto tileShear = registry.emplace<Shear>(tile);
+                auto tileRotation = registry.emplace<Rotation>(tile);
+                auto tileTexture = registry.emplace<MeshTexture>(tile);
+
+                registry.emplace<Transform>(tile);
+                registry.emplace<StaticTileTag>(tile);
+
+                if (tileJson.contains("transform") && tileJson["transform"].is_object()) {
+                    const auto& tileEntry = tileJson["transform"];
+
+                    if (tileEntry.contains("position")) {
+                        auto position = tileEntry["position"];
+
+                        tilePosition.position.x = position.size() > 0 ? position[0].get<float>() : 0.0f;
+                        tilePosition.position.y = position.size() > 1 ? position[1].get<float>() : 0.0f;
+                        tilePosition.position.z = position.size() > 2 ? position[2].get<float>() : 0.0f;
+                    }
+
+                    if (tileEntry.contains("scale")) {
+                        auto scale = tileEntry["scale"];
+
+                        tileScale.scale.x = scale.size() > 0 ? scale[0].get<float>() : 1.0f;
+                        tileScale.scale.y = scale.size() > 1 ? scale[1].get<float>() : 1.0f;
+                        tileScale.scale.z = scale.size() > 2 ? scale[2].get<float>() : 1.0f;
+                    }
+
+                    if (tileEntry.contains("shear")) {
+                        auto shear = tileEntry["shear"];
+
+                        tileShear.shear.x = shear.size() > 0 ? shear[0].get<float>() : 0.0f;
+                        tileShear.shear.y = shear.size() > 1 ? shear[1].get<float>() : 0.0f;
+                        tileShear.shear.z = shear.size() > 2 ? shear[2].get<float>() : 0.0f;
+                    }
+
+                    if (tileEntry.contains("rotation")) {
+                        auto rotation = tileEntry["rotation"];
+
+                        tileRotation.rotation.x = rotation.size() > 0 ? rotation[0].get<float>() : 0.0f;
+                        tileRotation.rotation.y = rotation.size() > 1 ? rotation[1].get<float>() : 0.0f;
+                        tileRotation.rotation.z = rotation.size() > 2 ? rotation[2].get<float>() : 0.0f;
+                    }
+                }
+
+                if (tileJson.contains("texture") && tileJson["texture"].is_object()) {
+                    const auto& texture = tileJson["texture"];
+
+                    if (texture.contains("position")) {
+                        auto position = texture["position"];
+
+                        tileTexture.position.x = position.size() > 0 ? position[0].get<float>() : 0.0f;
+                        tileTexture.position.y = position.size() > 1 ? position[1].get<float>() : 0.0f;
+                    }
+
+                    if (texture.contains("extent")) {
+                        auto extent = texture["extent"];
+
+                        tileTexture.extent.x = extent.size() > 0 ? extent[0].get<float>() : 0.0f;
+                        tileTexture.extent.y = extent.size() > 1 ? extent[1].get<float>() : 0.0f;
+                    }
+
+                    if (texture.contains("offset")) {
+                        auto offset = texture["offset"];
+
+                        tileTexture.offset.x = offset.size() > 0 ? offset[0].get<float>() : 0.0f;
+                        tileTexture.offset.y = offset.size() > 1 ? offset[1].get<float>() : 0.0f;
+                    }
+
+                    if (texture.contains("scale")) {
+                        auto scale = texture["scale"];
+
+                        tileTexture.scale.x = scale.size() > 0 ? scale[0].get<float>() : 1.0f;
+                        tileTexture.scale.y = scale.size() > 1 ? scale[1].get<float>() : 1.0f;
+                    }
+                }
+            }
+        }
+    }
+
     void createMap(Map& map, renderer::Device& device, renderer::Buffer& stagingBuffer, std::uint64_t& stagingBufferOffset, renderer::CommandBuffer& transferBuffer) {
         std::array<glm::vec3, 4> vertices = {
             glm::vec3{0.5, 0.5, 0.0},
@@ -94,146 +185,6 @@ namespace game {
 
         if (map.mesh.modelBuffer) {
             renderer::Buffer::destroy(map.mesh.modelBuffer);
-        }
-    }
-
-    void loadMapFromFile(Map& map, const std::string& path) {
-        std::ifstream file(path);
-
-        if (!file) {
-            throw std::runtime_error(std::format("Call failed: game::loadMapFromFile(): Failed to open file: {}", path));
-        }
-
-        std::string contents(std::istreambuf_iterator<char>(file), {});
-        nlohmann::json json = nlohmann::json::parse(contents);
-
-        if (json.contains("tiles") && json["tiles"].is_array()) {
-            for (const auto& tileJson : json["tiles"]) {
-                TileInstance instance;
-                glm::mat4 model = {1.0f};
-                glm::vec3 position = {0.0f, 0.0f, 0.0f};
-                glm::vec3 scale = {1.0f, 1.0f, 1.0f};
-                glm::vec3 shear = {0.0f, 0.0f, 0.0f};
-                glm::vec3 rotation = {0.0f, 0.0f, 0.0f};
-
-                if (tileJson.contains("transform") && tileJson["transform"].is_object()) {
-                    const auto& t = tileJson["transform"];
-
-                    if (t.contains("position")) {
-                        auto p = t["position"];
-
-                        position.x = p.size() > 0 ? p[0].get<float>() : 0.0f;
-                        position.y = p.size() > 1 ? p[1].get<float>() : 0.0f;
-                        position.z = p.size() > 2 ? p[2].get<float>() : 0.0f;
-                    }
-
-                    if (t.contains("scale")) {
-                        auto s = t["scale"];
-
-                        scale.x = s.size() > 0 ? s[0].get<float>() : 1.0f;
-                        scale.y = s.size() > 1 ? s[1].get<float>() : 1.0f;
-                        scale.z = s.size() > 2 ? s[2].get<float>() : 1.0f;
-                    }
-
-                    if (t.contains("shear")) {
-                        auto sh = t["shear"];
-
-                        shear.x = sh.size() > 0 ? sh[0].get<float>() : 0.0f;
-                        shear.y = sh.size() > 1 ? sh[1].get<float>() : 0.0f;
-                        shear.z = sh.size() > 2 ? sh[2].get<float>() : 0.0f;
-                    }
-
-                    if (t.contains("rotation")) {
-                        auto r = t["rotation"];
-
-                        rotation.x = r.size() > 0 ? r[0].get<float>() : 0.0f;
-                        rotation.y = r.size() > 1 ? r[1].get<float>() : 0.0f;
-                        rotation.z = r.size() > 2 ? r[2].get<float>() : 0.0f;
-                    }
-                }
-
-                model = glm::scale(model, scale);
-
-                if (glm::any(glm::notEqual(shear, glm::vec3(0.0f)))) {
-                    glm::mat4 shearMatrix = {1.0f};
-
-                    shearMatrix[1][0] = shear.x;
-                    shearMatrix[2][0] = shear.y;
-                    shearMatrix[2][1] = shear.z;
-
-                    model *= shearMatrix;
-                }
-
-                model = glm::rotate(model, glm::radians(rotation.z), glm::vec3(0, 0, 1));
-                model = glm::rotate(model, glm::radians(rotation.y), glm::vec3(0, 1, 0));
-                model = glm::rotate(model, glm::radians(rotation.x), glm::vec3(1, 0, 0));
-
-                model = glm::translate(glm::mat4(1.0f), position) * model;
-
-                if (tileJson.contains("texture") && tileJson["texture"].is_object()) {
-                    const auto& tex = tileJson["texture"];
-
-                    if (tex.contains("position")) {
-                        auto l = tex["position"];
-                        instance.texturePosition.x = l.size() > 0 ? l[0].get<float>() : 0.0f;
-                        instance.texturePosition.y = l.size() > 1 ? l[1].get<float>() : 0.0f;
-                    }
-
-                    if (tex.contains("extent")) {
-                        auto l = tex["extent"];
-                        instance.textureExtent.x = l.size() > 0 ? l[0].get<float>() : 0.0f;
-                        instance.textureExtent.y = l.size() > 1 ? l[1].get<float>() : 0.0f;
-                    }
-
-                    if (tex.contains("offset")) {
-                        auto o = tex["offset"];
-                        instance.textureOffset.x = o.size() > 0 ? o[0].get<float>() : 0.0f;
-                        instance.textureOffset.y = o.size() > 1 ? o[1].get<float>() : 0.0f;
-                    }
-
-                    if (tex.contains("scale")) {
-                        auto s = tex["scale"];
-                        instance.textureScale.x = s.size() > 0 ? s[0].get<float>() : 1.0f;
-                        instance.textureScale.y = s.size() > 1 ? s[1].get<float>() : 1.0f;
-                    }
-                }
-
-                map.instances.push_back(instance);
-                map.models.push_back(model);
-            }
-        }
-    }
-
-    void resolveMapCollisions(const Map& map, std::span<MovableBody> bodies, std::span<Collider> colliders, std::span<CollisionResult> results) {
-        for (std::size_t i = 0; i < bodies.size(); i++) {
-            MovableBody& body = bodies[i];
-            Collider& box = colliders[i];
-            CollisionResult& resultOut = results[i];
-
-            resultOut = {};
-
-            for (const Collider& mapBox : map.colliders) {
-                CollisionResult result;
-
-                game::testCollisionOBB(box, mapBox, result);
-
-                if (!result.collided) {
-                    continue;
-                }
-
-                box.position += result.normal * result.penetration;
-                body.position.x = box.position.x;
-                body.position.z = box.position.y;
-
-                if (result.penetration.x > 0.0f) {
-                    body.velocity.x = 0.0f;
-                }
-                if (result.penetration.y > 0.0f) {
-                    body.velocity.y = 0.0f;
-                }
-
-                resultOut = result;
-            }
         }
     }
 }

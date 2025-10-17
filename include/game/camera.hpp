@@ -1,12 +1,10 @@
 #pragma once
 
-#include <app/window.hpp>
-
 #include <renderer/buffer.hpp>
 #include <renderer/command_buffer.hpp>
+#include <renderer/device.hpp>
 
-#include <renderer/swapchain.hpp>
-
+#include <entt/entt.hpp>
 #include <glm/glm.hpp>
 
 namespace game {
@@ -17,22 +15,14 @@ namespace game {
         float far = 100.0f;
         float scale = 1.0f;
 
-        glm::vec2 rotation = {0.0f, 0.0f};
-        glm::vec3 orientation = {0.0f, 0.0f, 1.0f};
-        glm::vec3 position = {0.0f, 0.0f, 0.0f};
-        glm::vec3 target = {0.0f, 0.0f, 0.0f};
-
-        glm::mat4 projection = {1.0f};
-        glm::mat4 view = {1.0f};
-
-        glm::uvec2 extent = {0, 0};
-
-        renderer::Buffer uniformBuffer;
+        glm::uvec2 extent = {0u, 0u};
+        glm::mat4 projection = {1.0};
+        glm::mat4 view = {1.0};
     };
 
-    void createCamera(Camera& camera, renderer::Device& device, renderer::Buffer& stagingBuffer, std::uint64_t& stagingBufferOffset, renderer::CommandBuffer& transferBuffer);
-    void updateCamera(Camera& camera, renderer::Buffer& stagingBuffer, std::uint64_t& stagingBufferOffset, renderer::CommandBuffer& transferBuffer);
-    void destroyCamera(Camera& camera);
+    void updateCameras(entt::registry& registry);
 
-    void easeCameraTowards(Camera& camera, glm::vec3 position, float deltaTime);
+    void createCameraBuffer(renderer::Device& device, renderer::Buffer& cameraBuffer, std::size_t size);
+    void updateCameraBuffer(renderer::Buffer& cameraBuffer, std::span<std::uint8_t> data, renderer::CommandBuffer& commandBuffer, renderer::Buffer& stagingBuffer, std::size_t stagingBufferOffset);
+    void deleteCameraBuffer(renderer::Buffer& buffer);
 }

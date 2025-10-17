@@ -22,15 +22,15 @@
 #include <renderer/swapchain.hpp>
 
 #include <game/camera.hpp>
-#include <game/character.hpp>
 #include <game/controller.hpp>
-#include <game/map.hpp>
+#include <game/mesh.hpp>
 #include <game/settings.hpp>
+#include <game/tags.hpp>
+#include <game/transforms.hpp>
 
-#include <array>
 #include <chrono>
-#include <memory>
 
+#include <entt/entt.hpp>
 #include <glm/glm.hpp>
 
 namespace app {
@@ -104,22 +104,12 @@ namespace app {
         bool running_ = true;
         bool awaitRestore_ = false;
 
-        game::CharacterMesh characterMesh_;
-        game::Controller controller_;
-        game::Camera camera_;
+        entt::registry registry_;
+
         game::Settings settings_;
-        game::Map map_;
+        game::Mesh tileMesh_;
 
-        glm::vec2 mousePosition_ = {0.0f, 0.0f};
-
-        std::vector<game::Character> characters_;
-        std::vector<game::MovableBody> characterMovableBodies_;
-        std::vector<game::Collider> characterColliders_;
-        std::vector<game::CollisionResult> characterCollisionResults_;
-        std::vector<game::CharacterInstance> characterInstances_;
-        std::vector<glm::mat4> characterModels_;
-
-        std::uint32_t focusedCharacterIndex_ = 0;
+        renderer::Buffer cameraBuffer_;
 
         std::chrono::time_point<std::chrono::high_resolution_clock> lastFrameTime_;
 
