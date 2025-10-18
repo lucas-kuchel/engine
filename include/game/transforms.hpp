@@ -10,41 +10,33 @@ namespace game {
     };
 
     struct Position {
-        glm::vec3 position;
+        glm::vec3 position = {0.0f, 0.0f, 0.0f};
     };
 
     struct Velocity {
-        glm::vec3 velocity;
+        glm::vec3 velocity = {0.0f, 0.0f, 0.0f};
     };
 
     struct Acceleration {
-        glm::vec3 acceleration;
+        glm::vec3 acceleration = {0.0f, 0.0f, 0.0f};
     };
 
     struct Rotation {
-        glm::vec3 rotation;
+        glm::vec3 rotation = {0.0f, 0.0f, 0.0f};
     };
 
     struct Scale {
-        glm::vec3 scale;
+        glm::vec3 scale = {1.0f, 1.0f, 1.0f};
     };
 
     struct Shear {
-        glm::vec3 reference;
-        glm::vec3 shear;
+        glm::vec3 shear = {0.0f, 0.0f, 0.0f};
     };
 
     struct Transform {
-        glm::mat4 matrix;
-    };
-
-    struct PositionTracker {
-        glm::vec3* position = nullptr;
+        glm::mat4 matrix = {1.0f};
     };
 
     void integrate(entt::registry& registry, float deltaTime);
-    void updateScales(entt::registry& registry);
-    void updateShears(entt::registry& registry);
-    void updateRotations(entt::registry& registry);
-    void updatePositions(entt::registry& registry);
+    void transform(entt::registry& registry);
 }

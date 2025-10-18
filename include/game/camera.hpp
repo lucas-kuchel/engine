@@ -8,21 +8,46 @@
 #include <glm/glm.hpp>
 
 namespace game {
-    struct Camera {
-        float ease = 1.0f;
-        float fov = 60.0f;
-        float near = 0.1f;
-        float far = 100.0f;
-        float scale = 1.0f;
-
-        glm::uvec2 extent = {0u, 0u};
-        glm::mat4 projection = {1.0};
-        glm::mat4 view = {1.0};
+    struct CameraBuffer {
+        renderer::Buffer buffer;
     };
 
-    void updateCameras(entt::registry& registry);
+    struct Perspective {
+        float fov = 60.0f;
+        float aspectRatio = 1.0f;
+    };
 
-    void createCameraBuffer(renderer::Device& device, renderer::Buffer& cameraBuffer, std::size_t size);
-    void updateCameraBuffer(renderer::Buffer& cameraBuffer, std::span<std::uint8_t> data, renderer::CommandBuffer& commandBuffer, renderer::Buffer& stagingBuffer, std::size_t stagingBufferOffset);
-    void deleteCameraBuffer(renderer::Buffer& buffer);
+    struct Orthographic {
+        float left = 0.0f;
+        float right = 0.0f;
+        float top = 0.0f;
+        float bottom = 0.0f;
+        float scale = 1.0f;
+    };
+
+    struct Projection {
+        glm::mat4 matrix = {1.0f};
+    };
+
+    struct View {
+        glm::mat4 matrix = {1.0f};
+    };
+
+    struct Target {
+        entt::entity handle;
+    };
+
+    struct Camera {
+        float near = 0.1f;
+        float far = 100.0f;
+    };
+
+    void createCameraBuffers(entt::registry& registry, renderer::Device& device);
+    void updateCameraBuffers(entt::registry& registry, renderer::Buffer& stagingBuffer, renderer::CommandBuffer& commandBuffer, std::size_t& stagingBufferOffset);
+    void destroyCameraBuffers(entt::registry& registry);
+
+    void cameraFollow(entt::registry& registry);
+    void updateCameraPerspectives(entt::registry& registry, glm::vec2 extent);
+    void updateCameraOrthographics(entt::registry& registry);
+    void updateCameraViews(entt::registry& registry);
 }

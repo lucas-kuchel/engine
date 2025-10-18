@@ -6,7 +6,7 @@ layout(set = 0, binding = 0) uniform Camera {
 }
 camera;
 
-layout(location = 0) in vec3 vertexPosition;
+layout(location = 0) in vec2 vertexPosition;
 
 layout(location = 1) in vec2 instanceTexturePosition;
 layout(location = 2) in vec2 instanceTextureExtent;
@@ -21,9 +21,9 @@ layout(location = 2) out vec2 outTextureExtent;
 layout(location = 3) out vec2 outTextureOffset;
 
 void main() {
-    gl_Position = camera.projection * camera.view * instanceModel * vec4(vertexPosition, 1.0);
+    gl_Position = camera.projection * camera.view * instanceModel * vec4(vertexPosition, 0.0, 1.0);
 
-    vec2 texturePosition = vec2(vertexPosition.x, -vertexPosition.y) + vec2(0.5, 0.5);
+    vec2 texturePosition = vec2(vertexPosition.x, -vertexPosition.y);
 
     outLocalPosition = texturePosition * instanceTextureScale + instanceTextureOffset;
     outTexturePosition = instanceTexturePosition;

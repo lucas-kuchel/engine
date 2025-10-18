@@ -1,184 +1,139 @@
 #include <game/camera.hpp>
-#include <game/character.hpp>
 #include <game/settings.hpp>
+#include <game/tags.hpp>
 #include <game/transforms.hpp>
-
-#include <renderer/device.hpp>
-#include <renderer/fence.hpp>
-#include <renderer/queue.hpp>
 
 #include <array>
 #include <cstring>
 
 #include <glm/gtc/constants.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/quaternion.hpp>
 
 namespace game {
-    void updateCameras(entt::registry& registry) {
-        auto view = registry.view<Camera, Position, Rotation>();
+    void createCameraBuffers(entt::registry& registry, renderer::Device& device) {
+        for (auto& entity : registry.view<CameraBuffer, CameraTag>()) {
+            auto& cameraBuffer = registry.get<CameraBuffer>(entity);
 
-        for (auto& entity : view) {
+            if (cameraBuffer.buffer) {
+                continue;
+            }
+
+            renderer::BufferCreateInfo bufferCreateInfo = {
+                .device = device,
+                .memoryType = renderer::MemoryType::DEVICE_LOCAL,
+                .usageFlags = renderer::BufferUsageFlags::UNIFORM | renderer::BufferUsageFlags::TRANSFER_DESTINATION,
+                .sizeBytes = 2 * sizeof(glm::mat4),
+            };
+            cameraBuffer.buffer = renderer::Buffer::create(bufferCreateInfo);
+        }
+    }
+
+    void updateCameraBuffers(entt::registry& registry, renderer::Buffer& stagingBuffer, renderer::CommandBuffer& commandBuffer, std::size_t& stagingBufferOffset) {
+        if (!stagingBuffer) {
+            return;
+        }
+
+        for (auto& entity : registry.view<CameraBuffer, Projection, View, CameraTag>()) {
+            auto& cameraBuffer = registry.get<CameraBuffer>(entity);
+            auto& projection = registry.get<Projection>(entity);
+            auto& view = registry.get<View>(entity);
+
+            if (!cameraBuffer.buffer) {
+                continue;
+            }
+
+            std::array<glm::mat4, 2> data = {
+                projection.matrix,
+                view.matrix,
+            };
+
+            auto mapping = renderer::Buffer::map(stagingBuffer, renderer::Buffer::size(cameraBuffer.buffer), stagingBufferOffset);
+
+            std::memcpy(mapping.data.data(), data.data(), sizeof(data));
+
+            renderer::Buffer::unmap(stagingBuffer, mapping);
+
+            renderer::BufferCopyRegion copyRegion = {
+                .sourceOffsetBytes = stagingBufferOffset,
+                .destinationOffsetBytes = 0,
+                .sizeBytes = sizeof(data),
+            };
+
+            stagingBufferOffset += copyRegion.sizeBytes;
+
+            renderer::CommandBuffer::copyBuffer(commandBuffer, stagingBuffer, cameraBuffer.buffer, {copyRegion});
+        }
+    }
+
+    void destroyCameraBuffers(entt::registry& registry) {
+        for (auto& entity : registry.view<CameraBuffer, CameraTag>()) {
+            auto& cameraBuffer = registry.get<CameraBuffer>(entity);
+
+            if (!cameraBuffer.buffer) {
+                continue;
+            }
+
+            renderer::Buffer::destroy(cameraBuffer.buffer);
+        }
+    }
+
+    void cameraFollow(entt::registry& registry) {
+        for (auto& entity : registry.view<CameraTag, Position, Target>()) {
+            auto& position = registry.get<Position>(entity);
+            auto& target = registry.get<Target>(entity);
+
+            if (!registry.all_of<Position>(target.handle)) {
+                continue;
+            }
+
+            auto& targetPosition = registry.get<Position>(target.handle);
+
+            position.position = targetPosition.position + glm::vec3{0.0, 5.0, 15.0};
+        }
+    }
+
+    void updateCameraPerspectives(entt::registry& registry, glm::vec2 extent) {
+        for (auto& entity : registry.view<Camera, Projection, Perspective, CameraTag>()) {
             auto& camera = registry.get<Camera>(entity);
-            auto& target = registry.get<Position>(entity);
+            auto& projection = registry.get<Projection>(entity);
+            auto& perspective = registry.get<Perspective>(entity);
+
+            perspective.aspectRatio = extent.x / extent.y;
+
+            projection.matrix = glm::perspectiveRH_ZO(glm::radians(perspective.fov), perspective.aspectRatio, camera.near, camera.far);
+            projection.matrix[1][1] *= -1.0f;
+        }
+    }
+
+    void updateCameraOrthographics(entt::registry& registry) {
+        for (auto& entity : registry.view<Camera, Projection, Orthographic, CameraTag>()) {
+            auto& camera = registry.get<Camera>(entity);
+            auto& projection = registry.get<Projection>(entity);
+            auto& orthographic = registry.get<Orthographic>(entity);
+
+            float halfWidth = (orthographic.right - orthographic.left) * 0.5f / orthographic.scale;
+            float halfHeight = (orthographic.top - orthographic.bottom) * 0.5f / orthographic.scale;
+            float centreX = (orthographic.right + orthographic.left) * 0.5f;
+            float centreY = (orthographic.top + orthographic.bottom) * 0.5f;
+
+            projection.matrix = glm::orthoRH_ZO(centreX - halfWidth, centreX + halfWidth, centreY - halfHeight, centreY + halfHeight, camera.near, camera.far);
+            projection.matrix[1][1] *= -1.0f;
+        }
+    }
+
+    void updateCameraViews(entt::registry& registry) {
+        for (auto& entity : registry.view<View, Position, Rotation, CameraTag>()) {
+            auto& view = registry.get<View>(entity);
+            auto& position = registry.get<Position>(entity);
             auto& rotation = registry.get<Rotation>(entity);
 
-            float extentX = static_cast<float>(std::max(camera.extent.x, 1u));
-            float extentY = static_cast<float>(std::max(camera.extent.y, 1u));
-            float aspect = extentX / extentY;
+            glm::quat quaternion = {glm::radians(rotation.rotation)};
 
-            float fovRadians = glm::radians(camera.fov);
-            float pitchRadians = glm::radians(rotation.rotation.x);
-            float yawRadians = glm::radians(rotation.rotation.y);
+            glm::vec3 forward = quaternion * glm::vec3{0.0f, 0.0f, -1.0f};
+            glm::vec3 target = position.position + forward;
 
-            glm::mat4 rotYaw = glm::rotate(glm::mat4{1.0f}, yawRadians, glm::vec3(0.0f, 1.0f, 0.0f));
-            glm::mat4 rotPitch = glm::rotate(glm::mat4{1.0f}, pitchRadians, glm::vec3(1.0f, 0.0f, 0.0f));
-            glm::mat4 rotationMatrix = rotYaw * rotPitch;
-
-            glm::vec3 forward = glm::normalize(glm::vec3(rotationMatrix * glm::vec4(0.0f, 0.0f, -1.0f, 0.0f)));
-            glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f);
-            glm::vec3 position = target.position - forward * camera.scale;
-
-            camera.projection = glm::perspectiveRH_ZO(
-                fovRadians,
-                aspect,
-                camera.near,
-                camera.far);
-            camera.projection[1][1] *= -1.0f;
-
-            camera.view = glm::lookAt(position, target.position, up);
+            view.matrix = glm::lookAt(position.position, target, glm::vec3{0.0f, 1.0f, 0.0f});
         }
     }
-
-    void createCameraBuffer(renderer::Device& device, renderer::Buffer& cameraBuffer, std::size_t size) {
-        if (cameraBuffer) {
-            return;
-        }
-
-        renderer::BufferCreateInfo bufferCreateInfo = {
-            .device = device,
-            .memoryType = renderer::MemoryType::DEVICE_LOCAL,
-            .usageFlags = renderer::BufferUsageFlags::UNIFORM | renderer::BufferUsageFlags::TRANSFER_DESTINATION,
-            .sizeBytes = size,
-        };
-
-        cameraBuffer = renderer::Buffer::create(bufferCreateInfo);
-    }
-
-    void updateCameraBuffer(renderer::Buffer& cameraBuffer, std::span<std::uint8_t> data, renderer::CommandBuffer& commandBuffer, renderer::Buffer& stagingBuffer, std::size_t stagingBufferOffset) {
-        if (!cameraBuffer || !stagingBuffer) {
-            return;
-        }
-
-        auto mapping = renderer::Buffer::map(stagingBuffer, data.size(), stagingBufferOffset);
-
-        std::memcpy(mapping.data.data(), data.data(), data.size());
-
-        renderer::Buffer::unmap(stagingBuffer, mapping);
-
-        renderer::BufferCopyRegion copyRegion = {
-            .sizeBytes = data.size(),
-            .sourceOffsetBytes = stagingBufferOffset,
-            .destinationOffsetBytes = 0,
-        };
-
-        renderer::CommandBuffer::copyBuffer(commandBuffer, stagingBuffer, cameraBuffer, {copyRegion});
-    }
-mera, renderer::Device& device, renderer::Buffer& stagingBuffer, std::uint64_t& stagingBufferOffset, renderer::CommandBuffer& transferBuffer) {
-    std::array<glm::mat4, 2> matrices = {
-        camera.projection,
-        camera.view,
-    };
-
-    renderer::BufferCreateInfo bufferCreateInfo = {
-        .device = device,
-        .memoryType = renderer::MemoryType::DEVICE_LOCAL,
-        .usageFlags = renderer::BufferUsageFlags::UNIFORM | renderer::BufferUsageFlags::TRANSFER_DESTINATION,
-        .sizeBytes = matrices.size() * sizeof(glm::mat4),
-    };
-
-    camera.uniformBuffer = renderer::Buffer::create(bufferCreateInfo);
-
-    std::size_t uniformBufferSize = renderer::Buffer::size(camera.uniformBuffer);
-
-    auto mapping = renderer::Buffer::map(stagingBuffer, uniformBufferSize, stagingBufferOffset);
-
-    std::memcpy(mapping.data.data(), matrices.data(), uniformBufferSize);
-
-    renderer::Buffer::unmap(stagingBuffer, mapping);
-
-        renderer::BufferCopyRegion bufferCopyRegion = {
-            .sourceOffsetBytes = stagingBufferOffset,
-            .destinationOffsetBytes = 0,
-    void createCamera(Camera& ca
-            .sizeBytes = uniformBufferSize,
-        };
-
-        stagingBufferOffset += uniformBufferSize;
-
-        renderer::CommandBuffer::copyBuffer(transferBuffer, stagingBuffer, camera.uniformBuffer, {bufferCopyRegion});
-}
-
-void updateCamera(Camera& camera, renderer::Buffer& stagingBuffer, std::uint64_t& stagingBufferOffset, renderer::CommandBuffer& transferBuffer) {
-    float extentX = static_cast<float>(std::max(camera.extent.x, 1u));
-    float extentY = static_cast<float>(std::max(camera.extent.y, 1u));
-    float aspect = extentX / extentY;
-
-    float fovRadians = glm::radians(camera.fov);
-    float pitchRadians = glm::radians(camera.rotation.x);
-    float yawRadians = glm::radians(camera.rotation.y);
-
-    glm::mat4 rotYaw = glm::rotate(glm::mat4{1.0f}, yawRadians, glm::vec3(0.0f, 1.0f, 0.0f));
-    glm::mat4 rotPitch = glm::rotate(glm::mat4{1.0f}, pitchRadians, glm::vec3(1.0f, 0.0f, 0.0f));
-    glm::mat4 rotation = rotYaw * rotPitch;
-
-    glm::vec3 forward = glm::normalize(glm::vec3(rotation * glm::vec4(0.0f, 0.0f, -1.0f, 0.0f)));
-    glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f);
-
-    float distance = camera.scale;
-    camera.position = camera.target - forward * distance;
-
-    camera.projection = glm::perspectiveRH_ZO(
-        fovRadians,
-        aspect,
-        camera.near,
-        camera.far);
-    camera.projection[1][1] *= -1.0f;
-
-    camera.view = glm::lookAt(camera.position, camera.target, up);
-
-    std::array<glm::mat4, 2> matrices = {
-        camera.projection,
-        camera.view,
-    };
-
-    std::size_t uniformBufferSize = renderer::Buffer::size(camera.uniformBuffer);
-
-    auto mapping = renderer::Buffer::map(stagingBuffer, uniformBufferSize, stagingBufferOffset);
-
-    std::memcpy(mapping.data.data(), matrices.data(), uniformBufferSize);
-
-    renderer::Buffer::unmap(stagingBuffer, mapping);
-
-    renderer::BufferCopyRegion copyRegion = {
-        .sourceOffsetBytes = stagingBufferOffset,
-        .destinationOffsetBytes = 0,
-        .sizeBytes = uniformBufferSize,
-    };
-
-    stagingBufferOffset += uniformBufferSize;
-
-    renderer::CommandBuffer::copyBuffer(transferBuffer, stagingBuffer, camera.uniformBuffer, {copyRegion});
-}
-
-void destroyCamera(Camera& camera) {
-    if (camera.uniformBuffer) {
-        renderer::Buffer::destroy(camera.uniformBuffer);
-    }
-}
-
-void easeCameraTowards(Camera& camera, glm::vec3 position, float deltaTime) {
-    float frameEase = 1.0f - std::pow(1.0f - camera.ease, deltaTime);
-    glm::vec3 delta = position - camera.target;
-    camera.target += delta * frameEase;
-}
 }

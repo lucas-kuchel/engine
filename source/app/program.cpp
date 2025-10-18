@@ -9,6 +9,7 @@
 #include <glm/ext/matrix_projection.hpp>
 #include <glm/ext/matrix_transform.hpp>
 
+#define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 
 namespace app {
@@ -106,15 +107,19 @@ namespace app {
         basicDescriptorSet_ = descriptorSets_[0];
 
         auto character = registry_.create();
-        auto characterTexture = registry_.emplace<game::MeshTexture>(character);
-        auto characterPosition = registry_.emplace<game::Position>(character);
+        auto& characterTexture = registry_.emplace<game::MeshTexture>(character);
+        auto& characterPosition = registry_.emplace<game::Position>(character);
 
         characterTexture.extent = {0.25, 0.25};
-        characterTexture.offset = {0.0, 0.5};
+        characterTexture.position = {0.0, 0.5};
+        characterTexture.offset = {0.0, 0.0};
         characterTexture.scale = {1.0, 1.0};
         characterPosition.position = {0.0, 3.0, 0.0};
 
-        registry_.emplace<game::Character>(character);
+        tileCount_++;
+
+        registry_.emplace<game::CharacterTag>(character);
+        registry_.emplace<game::Speed>(character, 5.0f);
         registry_.emplace<game::PositionController>(character, app::Key::W, app::Key::S, app::Key::A, app::Key::D);
         registry_.emplace<game::Velocity>(character);
         registry_.emplace<game::Acceleration>(character);
@@ -122,24 +127,27 @@ namespace app {
         registry_.emplace<game::Transform>(character);
 
         auto camera = registry_.create();
-        auto cameraSettings = registry_.emplace<game::Camera>(camera);
-        auto cameraFocus = registry_.emplace<game::PositionTracker>(camera);
-        auto cameraAngle = registry_.emplace<game::Rotation>(camera);
+        auto& cameraSettings = registry_.emplace<game::Camera>(camera);
+        auto& cameraAngle = registry_.emplace<game::Rotation>(camera);
+        auto& cameraPerspective = registry_.emplace<game::Perspective>(camera);
+        auto& cameraTarget = registry_.emplace<game::Target>(camera);
 
-        cameraSettings.ease = 1.0f;
-        cameraSettings.extent = window_->extent();
         cameraSettings.near = 0.1f;
         cameraSettings.far = 100.0f;
-        cameraSettings.fov = 45.0f;
-        cameraSettings.scale = 15.0f;
-        cameraFocus.position = &characterPosition.position;
-        cameraAngle.rotation = {30.0f, 0.0f, 0.0f};
+
+        cameraAngle.rotation = {-20.0f, 0.0f, 0.0f};
+
+        cameraPerspective.fov = 50.0f;
+
+        cameraTarget.handle = character;
 
         registry_.emplace<game::Position>(camera);
-        registry_.emplace<game::Acceleration>(camera);
-        registry_.emplace<game::Velocity>(camera);
+        registry_.emplace<game::Projection>(camera);
+        registry_.emplace<game::View>(camera);
+        registry_.emplace<game::CameraTag>(camera);
+        registry_.emplace<game::CameraBuffer>(camera);
 
-        game::loadMap(registry_, "assets/maps/map0.json");
+        game::loadMap(registry_, "assets/maps/map0.json", tileCount_);
 
         renderer::BufferCreateInfo stagingBufferCreateInfo = {
             .device = device_,
@@ -209,6 +217,9 @@ namespace app {
         };
 
         renderer::CommandBuffer::pipelineBarrier(transferCommandBuffer_, renderer::PipelineStageFlags::TRANSFER, renderer::PipelineStageFlags::FRAGMENT_SHADER, {memoryBarrier1});
+
+        game::createMesh(tileCount_, tileMesh_, device_, stagingBuffer_, transferCommandBuffer_, stagingBufferOffset);
+
         renderer::CommandBuffer::endCapture(transferCommandBuffer_);
 
         renderer::Fence fence = renderer::Fence::create({device_, 0});
@@ -230,17 +241,19 @@ namespace app {
 
         createBasicPipelineResources();
 
-        game::updateScales(registry_);
-        game::updateShears(registry_);
-        game::updateRotations(registry_);
-        game::updatePositions(registry_);
+        game::createCameraBuffers(registry_, device_);
 
-        game::createCameraBuffer(device_, cameraBuffer_, 2 * sizeof(glm::mat4));
+        auto& cameraBuffers = registry_.storage<game::CameraBuffer>();
+
+        cameraCounter_.count = static_cast<std::uint32_t>(cameraBuffers.size());
+        cameraCounter_.index = 0u;
+
+        auto& cameraBuffer = cameraBuffers.get(cameraBuffers.data()[cameraCounter_.index]);
 
         renderer::DescriptorSetBufferBinding cameraBufferBinding = {
-            .buffer = cameraBuffer_,
+            .buffer = cameraBuffer.buffer,
             .offsetBytes = 0,
-            .rangeBytes = renderer::Buffer::size(cameraBuffer_),
+            .rangeBytes = renderer::Buffer::size(cameraBuffer.buffer),
         };
 
         renderer::DescriptorSetUpdateInfo uniformBufferUpdateInfo = {
@@ -309,38 +322,20 @@ namespace app {
 
         renderer::CommandBuffer::beginCapture(transferCommandBuffer_);
 
-        game::updateCameras(registry_);
-
-        auto view = registry_.view<game::PositionController, game::Speed, game::Acceleration>();
-
-        for (auto& entity : view) {
-            auto& controller = registry_.get<game::PositionController>(entity);
-            auto& acceleration = registry_.get<game::Acceleration>(entity);
-            auto& speed = registry_.get<game::Speed>(entity);
-
-            if (keysHeld_[keyIndex(controller.forwardBinding)]) {
-                acceleration.acceleration.x -= speed.speed;
-            }
-
-            if (keysHeld_[keyIndex(controller.backwardBinding)]) {
-                acceleration.acceleration.x += speed.speed;
-            }
-
-            if (keysHeld_[keyIndex(controller.leftBinding)]) {
-                acceleration.acceleration.x -= speed.speed;
-            }
-
-            if (keysHeld_[keyIndex(controller.rightBinding)]) {
-                acceleration.acceleration.x += speed.speed;
-            }
-        }
+        game::updatePositionControllers(registry_, keysHeld_);
+        game::updateCameraOrthographics(registry_);
+        game::updateCameraPerspectives(registry_, renderer::Swapchain::getExtent(swapchain_));
 
         game::integrate(registry_, deltaTime);
 
-        game::updateScales(registry_);
-        game::updateShears(registry_);
-        game::updateRotations(registry_);
-        game::updatePositions(registry_);
+        game::cameraFollow(registry_);
+
+        game::updateCameraViews(registry_);
+
+        game::transform(registry_);
+
+        game::updateCameraBuffers(registry_, stagingBuffer_, transferCommandBuffer_, stagingBufferOffset);
+        game::updateMesh(tileCount_, tileMesh_, registry_, stagingBuffer_, transferCommandBuffer_, stagingBufferOffset);
 
         renderer::CommandBuffer::endCapture(transferCommandBuffer_);
 
@@ -398,7 +393,8 @@ namespace app {
         renderer::CommandBuffer::setPipelineScissors(commandBuffer, {scissor}, 0);
         renderer::CommandBuffer::bindDescriptorSets(commandBuffer, renderer::DeviceOperation::GRAPHICS, basicPipelineLayout_, 0, {basicDescriptorSet_});
 
-        std::uint32_t instanceCount = static_cast<std::uint32_t>(std::min(registry_.storage<game::MeshTexture>().size(), registry_.storage<game::Transform>().size()));
+        auto view = registry_.view<game::MeshTexture, game::Transform>();
+        std::uint32_t instanceCount = static_cast<std::uint32_t>(view.size_hint());
 
         renderer::CommandBuffer::bindVertexBuffers(commandBuffer, {tileMesh_.vertexBuffer, tileMesh_.textureBuffer, tileMesh_.transformBuffer}, {0, 0, 0}, 0);
         renderer::CommandBuffer::draw(commandBuffer, 4, instanceCount, 0, 0);
@@ -423,9 +419,8 @@ namespace app {
     void Program::close() {
         renderer::Device::waitIdle(device_);
 
-        game::destroyCharacterInstances(characterMesh_);
-        game::destroyMap(map_);
-        game::destroyCamera(camera_);
+        game::destroyCameraBuffers(registry_);
+        game::destroyMesh(tileMesh_);
 
         renderer::Fence::destroy(stagingBufferFence_);
         renderer::Semaphore::destroy(stagingBufferSemaphore_);
@@ -498,22 +493,22 @@ namespace app {
                     renderer::VertexInputBindingDescription{
                         .inputRate = renderer::VertexInputRate::PER_VERTEX,
                         .binding = 0,
-                        .strideBytes = sizeof(glm::vec3),
+                        .strideBytes = sizeof(game::MeshVertex),
                     },
                     renderer::VertexInputBindingDescription{
                         .inputRate = renderer::VertexInputRate::PER_INSTANCE,
                         .binding = 1,
-                        .strideBytes = sizeof(game::CharacterInstance),
+                        .strideBytes = sizeof(game::MeshTexture),
                     },
                     renderer::VertexInputBindingDescription{
                         .inputRate = renderer::VertexInputRate::PER_INSTANCE,
                         .binding = 2,
-                        .strideBytes = sizeof(glm::mat4),
+                        .strideBytes = sizeof(game::Transform),
                     },
                 },
                 .attributes = {
                     renderer::VertexAttributeDescription{
-                        .format = renderer::VertexAttributeFormat::R32G32B32_FLOAT,
+                        .format = renderer::VertexAttributeFormat::R32G32_FLOAT,
                         .binding = 0,
                         .location = 0,
                     },

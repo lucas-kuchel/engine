@@ -1,66 +1,60 @@
 #include <game/transforms.hpp>
 
+#include <glm/gtc/quaternion.hpp>
+
 namespace game {
     void integrate(entt::registry& registry, float deltaTime) {
-        auto view = registry.view<Velocity, Acceleration, Position>();
-
-        for (auto& entity : view) {
+        for (auto& entity : registry.view<Velocity, Acceleration, Position>()) {
             auto& velocity = registry.get<Velocity>(entity);
             auto& acceleration = registry.get<Acceleration>(entity);
             auto& position = registry.get<Position>(entity);
 
             velocity.velocity += acceleration.acceleration * deltaTime;
             position.position += velocity.velocity * deltaTime;
+
+            acceleration.acceleration = {0.0f, 0.0f, 0.0f};
         }
     }
 
-    void updateScales(entt::registry& registry) {
-        auto view = registry.view<Scale, Transform>();
-
-        for (auto& entity : view) {
+    void transform(entt::registry& registry) {
+        for (auto entity : registry.view<Transform>()) {
             auto& transform = registry.get<Transform>(entity);
-            auto& scale = registry.get<Scale>(entity);
 
-            transform.matrix = glm::scale(transform.matrix, scale.scale);
-        }
-    }
+            transform.matrix = {1.0f};
 
-    void updateShears(entt::registry& registry) {
-        auto view = registry.view<Shear, Transform>();
+            if (registry.all_of<Scale>(entity)) {
+                auto& scale = registry.get<Scale>(entity);
 
-        for (auto& entity : view) {
-            auto& transform = registry.get<Transform>(entity);
-            auto& shear = registry.get<Shear>(entity);
+                transform.matrix = glm::scale(transform.matrix, scale.scale);
+            }
 
-            glm::vec2 yz = {shear.shear.y, shear.shear.z};
-            glm::vec2 xz = {shear.shear.x, shear.shear.z};
-            glm::vec2 xy = {shear.shear.x, shear.shear.y};
+            if (registry.all_of<Shear>(entity)) {
+                auto& shear = registry.get<Shear>(entity);
 
-            transform.matrix = glm::shear(transform.matrix, shear.reference, yz, xz, xy);
-        }
-    }
+                if (glm::all(glm::notEqual(shear.shear, glm::vec3{0.0f}))) {
+                    glm::mat4 shearMatrix = {1.0f};
 
-    void updateRotations(entt::registry& registry) {
-        auto view = registry.view<Rotation, Transform>();
+                    shearMatrix[1][0] = shear.shear.x;
+                    shearMatrix[2][0] = shear.shear.y;
+                    shearMatrix[2][1] = shear.shear.z;
 
-        for (auto& entity : view) {
-            auto& transform = registry.get<Transform>(entity);
-            auto& rotation = registry.get<Rotation>(entity);
+                    transform.matrix *= shearMatrix;
+                }
+            }
 
-            transform.matrix = glm::rotate(transform.matrix, glm::radians(rotation.rotation.x), glm::vec3{1.0f, 0.0f, 0.0f});
-            transform.matrix = glm::rotate(transform.matrix, glm::radians(rotation.rotation.y), glm::vec3{0.0f, 1.0f, 0.0f});
-            transform.matrix = glm::rotate(transform.matrix, glm::radians(rotation.rotation.z), glm::vec3{0.0f, 0.0f, 1.0f});
-        }
-    }
+            if (registry.all_of<Rotation>(entity)) {
+                auto& rotation = registry.get<Rotation>(entity);
 
-    void updatePositions(entt::registry& registry) {
-        auto view = registry.view<Position, Transform>();
+                transform.matrix = glm::rotate(transform.matrix, glm::radians(rotation.rotation.z), glm::vec3{0.0f, 0.0f, 1.0f});
+                transform.matrix = glm::rotate(transform.matrix, glm::radians(rotation.rotation.y), glm::vec3{0.0f, 1.0f, 0.0f});
+                transform.matrix = glm::rotate(transform.matrix, glm::radians(rotation.rotation.x), glm::vec3{1.0f, 0.0f, 0.0f});
+            }
 
-        for (auto& entity : view) {
-            auto& transform = registry.get<Transform>(entity);
-            auto& position = registry.get<Position>(entity);
+            if (registry.all_of<Position>(entity)) {
+                auto& position = registry.get<Position>(entity);
 
-            transform.matrix = glm::translate(transform.matrix, position.position);
+                transform.matrix = glm::translate(glm::mat4{1.0f}, position.position) * transform.matrix;
+            }
         }
     }
 }

@@ -3,6 +3,7 @@
 #include <renderer/buffer.hpp>
 #include <renderer/command_buffer.hpp>
 
+#include <entt/entt.hpp>
 #include <glm/glm.hpp>
 
 namespace game {
@@ -23,7 +24,7 @@ namespace game {
         glm::vec2 position;
     };
 
-    void createMesh(renderer::Device& device, Mesh& mesh, std::size_t instanceCount);
-    void updateMesh(Mesh& mesh, std::size_t instanceCount, std::span<std::uint8_t> data, renderer::CommandBuffer& commandBuffer, renderer::Buffer& stagingBuffer, std::size_t stagingBufferOffset);
-    void deleteMesh(Mesh& mesh);
+    void createMesh(std::size_t tileCount, Mesh& mesh, renderer::Device& device, renderer::Buffer& stagingBuffer, renderer::CommandBuffer& commandBuffer, std::size_t stagingBufferOffset);
+    void updateMesh(std::size_t tileCount, Mesh& mesh, entt::registry& registry, renderer::Buffer& stagingBuffer, renderer::CommandBuffer& commandBuffer, std::size_t stagingBufferOffset);
+    void destroyMesh(Mesh& mesh);
 }

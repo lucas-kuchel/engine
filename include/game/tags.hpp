@@ -6,4 +6,7 @@ namespace game {
 
     struct CharacterTag {
     };
+
+    struct CameraTag {
+    };
 }

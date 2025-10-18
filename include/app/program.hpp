@@ -22,7 +22,7 @@
 #include <renderer/swapchain.hpp>
 
 #include <game/camera.hpp>
-#include <game/controller.hpp>
+#include <game/controllers.hpp>
 #include <game/mesh.hpp>
 #include <game/settings.hpp>
 #include <game/tags.hpp>
@@ -99,6 +99,9 @@ namespace app {
 
         Counter imageCounter_;
         Counter frameCounter_;
+        Counter cameraCounter_;
+
+        std::size_t tileCount_ = 0;
 
         bool resized_ = false;
         bool running_ = true;
@@ -108,8 +111,6 @@ namespace app {
 
         game::Settings settings_;
         game::Mesh tileMesh_;
-
-        renderer::Buffer cameraBuffer_;
 
         std::chrono::time_point<std::chrono::high_resolution_clock> lastFrameTime_;
 
