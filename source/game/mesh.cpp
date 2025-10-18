@@ -9,11 +9,11 @@ namespace game {
             return;
         }
 
-        std::array<glm::vec2, 4> vertices = {
-            glm::vec2{1.0, 1.0},
-            glm::vec2{0.0, 1.0},
-            glm::vec2{1.0, 0.0},
-            glm::vec2{0.0, 0.0},
+        std::array<MeshVertex, 4> vertices = {
+            MeshVertex{{1.0, 1.0}},
+            MeshVertex{{0.0, 1.0}},
+            MeshVertex{{1.0, 0.0}},
+            MeshVertex{{0.0, 0.0}},
         };
 
         renderer::BufferCreateInfo vertexBufferCreateInfo = {
@@ -34,7 +34,7 @@ namespace game {
             .device = device,
             .memoryType = renderer::MemoryType::DEVICE_LOCAL,
             .usageFlags = renderer::BufferUsageFlags::VERTEX | renderer::BufferUsageFlags::TRANSFER_DESTINATION,
-            .sizeBytes = tileCount * sizeof(Transform),
+            .sizeBytes = tileCount * sizeof(MeshTransform),
         };
 
         mesh.vertexBuffer = renderer::Buffer::create(vertexBufferCreateInfo);
@@ -65,16 +65,16 @@ namespace game {
 
         std::size_t totalSize = renderer::Buffer::size(mesh.textureBuffer) + renderer::Buffer::size(mesh.transformBuffer);
         std::size_t textureBytes = tileCount * sizeof(MeshTexture);
-        std::size_t transformBytes = tileCount * sizeof(Transform);
+        std::size_t transformBytes = tileCount * sizeof(MeshTransform);
 
         auto mapping = renderer::Buffer::map(stagingBuffer, totalSize, stagingBufferOffset);
 
         auto* texturePointer = reinterpret_cast<MeshTexture*>(mapping.data.data());
-        auto* transformPointer = reinterpret_cast<Transform*>(reinterpret_cast<std::byte*>(mapping.data.data()) + textureBytes);
+        auto* transformPointer = reinterpret_cast<MeshTransform*>(reinterpret_cast<std::byte*>(mapping.data.data()) + textureBytes);
 
         std::size_t i = 0;
 
-        for (auto [entity, meshTexture, transform] : registry.view<MeshTexture, Transform>().each()) {
+        for (auto [entity, meshTexture, transform] : registry.view<MeshTexture, MeshTransform>().each()) {
             texturePointer[i] = meshTexture;
             transformPointer[i] = transform;
             i++;

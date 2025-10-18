@@ -110,11 +110,12 @@ namespace app {
         auto& characterTexture = registry_.emplace<game::MeshTexture>(character);
         auto& characterPosition = registry_.emplace<game::Position>(character);
 
-        characterTexture.extent = {0.25, 0.25};
-        characterTexture.position = {0.0, 0.5};
+        characterTexture.extent = {0.2, 0.2};
+        characterTexture.position = {0.4, 0.0};
         characterTexture.offset = {0.0, 0.0};
         characterTexture.scale = {1.0, 1.0};
-        characterPosition.position = {0.0, 3.0, 0.0};
+
+        characterPosition.position = {0.0, 0.0, 0.0};
 
         tileCount_++;
 
@@ -124,26 +125,25 @@ namespace app {
         registry_.emplace<game::Velocity>(character);
         registry_.emplace<game::Acceleration>(character);
         registry_.emplace<game::Rotation>(character);
-        registry_.emplace<game::Transform>(character);
+        registry_.emplace<game::MeshTransform>(character);
 
         auto camera = registry_.create();
+
         auto& cameraSettings = registry_.emplace<game::Camera>(camera);
-        auto& cameraAngle = registry_.emplace<game::Rotation>(camera);
-        auto& cameraPerspective = registry_.emplace<game::Perspective>(camera);
+        auto& cameraOrographic = registry_.emplace<game::Orthographic>(camera);
         auto& cameraTarget = registry_.emplace<game::Target>(camera);
 
         cameraSettings.near = 0.1f;
         cameraSettings.far = 100.0f;
 
-        cameraAngle.rotation = {-20.0f, 0.0f, 0.0f};
-
-        cameraPerspective.fov = 50.0f;
+        cameraOrographic.scale = 50.0f;
 
         cameraTarget.handle = character;
 
         registry_.emplace<game::Position>(camera);
         registry_.emplace<game::Projection>(camera);
         registry_.emplace<game::View>(camera);
+        registry_.emplace<game::Rotation>(camera);
         registry_.emplace<game::CameraTag>(camera);
         registry_.emplace<game::CameraBuffer>(camera);
 
@@ -323,9 +323,7 @@ namespace app {
         renderer::CommandBuffer::beginCapture(transferCommandBuffer_);
 
         game::updatePositionControllers(registry_, keysHeld_);
-        game::updateCameraOrthographics(registry_);
-        game::updateCameraPerspectives(registry_, renderer::Swapchain::getExtent(swapchain_));
-
+        game::updateCameraOrthographics(registry_, renderer::Swapchain::getExtent(swapchain_));
         game::integrate(registry_, deltaTime);
 
         game::cameraFollow(registry_);
@@ -393,7 +391,7 @@ namespace app {
         renderer::CommandBuffer::setPipelineScissors(commandBuffer, {scissor}, 0);
         renderer::CommandBuffer::bindDescriptorSets(commandBuffer, renderer::DeviceOperation::GRAPHICS, basicPipelineLayout_, 0, {basicDescriptorSet_});
 
-        auto view = registry_.view<game::MeshTexture, game::Transform>();
+        auto view = registry_.view<game::MeshTexture, game::MeshTransform>();
         std::uint32_t instanceCount = static_cast<std::uint32_t>(view.size_hint());
 
         renderer::CommandBuffer::bindVertexBuffers(commandBuffer, {tileMesh_.vertexBuffer, tileMesh_.textureBuffer, tileMesh_.transformBuffer}, {0, 0, 0}, 0);
@@ -503,7 +501,7 @@ namespace app {
                     renderer::VertexInputBindingDescription{
                         .inputRate = renderer::VertexInputRate::PER_INSTANCE,
                         .binding = 2,
-                        .strideBytes = sizeof(game::Transform),
+                        .strideBytes = sizeof(game::MeshTransform),
                     },
                 },
                 .attributes = {
@@ -533,24 +531,19 @@ namespace app {
                         .location = 4,
                     },
                     renderer::VertexAttributeDescription{
-                        .format = renderer::VertexAttributeFormat::R32G32B32A32_FLOAT,
+                        .format = renderer::VertexAttributeFormat::R32G32B32_FLOAT,
                         .binding = 2,
                         .location = 5,
                     },
                     renderer::VertexAttributeDescription{
-                        .format = renderer::VertexAttributeFormat::R32G32B32A32_FLOAT,
+                        .format = renderer::VertexAttributeFormat::R32G32_FLOAT,
                         .binding = 2,
                         .location = 6,
                     },
                     renderer::VertexAttributeDescription{
-                        .format = renderer::VertexAttributeFormat::R32G32B32A32_FLOAT,
+                        .format = renderer::VertexAttributeFormat::R32G32_FLOAT,
                         .binding = 2,
                         .location = 7,
-                    },
-                    renderer::VertexAttributeDescription{
-                        .format = renderer::VertexAttributeFormat::R32G32B32A32_FLOAT,
-                        .binding = 2,
-                        .location = 8,
                     },
                 },
             },

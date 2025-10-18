@@ -2,7 +2,6 @@
 
 #include <entt/entt.hpp>
 #include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
 
 namespace game {
     struct Speed {
@@ -22,19 +21,11 @@ namespace game {
     };
 
     struct Rotation {
-        glm::vec3 rotation = {0.0f, 0.0f, 0.0f};
+        float angle = 0.0f;
     };
 
     struct Scale {
-        glm::vec3 scale = {1.0f, 1.0f, 1.0f};
-    };
-
-    struct Shear {
-        glm::vec3 shear = {0.0f, 0.0f, 0.0f};
-    };
-
-    struct Transform {
-        glm::mat4 matrix = {1.0f};
+        glm::vec2 scale = {1.0f, 1.0f};
     };
 
     void integrate(entt::registry& registry, float deltaTime);

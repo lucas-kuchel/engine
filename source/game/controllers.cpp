@@ -9,11 +9,11 @@ namespace game {
             auto& acceleration = registry.get<Acceleration>(entity);
 
             if (keymap[static_cast<std::size_t>(controller.forwardBinding)]) {
-                acceleration.acceleration.z -= speed.speed;
+                acceleration.acceleration.y -= speed.speed;
             }
 
             if (keymap[static_cast<std::size_t>(controller.backwardBinding)]) {
-                acceleration.acceleration.z += speed.speed;
+                acceleration.acceleration.y += speed.speed;
             }
 
             if (keymap[static_cast<std::size_t>(controller.leftBinding)]) {

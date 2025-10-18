@@ -12,11 +12,6 @@ namespace game {
         renderer::Buffer buffer;
     };
 
-    struct Perspective {
-        float fov = 60.0f;
-        float aspectRatio = 1.0f;
-    };
-
     struct Orthographic {
         float left = 0.0f;
         float right = 0.0f;
@@ -47,7 +42,6 @@ namespace game {
     void destroyCameraBuffers(entt::registry& registry);
 
     void cameraFollow(entt::registry& registry);
-    void updateCameraPerspectives(entt::registry& registry, glm::vec2 extent);
-    void updateCameraOrthographics(entt::registry& registry);
+    void updateCameraOrthographics(entt::registry& registry, glm::vec2 extent);
     void updateCameraViews(entt::registry& registry);
 }

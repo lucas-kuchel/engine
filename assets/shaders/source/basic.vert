@@ -13,20 +13,25 @@ layout(location = 2) in vec2 instanceTextureExtent;
 layout(location = 3) in vec2 instanceTextureOffset;
 layout(location = 4) in vec2 instanceTextureScale;
 
-layout(location = 5) in mat4 instanceModel;
+layout(location = 5) in vec3 instancePosition;
+layout(location = 6) in mat2 instanceModel;
 
 layout(location = 0) out vec2 outLocalPosition;
 layout(location = 1) out vec2 outTexturePosition;
 layout(location = 2) out vec2 outTextureExtent;
-layout(location = 3) out vec2 outTextureOffset;
 
 void main() {
-    gl_Position = camera.projection * camera.view * instanceModel * vec4(vertexPosition, 0.0, 1.0);
+    // calculate position of the vertex
+    vec3 transformedPosition = vec3(instanceModel * vertexPosition, 0.0);
+    vec3 translatedPosition = instancePosition + transformedPosition;
 
-    vec2 texturePosition = vec2(vertexPosition.x, -vertexPosition.y);
+    // put vertex into world space
+    gl_Position = camera.projection * camera.view * vec4(translatedPosition, 1.0);
 
-    outLocalPosition = texturePosition * instanceTextureScale + instanceTextureOffset;
+    // output the local texture position to the fragment shader
+    outLocalPosition = vertexPosition * instanceTextureScale + instanceTextureOffset;
+
+    // output atlas-local transforms to the fragment shader
     outTexturePosition = instanceTexturePosition;
     outTextureExtent = instanceTextureExtent;
-    outTextureOffset = instanceTextureOffset;
 }

@@ -89,28 +89,20 @@ namespace game {
 
             auto& targetPosition = registry.get<Position>(target.handle);
 
-            position.position = targetPosition.position + glm::vec3{0.0, 5.0, 15.0};
+            position.position = targetPosition.position + glm::vec3{0.0f, 0.0f, 5.0f};
         }
     }
 
-    void updateCameraPerspectives(entt::registry& registry, glm::vec2 extent) {
-        for (auto& entity : registry.view<Camera, Projection, Perspective, CameraTag>()) {
-            auto& camera = registry.get<Camera>(entity);
-            auto& projection = registry.get<Projection>(entity);
-            auto& perspective = registry.get<Perspective>(entity);
-
-            perspective.aspectRatio = extent.x / extent.y;
-
-            projection.matrix = glm::perspectiveRH_ZO(glm::radians(perspective.fov), perspective.aspectRatio, camera.near, camera.far);
-            projection.matrix[1][1] *= -1.0f;
-        }
-    }
-
-    void updateCameraOrthographics(entt::registry& registry) {
+    void updateCameraOrthographics(entt::registry& registry, glm::vec2 extent) {
         for (auto& entity : registry.view<Camera, Projection, Orthographic, CameraTag>()) {
             auto& camera = registry.get<Camera>(entity);
             auto& projection = registry.get<Projection>(entity);
             auto& orthographic = registry.get<Orthographic>(entity);
+
+            orthographic.left = -extent.x;
+            orthographic.right = extent.x;
+            orthographic.top = extent.y;
+            orthographic.bottom = -extent.y;
 
             float halfWidth = (orthographic.right - orthographic.left) * 0.5f / orthographic.scale;
             float halfHeight = (orthographic.top - orthographic.bottom) * 0.5f / orthographic.scale;
@@ -118,7 +110,7 @@ namespace game {
             float centreY = (orthographic.top + orthographic.bottom) * 0.5f;
 
             projection.matrix = glm::orthoRH_ZO(centreX - halfWidth, centreX + halfWidth, centreY - halfHeight, centreY + halfHeight, camera.near, camera.far);
-            projection.matrix[1][1] *= -1.0f;
+            projection.matrix[0][1] *= -1.0f;
         }
     }
 
@@ -128,7 +120,7 @@ namespace game {
             auto& position = registry.get<Position>(entity);
             auto& rotation = registry.get<Rotation>(entity);
 
-            glm::quat quaternion = {glm::radians(rotation.rotation)};
+            glm::quat quaternion = {glm::radians(glm::vec3{0.0f, 0.0f, rotation.angle})};
 
             glm::vec3 forward = quaternion * glm::vec3{0.0f, 0.0f, -1.0f};
             glm::vec3 target = position.position + forward;

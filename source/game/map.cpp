@@ -20,11 +20,10 @@ namespace game {
                 auto tile = registry.create();
                 auto& tilePosition = registry.emplace<Position>(tile);
                 auto& tileScale = registry.emplace<Scale>(tile);
-                auto& tileShear = registry.emplace<Shear>(tile);
                 auto& tileRotation = registry.emplace<Rotation>(tile);
                 auto& tileTexture = registry.emplace<MeshTexture>(tile);
 
-                registry.emplace<Transform>(tile);
+                registry.emplace<MeshTransform>(tile);
                 registry.emplace<StaticTileTag>(tile);
 
                 tileCount++;
@@ -45,23 +44,12 @@ namespace game {
 
                         tileScale.scale.x = scale.size() > 0 ? scale[0].get<float>() : 1.0f;
                         tileScale.scale.y = scale.size() > 1 ? scale[1].get<float>() : 1.0f;
-                        tileScale.scale.z = scale.size() > 2 ? scale[2].get<float>() : 1.0f;
-                    }
-
-                    if (tileEntry.contains("shear")) {
-                        auto shear = tileEntry["shear"];
-
-                        tileShear.shear.x = shear.size() > 0 ? shear[0].get<float>() : 0.0f;
-                        tileShear.shear.y = shear.size() > 1 ? shear[1].get<float>() : 0.0f;
-                        tileShear.shear.z = shear.size() > 2 ? shear[2].get<float>() : 0.0f;
                     }
 
                     if (tileEntry.contains("rotation")) {
                         auto rotation = tileEntry["rotation"];
 
-                        tileRotation.rotation.x = rotation.size() > 0 ? rotation[0].get<float>() : 0.0f;
-                        tileRotation.rotation.y = rotation.size() > 1 ? rotation[1].get<float>() : 0.0f;
-                        tileRotation.rotation.z = rotation.size() > 2 ? rotation[2].get<float>() : 0.0f;
+                        tileRotation.angle = rotation.get<float>();
                     }
                 }
 
