@@ -4,7 +4,6 @@
 #include <app/context.hpp>
 #include <app/window.hpp>
 #include <renderer/renderer.hpp>
-#include <world/world.hpp>
 
 #include <chrono>
 
@@ -75,8 +74,6 @@ namespace engine {
 
         entt::registry registry_;
         entt::dispatcher dispatcher_;
-
-        world::World world_;
 
         using TimePoint = std::chrono::time_point<std::chrono::high_resolution_clock>;
         using KeyArray = std::array<bool, 93>;

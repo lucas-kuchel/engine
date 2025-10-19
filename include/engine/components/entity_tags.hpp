@@ -9,4 +9,7 @@ namespace engine::components {
 
     struct ActiveCameraTag {
     };
+
+    struct ActiveWorldTag {
+    };
 }

@@ -7,14 +7,17 @@
 
 namespace engine::components {
     enum class CameraMode : int;
-}
 
-namespace world {
-    struct Defaults {
+    struct Space {
         std::string name;
 
+        struct Bounds {
+            glm::vec2 position;
+            glm::vec2 extent;
+        } bounds;
+
         struct Camera {
-            engine::components::CameraMode mode;
+            CameraMode mode;
 
             std::optional<glm::vec2> position;
 

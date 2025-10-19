@@ -1,5 +1,10 @@
 #include <engine/engine.hpp>
 
+#include <engine/components/tile.hpp>
+
+#include <engine/components/world.hpp>
+#include <engine/systems/world.hpp>
+
 #include <fstream>
 
 #include <glm/gtc/matrix_transform.hpp>
@@ -290,6 +295,14 @@ void engine::Engine::start() {
 
     renderer::CommandBuffer::pipelineBarrier(transferCommandBuffer, renderer::PipelineStageFlags::TRANSFER, renderer::PipelineStageFlags::FRAGMENT_SHADER, {memoryBarrier1});
 
+    auto worldEntity = registry_.create();
+
+    auto& worldComponent = registry_.emplace<components::World>(worldEntity);
+
+    worldComponent.path = "assets/worlds/default";
+
+    systems::loadWorlds(registry_);
+
     // game::createMesh(tileCount_, tileMesh_, device_, stagingBuffer_, transferCommandBuffer_, stagingBufferOffset);
 
     renderer::CommandBuffer::endCapture(transferCommandBuffer);
@@ -571,7 +584,7 @@ void engine::Engine::createBasicPipelineResources() {
                 renderer::VertexInputBindingDescription{
                     .inputRate = renderer::VertexInputRate::PER_INSTANCE,
                     .binding = 1,
-                    .strideBytes = sizeof(world::TileMesh),
+                    .strideBytes = sizeof(components::TileMesh),
                 },
             },
             .attributes = {

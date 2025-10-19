@@ -2,11 +2,10 @@
     "actions": [
         {
             "name": "set_space",
-            "params": [
-                "newSpace"
-            ],
-            "script_entry": "setSpace",
-            "script_file": "scripts/basic.lua"
+            "script": {
+                "function": "setSpace",
+                "filepath": "scripts/basic.lua"
+            }
         }
     ]
 }
