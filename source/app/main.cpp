@@ -1,11 +1,13 @@
-#include <app/program.hpp>
+#include <engine/engine.hpp>
 
 #include <exception>
 #include <print>
 
 int main() {
     try {
-        app::Program program;
+        engine::Engine engine;
+
+        engine.run();
 
         return 0;
     }

@@ -21,7 +21,7 @@ namespace renderer {
         MemoryType memoryType;
         Flags usageFlags;
 
-        std::uint64_t sizeBytes;
+        std::size_t sizeBytes;
     };
 
     struct BufferMapping {

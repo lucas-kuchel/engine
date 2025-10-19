@@ -18,6 +18,8 @@ namespace renderer {
         static Fence create(const FenceCreateInfo& createInfo);
         static void destroy(Fence& fence);
 
+        static bool isSignalled(Fence& fence);
+
     private:
         VkFence fence_ = nullptr;
         Device* device_ = nullptr;

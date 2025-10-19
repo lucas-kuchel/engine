@@ -117,7 +117,7 @@ namespace renderer {
         };
 
         constexpr FlagMap flagMapping[] = {
-            {FenceCreateFlags::START_SIGNALED, VK_FENCE_CREATE_SIGNALED_BIT},
+            {FenceCreateFlags::START_SIGNALLED, VK_FENCE_CREATE_SIGNALED_BIT},
         };
 
         VkFlags vkFlags = 0;

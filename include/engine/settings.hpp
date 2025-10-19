@@ -4,7 +4,7 @@
 
 #include <glm/glm.hpp>
 
-namespace game {
+namespace engine {
     struct Settings {
         struct Display {
             glm::uvec2 size;

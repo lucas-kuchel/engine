@@ -1,14 +1,14 @@
 {
-    "name": "game-new",
+    "name": "engine",
     "version-string": "0.1.0",
     "dependencies": [
         "glfw3",
-        "vulkan-headers",
         "vulkan-memory-allocator",
         "nlohmann-json",
         "stb",
         "glm",
         "entt",
-        "boost-headers"
+        "sol2",
+        "lua"
     ]
 }

@@ -1,12 +1,12 @@
 #pragma once
 
-namespace game {
+namespace engine::components {
     struct StaticTileTag {
     };
 
     struct CharacterTag {
     };
 
-    struct CameraTag {
+    struct ActiveCameraTag {
     };
 }

@@ -1,4 +1,4 @@
-#include <game/settings.hpp>
+#include <engine/settings.hpp>
 
 #include <app/configuration.hpp>
 
@@ -6,12 +6,12 @@
 
 #include <nlohmann/json.hpp>
 
-namespace game {
+namespace engine {
     void loadSettings(Settings& settings) {
         std::ifstream file("config/settings.json");
 
         if (!file) {
-            throw std::runtime_error("Call failed: game::loadSettings(): Failed to open file: config/settings.json");
+            throw std::runtime_error("Call failed: engine::loadSettings(): Failed to open file: config/settings.json");
         }
 
         std::string contents(std::istreambuf_iterator<char>(file), {});
@@ -37,7 +37,7 @@ namespace game {
             settings.display.mode = app::WindowVisibility::FULLSCREEN;
         }
         else {
-            throw std::runtime_error("Call failed: game::loadSettings(): Bad value for setting \"display.mode\": config/settings.json");
+            throw std::runtime_error("Call failed: engine::loadSettings(): Bad value for setting \"display.mode\": config/settings.json");
         }
     }
 
@@ -59,7 +59,7 @@ namespace game {
         std::ofstream file("config/settings.json", std::ios::trunc);
 
         if (!file) {
-            throw std::runtime_error("Call failed: game::saveSettings(): File could not be opened for writing: config/settings.json");
+            throw std::runtime_error("Call failed: engine::saveSettings(): File could not be opened for writing: config/settings.json");
         }
 
         file << json.dump(4);

@@ -1,0 +1,7 @@
+{
+    "name": "default",
+    "camera": {
+        "mode": "follow",
+        "scale": 10.0
+    }
+}

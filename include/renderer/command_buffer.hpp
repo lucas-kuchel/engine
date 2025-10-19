@@ -47,8 +47,8 @@ namespace renderer {
 
         static void bindDescriptorSets(CommandBuffer& commandBuffer, DeviceOperation operation, PipelineLayout& layout, std::uint32_t firstSet, const std::vector<DescriptorSet>& sets);
         static void bindPipeline(CommandBuffer& commandBuffer, Pipeline& pipeline);
-        static void bindVertexBuffers(CommandBuffer& commandBuffer, const std::vector<Buffer>& buffers, const std::vector<std::uint64_t>& offsets, std::uint32_t first);
-        static void bindIndexBuffer(CommandBuffer& commandBuffer, Buffer& buffer, std::uint64_t offset, IndexType indexType);
+        static void bindVertexBuffers(CommandBuffer& commandBuffer, const std::vector<Buffer>& buffers, const std::vector<std::size_t>& offsets, std::uint32_t first);
+        static void bindIndexBuffer(CommandBuffer& commandBuffer, Buffer& buffer, std::size_t offset, IndexType indexType);
 
         static void setPipelineViewports(CommandBuffer& commandBuffer, const std::vector<renderer::Viewport>& viewports, std::uint32_t offset);
         static void setPipelineScissors(CommandBuffer& commandBuffer, const std::vector<renderer::Scissor>& scissors, std::uint32_t offset);

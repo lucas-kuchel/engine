@@ -1,0 +1,28 @@
+{
+    "triggers": [
+        {
+            "bounds": {
+                "width": 10.0, 
+                "height": 10.0,
+                "x": 0.0, 
+                "y": 0.0
+            },
+            "on_enter": [
+                {
+                    "action": "set_space",
+                    "params": [
+                        "house"
+                    ]
+                }
+            ],
+            "on_exit": [
+                {
+                    "action": "set_space",
+                    "params": [
+                        null
+                    ]
+                }
+            ]
+        }
+    ]
+}

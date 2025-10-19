@@ -3,11 +3,7 @@
 #include <entt/entt.hpp>
 #include <glm/glm.hpp>
 
-namespace game {
-    struct Speed {
-        float speed = 1.0f;
-    };
-
+namespace engine::components {
     struct Position {
         glm::vec3 position = {0.0f, 0.0f, 0.0f};
     };
@@ -28,6 +24,8 @@ namespace game {
         glm::vec2 scale = {1.0f, 1.0f};
     };
 
-    void integrate(entt::registry& registry, float deltaTime);
-    void transform(entt::registry& registry);
+    struct alignas(32) TransformUploadData {
+        glm::vec3 position;
+        glm::mat2 model;
+    };
 }

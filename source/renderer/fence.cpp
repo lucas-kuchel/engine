@@ -22,8 +22,14 @@ namespace renderer {
     }
 
     void Fence::destroy(Fence& fence) {
-        if (fence.fence_ != VK_NULL_HANDLE) {
+        if (fence.fence_) {
             vkDestroyFence(fence.device_->device_, fence.fence_, nullptr);
+
+            fence.fence_ = nullptr;
         }
+    }
+
+    bool Fence::isSignalled(Fence& fence) {
+        return vkGetFenceStatus(fence.device_->device_, fence.fence_) == VK_SUCCESS;
     }
 }

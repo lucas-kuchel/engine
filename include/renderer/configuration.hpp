@@ -51,7 +51,7 @@ namespace renderer {
             NONE = 0,
 
             // @brief Start the fence as signalled
-            START_SIGNALED = 1 << 0,
+            START_SIGNALLED = 1 << 0,
         };
 
         static VkFlags mapFrom(Flags flags);

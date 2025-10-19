@@ -87,7 +87,7 @@ namespace renderer {
         }
     }
 
-    ImageMapping Image::map(Image& image, std::uint64_t sizeBytes, std::uint64_t offsetBytes) {
+    ImageMapping Image::map(Image& image, std::size_t sizeBytes, std::size_t offsetBytes) {
         ImageMapping mapping;
 
         mapping.offset = offsetBytes;
@@ -137,7 +137,7 @@ namespace renderer {
         return reverseMapType(image.type_);
     }
 
-    std::uint64_t Image::getSize(Image& image) {
+    std::size_t Image::getSize(Image& image) {
         return image.size_;
     }
 

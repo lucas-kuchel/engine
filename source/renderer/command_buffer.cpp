@@ -318,7 +318,7 @@ namespace renderer {
         vkCmdBindPipeline(commandBuffer.commandBuffer_, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.pipeline_);
     }
 
-    void CommandBuffer::bindVertexBuffers(CommandBuffer& commandBuffer, const std::vector<Buffer>& buffers, const std::vector<std::uint64_t>& offsets, std::uint32_t first) {
+    void CommandBuffer::bindVertexBuffers(CommandBuffer& commandBuffer, const std::vector<Buffer>& buffers, const std::vector<std::size_t>& offsets, std::uint32_t first) {
         std::vector<VkBuffer> vulkanBuffers(buffers.size());
 
         for (std::uint32_t i = 0; i < vulkanBuffers.size(); i++) {
@@ -328,7 +328,7 @@ namespace renderer {
         vkCmdBindVertexBuffers(commandBuffer.commandBuffer_, first, static_cast<std::uint32_t>(vulkanBuffers.size()), vulkanBuffers.data(), offsets.data());
     }
 
-    void CommandBuffer::bindIndexBuffer(CommandBuffer& commandBuffer, Buffer& buffer, std::uint64_t offset, IndexType indexType) {
+    void CommandBuffer::bindIndexBuffer(CommandBuffer& commandBuffer, Buffer& buffer, std::size_t offset, IndexType indexType) {
         VkIndexType type;
 
         switch (indexType) {

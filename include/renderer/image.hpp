@@ -44,13 +44,13 @@ namespace renderer {
         static Image create(const ImageCreateInfo& createInfo);
         static void destroy(Image& image);
 
-        static ImageMapping map(Image& image, std::uint64_t sizeBytes, std::uint64_t offsetBytes);
+        static ImageMapping map(Image& image, std::size_t sizeBytes, std::size_t offsetBytes);
         static void unmap(Image& image, ImageMapping& mapping);
 
         static bool isMappable(Image& image);
         static ImageFormat getFormat(Image& image);
         static ImageType getType(Image& image);
-        static std::uint64_t getSize(Image& image);
+        static std::size_t getSize(Image& image);
         static glm::uvec3 getExtent(Image& image);
         static std::uint32_t getSampleCount(Image& image);
         static std::uint32_t getMipLevels(Image& image);
@@ -73,7 +73,7 @@ namespace renderer {
         bool isHostVisible_ = false;
         bool isHostCoherent_ = false;
 
-        std::uint64_t size_ = 0;
+        std::size_t size_ = 0;
 
         static VkFormat mapFormat(ImageFormat format, renderer::Instance& instance);
         static ImageFormat reverseMapFormat(VkFormat format);
@@ -89,7 +89,7 @@ namespace renderer {
     };
 
     struct BufferImageCopyRegion {
-        std::uint64_t bufferOffset;
+        std::size_t bufferOffset;
         std::uint32_t bufferRowLength;
         std::uint32_t bufferImageHeight;
         std::uint32_t mipLevel;
