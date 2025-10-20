@@ -4,9 +4,10 @@
 #include <string>
 #include <vector>
 
+#include <entt/entt.hpp>
 #include <glm/glm.hpp>
 
-namespace world {
+namespace engine::components {
     struct Trigger {
         struct Bounds {
             glm::vec2 position;
@@ -14,8 +15,9 @@ namespace world {
         } bounds;
 
         struct Event {
-            std::string action;
+            entt::entity action = entt::null;
             std::vector<std::optional<std::string>> parameters;
+            bool triggered = false;
         };
 
         std::vector<Event> onEnter;

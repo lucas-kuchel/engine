@@ -2,6 +2,7 @@
 
 #include <engine/components/defaults.hpp>
 #include <engine/components/entity_tags.hpp>
+#include <engine/components/space.hpp>
 
 #include <engine/components/transforms.hpp>
 #include <engine/systems/transforms.hpp>
@@ -27,10 +28,63 @@
 
 engine::Engine::Engine()
     : api_(*this), window_(createWindow()), renderer_(window_) {
+    luaState_.open_libraries(
+        sol::lib::base,
+        sol::lib::package,
+        sol::lib::table,
+        sol::lib::string,
+        sol::lib::math,
+        sol::lib::os,
+        sol::lib::debug);
+
+    luaState_.new_usertype<EngineAPI>("EngineAPI",
+                                      "resetSpace", &EngineAPI::resetSpace,
+                                      "setSpace", &EngineAPI::setSpace);
+
+    luaState_["engine"] = api_;
+
     run();
 }
 
 engine::Engine::~Engine() {
+}
+
+void engine::EngineAPI::setSpace(const std::string& space) {
+    auto& world = engine_.registry_.get<components::World>(engine_.currentWorld_);
+
+    for (auto& spaceEntity : world.spaces) {
+        auto& spaceComponent = engine_.registry_.get<components::Space>(spaceEntity);
+
+        if (spaceComponent.name == space) {
+            world.currentSpace = spaceEntity;
+        }
+    }
+}
+
+void engine::EngineAPI::resetSpace() {
+    auto& world = engine_.registry_.get<components::World>(engine_.currentWorld_);
+
+    world.currentSpace = std::nullopt;
+}
+
+void engine::Engine::addScript(const std::string&, const std::string& filepath) {
+    luaState_.script_file(filepath);
+}
+
+void engine::Engine::runFunction(const std::string&, const std::string& function, std::vector<std::optional<std::string>>& parameters) {
+    std::vector<sol::object> luaArgs;
+    luaArgs.reserve(parameters.size());
+
+    for (const auto& param : parameters) {
+        if (param) {
+            luaArgs.push_back(sol::make_object(luaState_, *param)); // non-const string pushed
+        }
+        else {
+            luaArgs.push_back(sol::lua_nil); // nil for std::nullopt
+        }
+    }
+
+    luaState_[function](sol::as_args(luaArgs));
 }
 
 app::WindowCreateInfo engine::Engine::createWindow() {
@@ -316,7 +370,7 @@ void engine::Engine::start() {
 
     worldComponent.path = "assets/worlds/default";
 
-    systems::loadWorlds(registry_);
+    systems::loadWorlds(registry_, *this);
     systems::createTileMeshes(registry_, device, transferCommandBuffer, stagingBuffer, stagingBufferOffset);
 
     currentCamera_ = registry_.create();
@@ -332,6 +386,7 @@ void engine::Engine::start() {
     registry_.emplace<components::Acceleration>(currentCamera_);
     registry_.emplace<components::PositionController>(currentCamera_, app::Key::W, app::Key::S, app::Key::A, app::Key::D);
     registry_.emplace<components::Speed>(currentCamera_, 5.0f);
+    registry_.emplace<components::CanActivateTriggerTag>(currentCamera_);
 
     cameraComponent.near = 0.1f;
     cameraComponent.far = 100.0f;
@@ -440,6 +495,9 @@ void engine::Engine::update() {
 
     systems::updatePositionControllers(registry_, keysHeld_);
     systems::integrateMovements(registry_, deltaTime_);
+
+    systems::checkTriggers(registry_);
+    systems::performTriggers(registry_, *this);
 
     systems::updateCameras(registry_, stagingBuffer, transferCommandBuffer, stagingBufferOffset);
     systems::updateTileMeshes(registry_, transferCommandBuffer, stagingBuffer, stagingBufferOffset);

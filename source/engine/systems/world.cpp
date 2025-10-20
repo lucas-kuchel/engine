@@ -6,6 +6,7 @@
 #include <engine/components/tile.hpp>
 #include <engine/components/trigger.hpp>
 #include <engine/components/world.hpp>
+#include <engine/engine.hpp>
 #include <engine/systems/world.hpp>
 
 #include <filesystem>
@@ -13,7 +14,7 @@
 
 #include <nlohmann/json.hpp>
 
-void engine::systems::loadWorlds(entt::registry& registry) {
+void engine::systems::loadWorlds(entt::registry& registry, Engine& engine) {
     for (auto& entity : registry.view<components::World>()) {
         auto& world = registry.get<components::World>(entity);
 
@@ -149,6 +150,8 @@ void engine::systems::loadWorlds(entt::registry& registry) {
             action.name = actionJson.at("name").get<std::string>();
             action.script.filepath = scriptJson.at("filepath").get<std::string>();
             action.script.function = scriptJson.at("function").get<std::string>();
+
+            engine.addScript(action.name, scriptsPath + action.script.filepath);
         }
 
         // --- Load Spaces ---
@@ -328,7 +331,7 @@ void engine::systems::loadWorlds(entt::registry& registry) {
             auto triggerEntity = registry.create();
             world.triggers.push_back(triggerEntity);
 
-            auto& trigger = registry.emplace<world::Trigger>(triggerEntity);
+            auto& trigger = registry.emplace<components::Trigger>(triggerEntity);
 
             trigger.bounds.position = {
                 boundsJson.at("x").get<float>(),
@@ -347,8 +350,19 @@ void engine::systems::loadWorlds(entt::registry& registry) {
                         continue;
                     }
 
-                    world::Trigger::Event event;
-                    event.action = eventJson.at("action").get<std::string>();
+                    components::Trigger::Event event;
+                    std::string actionName = eventJson.at("action").get<std::string>();
+
+                    for (auto& action : world.actions) {
+                        auto& actionComponent = registry.get<components::Action>(action);
+                        if (actionName == actionComponent.name) {
+                            event.action = action;
+                        }
+                    }
+
+                    if (event.action == entt::null) {
+                        continue;
+                    }
 
                     for (auto& paramJson : eventJson.at("parameters")) {
                         if (paramJson.is_null()) {
@@ -373,8 +387,19 @@ void engine::systems::loadWorlds(entt::registry& registry) {
                         continue;
                     }
 
-                    world::Trigger::Event event;
-                    event.action = eventJson.at("action").get<std::string>();
+                    components::Trigger::Event event;
+                    std::string actionName = eventJson.at("action").get<std::string>();
+
+                    for (auto& action : world.actions) {
+                        auto& actionComponent = registry.get<components::Action>(action);
+                        if (actionName == actionComponent.name) {
+                            event.action = action;
+                        }
+                    }
+
+                    if (event.action == entt::null) {
+                        continue;
+                    }
 
                     for (auto& paramJson : eventJson.at("parameters")) {
                         if (paramJson.is_null()) {
@@ -390,6 +415,75 @@ void engine::systems::loadWorlds(entt::registry& registry) {
 
                     trigger.onExit.push_back(event);
                 }
+            }
+        }
+    }
+}
+
+void engine::systems::checkTriggers(entt::registry& registry) {
+    for (auto& triggerEntity : registry.view<components::Trigger>()) {
+        auto& trigger = registry.get<components::Trigger>(triggerEntity);
+
+        for (auto& activatorEntity : registry.view<components::Position, components::CanActivateTriggerTag>()) {
+            auto& position = registry.get<components::Position>(activatorEntity);
+            auto& tag = registry.get<components::CanActivateTriggerTag>(activatorEntity);
+
+            glm::vec2 position2D = {position.position.x, position.position.y};
+            glm::vec2 scale = {1.0f, 1.0f};
+
+            if (registry.all_of<components::Scale>(activatorEntity)) {
+                // scale = registry.get<components::Scale>(activatorEntity).scale;
+            }
+
+            glm::vec2 entityMin = position2D;
+            glm::vec2 entityMax = position2D + scale;
+
+            glm::vec2 triggerMin = trigger.bounds.position;
+            glm::vec2 triggerMax = trigger.bounds.position + trigger.bounds.extent;
+
+            bool inside = (entityMax.x > triggerMin.x) &&
+                          (entityMin.x < triggerMax.x) &&
+                          (entityMax.y > triggerMin.y) &&
+                          (entityMin.y < triggerMax.y);
+
+            bool wasInside = (tag.currentTrigger == triggerEntity);
+            if (inside && !wasInside) {
+                // Just entered
+                tag.currentTrigger = triggerEntity;
+                for (auto& event : trigger.onEnter)
+                    event.triggered = true;
+            }
+            else if (!inside && wasInside) {
+                // Just exited
+                tag.currentTrigger = entt::null;
+                for (auto& event : trigger.onExit)
+                    event.triggered = true;
+            }
+        }
+    }
+}
+
+void engine::systems::performTriggers(entt::registry& registry, Engine& engine) {
+    for (auto& entity : registry.view<components::Trigger>()) {
+        auto& trigger = registry.get<components::Trigger>(entity);
+
+        for (auto& onEnter : trigger.onEnter) {
+            if (onEnter.triggered) {
+                auto& action = registry.get<components::Action>(onEnter.action);
+
+                engine.runFunction(action.name, action.script.function, onEnter.parameters);
+
+                onEnter.triggered = false;
+            }
+        }
+
+        for (auto& onExit : trigger.onExit) {
+            if (onExit.triggered) {
+                auto& action = registry.get<components::Action>(onExit.action);
+
+                engine.runFunction(action.name, action.script.function, onExit.parameters);
+
+                onExit.triggered = false;
             }
         }
     }

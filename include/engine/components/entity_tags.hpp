@@ -1,5 +1,7 @@
 #pragma once
 
+#include <entt/entt.hpp>
+
 namespace engine::components {
     struct StaticTileTag {
     };
@@ -11,5 +13,9 @@ namespace engine::components {
     };
 
     struct ActiveWorldTag {
+    };
+
+    struct CanActivateTriggerTag {
+        entt::entity currentTrigger = entt::null;
     };
 }

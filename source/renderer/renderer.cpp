@@ -60,7 +60,7 @@ renderer::Renderer::Renderer(app::Window& window) {
         .device = device_,
         .presentQueue = presentQueue_,
         .imageCount = 3,
-        .synchronise = false,
+        .synchronise = true,
     };
 
     auto [newSwapchain, swapchainResult] = renderer::Swapchain::create(swapchainCreateInfo);
@@ -263,7 +263,7 @@ void renderer::Renderer::acquireImage(const std::vector<Fence>& fences) {
                 .device = device_,
                 .presentQueue = presentQueue_,
                 .imageCount = 3,
-                .synchronise = false,
+                .synchronise = true,
                 .oldSwapchain = &swapchain_,
             };
 

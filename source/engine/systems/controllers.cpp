@@ -9,11 +9,11 @@ void engine::systems::updatePositionControllers(entt::registry& registry, std::s
         auto& acceleration = registry.get<components::Acceleration>(entity);
 
         if (keymap[static_cast<std::uint64_t>(controller.forwardBinding)]) {
-            acceleration.acceleration.y -= speed.speed;
+            acceleration.acceleration.y += speed.speed;
         }
 
         if (keymap[static_cast<std::uint64_t>(controller.backwardBinding)]) {
-            acceleration.acceleration.y += speed.speed;
+            acceleration.acceleration.y -= speed.speed;
         }
 
         if (keymap[static_cast<std::uint64_t>(controller.leftBinding)]) {

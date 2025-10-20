@@ -4,7 +4,7 @@
             "name": "set_space",
             "script": {
                 "function": "setSpace",
-                "filepath": "scripts/basic.lua"
+                "filepath": "basic.lua"
             }
         }
     ]

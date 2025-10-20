@@ -84,8 +84,8 @@ void engine::systems::updateCameras(entt::registry& registry, renderer::Buffer& 
             glm::vec3 target = position + forward;
 
             uploadData.projection = glm::orthoRH_ZO(left, right, bottom, top, camera.near, camera.far);
+            uploadData.projection[1][1] *= -1.0f;
             uploadData.view = glm::lookAt(position, target, glm::vec3{0.0f, 1.0f, 0.0f});
-            uploadData.projection[0][1] *= -1.0f;
         }
 
         auto mapping = renderer::Buffer::map(stagingBuffer, renderer::Buffer::size(buffer.buffer), stagingBufferOffset);

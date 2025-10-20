@@ -33,6 +33,9 @@ namespace engine {
 
         void run();
 
+        void addScript(const std::string& module, const std::string& filepath);
+        void runFunction(const std::string& module, const std::string& function, std::vector<std::optional<std::string>>& parameters);
+
     private:
         app::WindowCreateInfo createWindow();
 
@@ -78,6 +81,8 @@ namespace engine {
         entt::registry registry_;
         entt::dispatcher dispatcher_;
 
+        sol::state luaState_;
+
         using TimePoint = std::chrono::time_point<std::chrono::high_resolution_clock>;
         using KeyArray = std::array<bool, 93>;
 
@@ -89,5 +94,7 @@ namespace engine {
         KeyArray keysPressed_ = {false};
         KeyArray keysHeld_ = {false};
         KeyArray keysReleased_ = {false};
+
+        friend class EngineAPI;
     };
 }
