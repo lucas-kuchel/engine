@@ -2,6 +2,8 @@
 #include <engine/components/world.hpp>
 #include <engine/systems/tile.hpp>
 
+#include <cstring>
+
 void engine::systems::createTileMeshes(entt::registry& registry, renderer::Device& device, renderer::CommandBuffer& commandBuffer, renderer::Buffer& stagingBuffer, std::uint64_t& stagingBufferOffset) {
     if (!stagingBuffer) {
         return;

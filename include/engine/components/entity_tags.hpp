@@ -1,11 +1,6 @@
 #pragma once
 
-#include <entt/entt.hpp>
-
 namespace engine::components {
-    struct StaticTileTag {
-    };
-
     struct ActiveCharacterTag {
     };
 
@@ -15,7 +10,18 @@ namespace engine::components {
     struct ActiveWorldTag {
     };
 
-    struct CanActivateTriggerTag {
-        entt::entity currentTrigger = entt::null;
+    struct CollidableTag {
+    };
+
+    struct TriggerTag {
+    };
+
+    struct ColliderTag {
+    };
+
+    struct CanTriggerTag {
+    };
+
+    struct CanCollideTag {
     };
 }
