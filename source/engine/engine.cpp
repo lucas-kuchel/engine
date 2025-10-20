@@ -1,6 +1,19 @@
 #include <engine/engine.hpp>
 
+#include <engine/components/defaults.hpp>
+#include <engine/components/entity_tags.hpp>
+
+#include <engine/components/transforms.hpp>
+#include <engine/systems/transforms.hpp>
+
+#include <engine/components/controllers.hpp>
+#include <engine/systems/controllers.hpp>
+
 #include <engine/components/tile.hpp>
+#include <engine/systems/tile.hpp>
+
+#include <engine/components/camera.hpp>
+#include <engine/systems/camera.hpp>
 
 #include <engine/components/world.hpp>
 #include <engine/systems/world.hpp>
@@ -80,7 +93,7 @@ void engine::Engine::run() {
     start();
 
     while (running_) {
-        for (std::size_t i = 0; i < keysPressed_.size(); i++) {
+        for (std::uint64_t i = 0; i < keysPressed_.size(); i++) {
             keysPressed_[i] = keysPressed_[i] && !keysHeld_[i];
             keysReleased_[i] = keysReleased_[i] && keysHeld_[i];
         }
@@ -108,8 +121,8 @@ void engine::Engine::run() {
     close();
 }
 
-std::size_t engine::Engine::keyIndex(app::Key key) {
-    return static_cast<std::size_t>(key);
+std::uint64_t engine::Engine::keyIndex(app::Key key) {
+    return static_cast<std::uint64_t>(key);
 }
 
 void engine::Engine::start() {
@@ -224,13 +237,13 @@ void engine::Engine::start() {
     stagingBufferFences_.resize(renderer_.getFrameCounter().count);
     stagingBufferSemaphores_.resize(renderer_.getFrameCounter().count);
 
-    for (std::size_t i = 0; i < renderer_.getFrameCounter().count; i++) {
+    for (std::uint64_t i = 0; i < renderer_.getFrameCounter().count; i++) {
         stagingBuffers_[i] = renderer::Buffer::create(stagingBufferCreateInfo);
         stagingBufferFences_[i] = renderer::Fence::create({device, renderer::FenceCreateFlags::START_SIGNALLED});
         stagingBufferSemaphores_[i] = renderer::Semaphore::create(device);
     }
 
-    std::size_t stagingBufferOffset = 0;
+    std::uint64_t stagingBufferOffset = 0;
 
     auto& transferCommandBuffer = transferCommandBuffers_[renderer_.getFrameCounter().index];
     auto& stagingBuffer = stagingBuffers_[renderer_.getFrameCounter().index];
@@ -295,13 +308,46 @@ void engine::Engine::start() {
 
     renderer::CommandBuffer::pipelineBarrier(transferCommandBuffer, renderer::PipelineStageFlags::TRANSFER, renderer::PipelineStageFlags::FRAGMENT_SHADER, {memoryBarrier1});
 
-    auto worldEntity = registry_.create();
+    currentWorld_ = registry_.create();
 
-    auto& worldComponent = registry_.emplace<components::World>(worldEntity);
+    auto& worldComponent = registry_.emplace<components::World>(currentWorld_);
+
+    registry_.emplace<components::TileMesh>(currentWorld_);
 
     worldComponent.path = "assets/worlds/default";
 
     systems::loadWorlds(registry_);
+    systems::createTileMeshes(registry_, device, transferCommandBuffer, stagingBuffer, stagingBufferOffset);
+
+    currentCamera_ = registry_.create();
+
+    auto& worldDefaults = registry_.get<components::Defaults>(worldComponent.defaults);
+    auto& cameraComponent = registry_.emplace<components::Camera>(currentCamera_);
+    auto& cameraPosition = registry_.emplace<components::Position>(currentCamera_);
+    auto& cameraBuffer = registry_.emplace<components::CameraBuffer>(currentCamera_);
+    auto& cameraScale = registry_.emplace<components::Scale>(currentCamera_);
+
+    registry_.emplace<components::ActiveCameraTag>(currentCamera_);
+    registry_.emplace<components::Velocity>(currentCamera_);
+    registry_.emplace<components::Acceleration>(currentCamera_);
+    registry_.emplace<components::PositionController>(currentCamera_, app::Key::W, app::Key::S, app::Key::A, app::Key::D);
+    registry_.emplace<components::Speed>(currentCamera_, 5.0f);
+
+    cameraComponent.near = 0.1f;
+    cameraComponent.far = 100.0f;
+    cameraComponent.mode = worldDefaults.camera.mode;
+    cameraComponent.scale = 10.0f;
+
+    cameraScale.scale = window_.extent();
+
+    if (worldDefaults.camera.position.has_value()) {
+        cameraPosition.position = glm::vec3(worldDefaults.camera.position.value(), 0.0f);
+    }
+    else {
+        cameraPosition.position = {0.0f, 0.0f, 1.0f};
+    }
+
+    systems::createCameras(registry_, device);
 
     // game::createMesh(tileCount_, tileMesh_, device_, stagingBuffer_, transferCommandBuffer_, stagingBufferOffset);
 
@@ -323,28 +369,22 @@ void engine::Engine::start() {
 
     createBasicPipelineResources();
 
-    // game::createCameraBuffers(registry_, device_);
+    renderer::DescriptorSetBufferBinding cameraBufferBinding = {
+        .buffer = cameraBuffer.buffer,
+        .offsetBytes = 0,
+        .rangeBytes = renderer::Buffer::size(cameraBuffer.buffer),
+    };
 
-    // auto& cameraBuffers = registry_.storage<game::CameraBuffer>();
+    renderer::DescriptorSetUpdateInfo uniformBufferUpdateInfo = {
+        .set = basicDescriptorSet_,
+        .inputType = renderer::DescriptorInputType::UNIFORM_BUFFER,
+        .binding = 0,
+        .arrayElement = 0,
+        .buffers = {cameraBufferBinding},
+        .images = {},
+    };
 
-    // auto& cameraBuffer = cameraBuffers.get(cameraBuffers.data()[cameraCounter_.index]);
-    //
-    // renderer::DescriptorSetBufferBinding cameraBufferBinding = {
-    //     .buffer = cameraBuffer.buffer,
-    //     .offsetBytes = 0,
-    //     .rangeBytes = renderer::Buffer::size(cameraBuffer.buffer),
-    // };
-    //
-    // renderer::DescriptorSetUpdateInfo uniformBufferUpdateInfo = {
-    //     .set = basicDescriptorSet_,
-    //     .inputType = renderer::DescriptorInputType::UNIFORM_BUFFER,
-    //     .binding = 0,
-    //     .arrayElement = 0,
-    //     .buffers = {cameraBufferBinding},
-    //     .images = {},
-    // };
-    //
-    // renderer::DescriptorPool::updateDescriptorSets(descriptorPool_, {uniformBufferUpdateInfo});
+    renderer::DescriptorPool::updateDescriptorSets(descriptorPool_, {uniformBufferUpdateInfo});
 
     renderer::ImageViewCreateInfo tilemapImageViewCreateInfo = {
         .image = tilemapImage_,
@@ -382,7 +422,7 @@ void engine::Engine::start() {
 
 void engine::Engine::update() {
     auto& transferCommandBuffer = transferCommandBuffers_[renderer_.getFrameCounter().index];
-    // auto& stagingBuffer = stagingBuffers_[renderer_.getFrameCounter().index];
+    auto& stagingBuffer = stagingBuffers_[renderer_.getFrameCounter().index];
     auto& stagingBufferFence = stagingBufferFences_[renderer_.getFrameCounter().index];
     auto& stagingBufferSemaphore = stagingBufferSemaphores_[renderer_.getFrameCounter().index];
 
@@ -390,7 +430,7 @@ void engine::Engine::update() {
 
     renderer::CommandBuffer::reset(transferCommandBuffer);
 
-    // std::size_t stagingBufferOffset = 0;
+    std::uint64_t stagingBufferOffset = 0;
 
     thisFrameTime_ = std::chrono::high_resolution_clock::now();
     deltaTime_ = std::clamp(std::chrono::duration<float>(thisFrameTime_ - lastFrameTime_).count(), 0.0f, 0.1f);
@@ -398,18 +438,11 @@ void engine::Engine::update() {
 
     renderer::CommandBuffer::beginCapture(transferCommandBuffer);
 
-    // game::updatePositionControllers(registry_, keysHeld_);
-    // ::updateCameraOrthographics(registry_, renderer::Swapchain::getExtent(swapchain_));
-    // game::integrate(registry_, deltaTime);
+    systems::updatePositionControllers(registry_, keysHeld_);
+    systems::integrateMovements(registry_, deltaTime_);
 
-    // game::cameraFollow(registry_);
-
-    // game::updateCameraViews(registry_);
-
-    // game::transform(registry_);
-
-    // game::updateCameraBuffers(registry_, stagingBuffer_, transferCommandBuffer_, stagingBufferOffset);
-    // game::updateMesh(tileCount_, tileMesh_, registry_, stagingBuffer_, transferCommandBuffer_, stagingBufferOffset);
+    systems::updateCameras(registry_, stagingBuffer, transferCommandBuffer, stagingBufferOffset);
+    systems::updateTileMeshes(registry_, transferCommandBuffer, stagingBuffer, stagingBufferOffset);
 
     renderer::CommandBuffer::endCapture(transferCommandBuffer);
 
@@ -458,7 +491,7 @@ void engine::Engine::render() {
             .extent = renderer::Swapchain::getExtent(swapchain),
         },
         .colourClearValues = {
-            glm::fvec4{0.5, 0.0, 0.0, 1.0},
+            glm::fvec4{0.0, 0.0, 0.0, 1.0},
         },
         .depthClearValue = 1.0f,
         .stencilClearValue = 0xFF,
@@ -471,11 +504,11 @@ void engine::Engine::render() {
     renderer::CommandBuffer::setPipelineScissors(commandBuffer, {scissor}, 0);
     renderer::CommandBuffer::bindDescriptorSets(commandBuffer, renderer::DeviceOperation::GRAPHICS, basicPipelineLayout_, 0, {basicDescriptorSet_});
 
-    // auto view = registry_.view<game::MeshTexture, game::MeshTransform>();
-    // std::uint32_t instanceCount = static_cast<std::uint32_t>(view.size_hint());
+    auto& world = registry_.get<components::World>(currentWorld_);
+    auto& tileMesh = registry_.get<components::TileMesh>(currentWorld_);
 
-    // renderer::CommandBuffer::bindVertexBuffers(commandBuffer, {tileMesh_.vertexBuffer, tileMesh_.textureBuffer, tileMesh_.transformBuffer}, {0, 0, 0}, 0);
-    // renderer::CommandBuffer::draw(commandBuffer, 4, instanceCount, 0, 0);
+    renderer::CommandBuffer::bindVertexBuffers(commandBuffer, {tileMesh.vertexBuffer, tileMesh.instanceBuffer}, {0, 0}, 0);
+    renderer::CommandBuffer::draw(commandBuffer, 4, static_cast<std::uint32_t>(world.tiles.size()), 0, 0);
 
     renderer::CommandBuffer::endRenderPass(commandBuffer);
     renderer::CommandBuffer::endCapture(commandBuffer);
@@ -499,10 +532,10 @@ void engine::Engine::close() {
 
     renderer::Device::waitIdle(device);
 
-    // game::destroyCameraBuffers(registry_);
-    // game::destroyMesh(tileMesh_);
+    systems::destroyCameras(registry_);
+    systems::destroyTileMeshes(registry_);
 
-    for (std::size_t i = 0; i < renderer_.getFrameCounter().count; i++) {
+    for (std::uint64_t i = 0; i < renderer_.getFrameCounter().count; i++) {
         renderer::Fence::destroy(stagingBufferFences_[i]);
         renderer::Semaphore::destroy(stagingBufferSemaphores_[i]);
         renderer::Buffer::destroy(stagingBuffers_[i]);
@@ -525,8 +558,8 @@ void engine::Engine::createBasicPipelineResources() {
     std::ifstream vertexShader("assets/shaders/basic.vert.spv", std::ios::binary | std::ios::ate);
     std::ifstream fragmentShader("assets/shaders/basic.frag.spv", std::ios::binary | std::ios::ate);
 
-    std::size_t vertexShaderSize = static_cast<std::size_t>(vertexShader.tellg());
-    std::size_t fragmentShaderSize = static_cast<std::size_t>(fragmentShader.tellg());
+    std::uint64_t vertexShaderSize = static_cast<std::uint64_t>(vertexShader.tellg());
+    std::uint64_t fragmentShaderSize = static_cast<std::uint64_t>(fragmentShader.tellg());
 
     vertexShader.seekg(0, std::ios::beg);
     fragmentShader.seekg(0, std::ios::beg);
@@ -584,7 +617,7 @@ void engine::Engine::createBasicPipelineResources() {
                 renderer::VertexInputBindingDescription{
                     .inputRate = renderer::VertexInputRate::PER_INSTANCE,
                     .binding = 1,
-                    .strideBytes = sizeof(components::TileMesh),
+                    .strideBytes = sizeof(components::Tile),
                 },
             },
             .attributes = {
@@ -614,7 +647,7 @@ void engine::Engine::createBasicPipelineResources() {
                     .location = 4,
                 },
                 renderer::VertexAttributeDescription{
-                    .format = renderer::VertexAttributeFormat::R32G32B32_FLOAT,
+                    .format = renderer::VertexAttributeFormat::R32G32B32A32_FLOAT,
                     .binding = 1,
                     .location = 5,
                 },

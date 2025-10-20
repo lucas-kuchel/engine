@@ -53,7 +53,7 @@ namespace renderer {
             return {};
         }
 
-        for (std::size_t i = 0; i < count; i++) {
+        for (std::uint64_t i = 0; i < count; i++) {
             buffers.push_back(CommandBuffer());
 
             auto& commandBuffer = buffers.back();
@@ -70,7 +70,7 @@ namespace renderer {
     void CommandPool::destroyCommandBuffers(CommandPool& commandPool, const std::vector<CommandBuffer>& buffers) {
         std::vector<VkCommandBuffer> commandBuffers(buffers.size());
 
-        for (std::size_t i = 0; i < buffers.size(); i++) {
+        for (std::uint64_t i = 0; i < buffers.size(); i++) {
             commandBuffers[i] = buffers[i].commandBuffer_;
         }
 

@@ -10,7 +10,7 @@ namespace renderer {
 
         std::vector<VkDescriptorSetLayoutBinding> bindings(createInfo.inputs.size());
 
-        for (std::size_t i = 0; i < bindings.size(); i++) {
+        for (std::uint64_t i = 0; i < bindings.size(); i++) {
             auto& binding = bindings[i];
             auto& input = createInfo.inputs[i];
 
@@ -80,7 +80,7 @@ namespace renderer {
 
         std::vector<VkDescriptorPoolSize> poolSizes(createInfo.poolSizes.size());
 
-        for (std::size_t i = 0; i < poolSizes.size(); i++) {
+        for (std::uint64_t i = 0; i < poolSizes.size(); i++) {
             VkDescriptorType descriptorType = VK_DESCRIPTOR_TYPE_MAX_ENUM;
 
             switch (createInfo.poolSizes[i].type) {
@@ -134,7 +134,7 @@ namespace renderer {
         std::vector<VkDescriptorSet> descriptorSets(createInfo.layouts.size());
         std::vector<VkDescriptorSetLayout> layouts(createInfo.layouts.size());
 
-        for (std::size_t i = 0; i < layouts.size(); i++) {
+        for (std::uint64_t i = 0; i < layouts.size(); i++) {
             layouts[i] = createInfo.layouts[i].descriptorSetLayout_;
         }
 
@@ -154,7 +154,7 @@ namespace renderer {
 
         sets.reserve(createInfo.layouts.size());
 
-        for (std::size_t i = 0; i < descriptorSets.size(); i++) {
+        for (std::uint64_t i = 0; i < descriptorSets.size(); i++) {
             sets.push_back(DescriptorSet());
 
             auto& set = sets.back();
@@ -173,11 +173,11 @@ namespace renderer {
         std::vector<std::vector<VkDescriptorBufferInfo>> bufferInfos(updateInfos.size());
         std::vector<std::vector<VkDescriptorImageInfo>> imageInfos(updateInfos.size());
 
-        for (std::size_t i = 0; i < writes.size(); i++) {
+        for (std::uint64_t i = 0; i < writes.size(); i++) {
             bufferInfos[i].resize(updateInfos[i].buffers.size());
             imageInfos[i].resize(updateInfos[i].images.size());
 
-            for (std::size_t j = 0; j < bufferInfos[i].size(); j++) {
+            for (std::uint64_t j = 0; j < bufferInfos[i].size(); j++) {
                 bufferInfos[i][j] = {
                     .buffer = updateInfos[i].buffers[j].buffer.buffer_,
                     .offset = updateInfos[i].buffers[j].offsetBytes,
@@ -185,7 +185,7 @@ namespace renderer {
                 };
             }
 
-            for (std::size_t j = 0; j < imageInfos[i].size(); j++) {
+            for (std::uint64_t j = 0; j < imageInfos[i].size(); j++) {
                 struct FlagMap {
                     ImageLayout layout;
                     VkImageLayout vkLayout;
@@ -258,13 +258,13 @@ namespace renderer {
         std::vector<VkDescriptorSetLayout> descriptorSets(createInfo.inputLayouts.size());
         std::vector<VkPushConstantRange> pushConstants(createInfo.pushConstants.size());
 
-        for (std::size_t i = 0; i < descriptorSets.size(); i++) {
+        for (std::uint64_t i = 0; i < descriptorSets.size(); i++) {
             descriptorSets[i] = createInfo.inputLayouts[i].descriptorSetLayout_;
         }
 
         std::uint32_t pushConstantOffset = 0;
 
-        for (std::size_t i = 0; i < pushConstants.size(); i++) {
+        for (std::uint64_t i = 0; i < pushConstants.size(); i++) {
             auto& info = pushConstants[i];
             auto& pushConstant = createInfo.pushConstants[i];
 

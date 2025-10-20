@@ -45,9 +45,12 @@ namespace engine {
 
         void createBasicPipelineResources();
 
-        static std::size_t keyIndex(app::Key key);
+        static std::uint64_t keyIndex(app::Key key);
 
         EngineAPI api_;
+
+        entt::entity currentWorld_;
+        entt::entity currentCamera_;
 
         app::Context context_;
         app::Window window_;

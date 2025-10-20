@@ -25,7 +25,7 @@ namespace engine::components {
     };
 
     struct alignas(32) TransformUploadData {
-        glm::vec3 position;
+        glm::vec4 position;
         glm::mat2 model;
     };
 }

@@ -208,7 +208,7 @@ namespace renderer {
         swapchain.images_.reserve(actualImageCount);
         swapchain.imageViews_.reserve(actualImageCount);
 
-        for (std::size_t i = 0; i < actualImageCount; i++) {
+        for (std::uint64_t i = 0; i < actualImageCount; i++) {
             swapchain.images_.push_back(Image());
 
             Image& image = swapchain.images_.back();

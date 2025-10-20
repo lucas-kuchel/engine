@@ -75,7 +75,7 @@ namespace renderer {
         }
     }
 
-    BufferMapping Buffer::map(Buffer& buffer, std::size_t size, std::size_t offset) {
+    BufferMapping Buffer::map(Buffer& buffer, std::uint64_t size, std::uint64_t offset) {
         BufferMapping mapping;
 
         mapping.offset = offset;
@@ -113,7 +113,7 @@ namespace renderer {
         vmaUnmapMemory(buffer.device_->allocator_, buffer.allocation_);
     }
 
-    std::size_t Buffer::size(Buffer& buffer) {
+    std::uint64_t Buffer::size(Buffer& buffer) {
         return buffer.size_;
     }
 

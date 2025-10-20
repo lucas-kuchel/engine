@@ -27,7 +27,7 @@ void engine::systems::createCameras(entt::registry& registry, renderer::Device& 
     }
 }
 
-void engine::systems::updateCameras(entt::registry& registry, renderer::Buffer& stagingBuffer, renderer::CommandBuffer& commandBuffer, std::size_t& stagingBufferOffset) {
+void engine::systems::updateCameras(entt::registry& registry, renderer::Buffer& stagingBuffer, renderer::CommandBuffer& commandBuffer, std::uint64_t& stagingBufferOffset) {
     if (!stagingBuffer) {
         return;
     }

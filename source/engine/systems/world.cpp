@@ -227,7 +227,6 @@ void engine::systems::loadWorlds(entt::registry& registry) {
             space.camera.scale = cameraJson.at("scale").get<float>();
         }
 
-        // --- Load Tiles ---
         if (!tilesJson.contains("tiles") || !tilesJson.at("tiles").is_array()) {
             continue;
         }
@@ -243,10 +242,8 @@ void engine::systems::loadWorlds(entt::registry& registry) {
             auto& transformJson = tileJson.at("transform");
             auto& textureJson = tileJson.at("texture");
 
-            auto tileEntity = registry.create();
-            world.tiles.push_back(tileEntity);
-
-            auto& tile = registry.emplace<components::Tile>(tileEntity);
+            world.tiles.emplace_back();
+            auto& tile = world.tiles.back();
 
             if (!transformJson.contains("position") || !transformJson.at("position").is_object() ||
                 !transformJson.contains("scale") || !transformJson.at("scale").is_object() ||
@@ -256,15 +253,29 @@ void engine::systems::loadWorlds(entt::registry& registry) {
 
             auto& positionJson = transformJson.at("position");
             auto& scaleJson = transformJson.at("scale");
+            auto& rotationJson = transformJson.at("rotation");
 
-            tile.transform.position = {
-                positionJson.at("x").get<float>(),
-                positionJson.at("y").get<float>(),
-                positionJson.at("z").get<float>(),
+            glm::vec3 position = {0.0f, 0.0f, 0.0f};
+            glm::vec2 scale = {1.0f, 1.0f};
+            float rotation = 0.0f;
+
+            position.x = positionJson.at("x").get<float>();
+            position.y = positionJson.at("y").get<float>();
+            position.z = positionJson.at("z").get<float>();
+
+            scale.x = scaleJson.at("width").get<float>();
+            scale.y = scaleJson.at("height").get<float>();
+
+            rotation = rotationJson.get<float>();
+
+            float sin = std::sin(glm::radians(rotation));
+            float cos = std::cos(glm::radians(rotation));
+
+            tile.transform.position = glm::vec4(position, 1.0f);
+            tile.transform.model = glm::mat2{
+                glm::vec2{cos * scale.x, -sin * scale.y},
+                glm::vec2{sin * scale.x, cos * scale.y},
             };
-
-            tile.transform.model[0][0] = scaleJson.at("x").get<float>();
-            tile.transform.model[1][1] = scaleJson.at("y").get<float>();
 
             if (!textureJson.contains("sample") || !textureJson.at("sample").is_object() ||
                 !textureJson.contains("offset") || !textureJson.at("offset").is_object() ||

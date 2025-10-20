@@ -8,8 +8,6 @@
 
 namespace engine::components {
     struct Tile {
-        engine::components::TransformUploadData transform;
-
         struct alignas(32) Texture {
             struct Sample {
                 glm::vec2 position;
@@ -19,6 +17,8 @@ namespace engine::components {
             glm::vec2 offset;
             glm::vec2 scale;
         } texture;
+
+        engine::components::TransformUploadData transform;
     };
 
     struct TileMesh {

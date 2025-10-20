@@ -1,5 +1,7 @@
 #pragma once
 
+#include <engine/components/tile.hpp>
+
 #include <entt/entt.hpp>
 
 namespace engine::components {
@@ -10,11 +12,10 @@ namespace engine::components {
 
         std::vector<entt::entity> actions;
         std::vector<entt::entity> spaces;
-        std::vector<entt::entity> tiles;
         std::vector<entt::entity> triggers;
 
-        std::optional<entt::entity> currentSpace;
+        std::vector<components::Tile> tiles;
 
-        entt::entity tileMesh;
+        std::optional<entt::entity> currentSpace;
     };
 }

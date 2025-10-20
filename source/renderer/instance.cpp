@@ -53,7 +53,7 @@ namespace renderer {
             throw std::runtime_error("Error constucting renderer::Instance: Failed to enumerate Vulkan instance extension properties");
         }
 
-        for (std::size_t i = 0; i < windowExtensionCount; i++) {
+        for (std::uint64_t i = 0; i < windowExtensionCount; i++) {
             requestedExtensions.emplace_back(windowExtensions[i]);
         }
 
@@ -61,10 +61,10 @@ namespace renderer {
         requestedExtensions.emplace_back(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME);
 #endif
 
-        for (std::size_t i = 0; i < extensionProperties.size(); i++) {
+        for (std::uint64_t i = 0; i < extensionProperties.size(); i++) {
             auto& available = extensionProperties[i];
 
-            for (std::size_t j = 0; j < requestedExtensions.size(); j++) {
+            for (std::uint64_t j = 0; j < requestedExtensions.size(); j++) {
                 auto& requested = requestedExtensions[j];
 
                 if (std::string_view(available.extensionName) != requested) {

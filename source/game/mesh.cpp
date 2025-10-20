@@ -4,7 +4,7 @@
 // #include <cstring>
 //
 // namespace game {
-//     void createMesh(std::size_t tileCount, Mesh& mesh, renderer::Device& device, renderer::Buffer& stagingBuffer, renderer::CommandBuffer& commandBuffer, std::size_t stagingBufferOffset) {
+//     void createMesh(std::uint64_t tileCount, Mesh& mesh, renderer::Device& device, renderer::Buffer& stagingBuffer, renderer::CommandBuffer& commandBuffer, std::uint64_t stagingBufferOffset) {
 //         if (mesh.textureBuffer || mesh.transformBuffer || mesh.vertexBuffer || !stagingBuffer || tileCount == 0 || !renderer::CommandBuffer::capturing(commandBuffer)) {
 //             return;
 //         }
@@ -58,21 +58,21 @@
 //         renderer::CommandBuffer::copyBuffer(commandBuffer, stagingBuffer, mesh.vertexBuffer, {bufferCopyRegion});
 //     }
 //
-//     void updateMesh(std::size_t tileCount, Mesh& mesh, entt::registry& registry, renderer::Buffer& stagingBuffer, renderer::CommandBuffer& commandBuffer, std::size_t stagingBufferOffset) {
+//     void updateMesh(std::uint64_t tileCount, Mesh& mesh, entt::registry& registry, renderer::Buffer& stagingBuffer, renderer::CommandBuffer& commandBuffer, std::uint64_t stagingBufferOffset) {
 //         if (!mesh.textureBuffer || !mesh.transformBuffer || !mesh.vertexBuffer || !stagingBuffer || tileCount == 0 || !renderer::CommandBuffer::capturing(commandBuffer)) {
 //             return;
 //         }
 //
-//         std::size_t totalSize = renderer::Buffer::size(mesh.textureBuffer) + renderer::Buffer::size(mesh.transformBuffer);
-//         std::size_t textureBytes = tileCount * sizeof(MeshTexture);
-//         std::size_t transformBytes = tileCount * sizeof(MeshTransform);
+//         std::uint64_t totalSize = renderer::Buffer::size(mesh.textureBuffer) + renderer::Buffer::size(mesh.transformBuffer);
+//         std::uint64_t textureBytes = tileCount * sizeof(MeshTexture);
+//         std::uint64_t transformBytes = tileCount * sizeof(MeshTransform);
 //
 //         auto mapping = renderer::Buffer::map(stagingBuffer, totalSize, stagingBufferOffset);
 //
 //         auto* texturePointer = reinterpret_cast<MeshTexture*>(mapping.data.data());
 //         auto* transformPointer = reinterpret_cast<MeshTransform*>(reinterpret_cast<std::byte*>(mapping.data.data()) + textureBytes);
 //
-//         std::size_t i = 0;
+//         std::uint64_t i = 0;
 //
 //         for (auto [entity, meshTexture, transform] : registry.view<MeshTexture, MeshTransform>().each()) {
 //             texturePointer[i] = meshTexture;

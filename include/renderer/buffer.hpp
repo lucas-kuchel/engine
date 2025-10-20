@@ -11,9 +11,9 @@ namespace renderer {
     class Device;
 
     struct BufferCopyRegion {
-        std::size_t sourceOffsetBytes;
-        std::size_t destinationOffsetBytes;
-        std::size_t sizeBytes;
+        std::uint64_t sourceOffsetBytes;
+        std::uint64_t destinationOffsetBytes;
+        std::uint64_t sizeBytes;
     };
 
     struct BufferCreateInfo {
@@ -21,16 +21,16 @@ namespace renderer {
         MemoryType memoryType;
         Flags usageFlags;
 
-        std::size_t sizeBytes;
+        std::uint64_t sizeBytes;
     };
 
     struct BufferMapping {
         std::span<std::uint8_t> data;
 
-        std::size_t offset = 0;
+        std::uint64_t offset = 0;
 
-        std::size_t alignedSize = 0;
-        std::size_t alignedOffset = 0;
+        std::uint64_t alignedSize = 0;
+        std::uint64_t alignedOffset = 0;
     };
 
     class Buffer {
@@ -38,10 +38,10 @@ namespace renderer {
         static Buffer create(const BufferCreateInfo& createInfo);
         static void destroy(Buffer& buffer);
 
-        static BufferMapping map(Buffer& buffer, std::size_t size, std::size_t offset);
+        static BufferMapping map(Buffer& buffer, std::uint64_t size, std::uint64_t offset);
         static void unmap(Buffer& buffer, BufferMapping& mapping);
 
-        static std::size_t size(Buffer& buffer);
+        static std::uint64_t size(Buffer& buffer);
         static bool mappable(Buffer& buffer);
 
         explicit operator bool() {
@@ -56,7 +56,7 @@ namespace renderer {
         bool isHostCoherent_ = false;
         bool isHostVisible_ = false;
 
-        std::size_t size_ = 0;
+        std::uint64_t size_ = 0;
 
         friend class CommandBuffer;
         friend class DescriptorPool;

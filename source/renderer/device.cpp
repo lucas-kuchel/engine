@@ -218,7 +218,7 @@ namespace renderer {
     bool Device::waitForFences(Device& device, const std::vector<Fence>& fences, bool waitAll, std::uint32_t timeout) {
         std::vector<VkFence> vkFences(fences.size());
 
-        for (std::size_t i = 0; i < fences.size(); i++) {
+        for (std::uint64_t i = 0; i < fences.size(); i++) {
             vkFences[i] = fences[i].fence_;
         }
 
@@ -228,7 +228,7 @@ namespace renderer {
     bool Device::resetFences(Device& device, const std::vector<Fence>& fences) {
         std::vector<VkFence> vkFences(fences.size());
 
-        for (std::size_t i = 0; i < fences.size(); i++) {
+        for (std::uint64_t i = 0; i < fences.size(); i++) {
             vkFences[i] = fences[i].fence_;
         }
 
@@ -278,7 +278,7 @@ namespace renderer {
             .pDynamicStates = dynamicStates.data(),
         };
 
-        for (std::size_t i = 0; i < createInfos.size(); i++) {
+        for (std::uint64_t i = 0; i < createInfos.size(); i++) {
             auto& createInfo = createInfos[i];
             auto& createData = creationData[i];
             auto& pipelineCreateInfo = pipelineCreateInfos[i];
@@ -288,7 +288,7 @@ namespace renderer {
             createData.attributes.resize(createInfo.vertexInput.attributes.size());
             createData.blendAttachments.resize(createInfo.colourBlend.attachments.size());
 
-            for (std::size_t j = 0; j < createData.shaderStages.size(); j++) {
+            for (std::uint64_t j = 0; j < createData.shaderStages.size(); j++) {
                 auto& info = createData.shaderStages[j];
                 auto& stage = createInfo.shaderStages[j];
 
@@ -303,7 +303,7 @@ namespace renderer {
                 };
             }
 
-            for (std::size_t j = 0; j < createData.bindings.size(); j++) {
+            for (std::uint64_t j = 0; j < createData.bindings.size(); j++) {
                 auto& description = createData.bindings[j];
                 auto& binding = createInfo.vertexInput.bindings[j];
 
@@ -316,7 +316,7 @@ namespace renderer {
 
             std::unordered_map<std::uint32_t, std::uint32_t> bindingOffsets;
 
-            for (std::size_t j = 0; j < createData.attributes.size(); j++) {
+            for (std::uint64_t j = 0; j < createData.attributes.size(); j++) {
                 auto& description = createData.attributes[j];
                 auto& attribute = createInfo.vertexInput.attributes[j];
 
@@ -356,7 +356,7 @@ namespace renderer {
                 }
             }
 
-            for (std::size_t j = 0; j < createData.blendAttachments.size(); j++) {
+            for (std::uint64_t j = 0; j < createData.blendAttachments.size(); j++) {
                 auto& state = createData.blendAttachments[j];
                 auto& attachment = createInfo.colourBlend.attachments[j];
 

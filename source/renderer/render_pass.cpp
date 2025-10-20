@@ -13,7 +13,7 @@ namespace renderer {
         const std::uint32_t colourBaseIndex = 0;
         const std::uint32_t depthBaseIndex = static_cast<std::uint32_t>(createInfo.colourAttachments.size());
 
-        for (std::size_t i = 0; i < createInfo.colourAttachments.size(); i++) {
+        for (std::uint64_t i = 0; i < createInfo.colourAttachments.size(); i++) {
             struct FlagMap {
                 ImageLayout layout;
                 VkImageLayout vkLayout;
@@ -57,7 +57,7 @@ namespace renderer {
             };
         }
 
-        for (std::size_t i = 0; i < attachments.size() - createInfo.colourAttachments.size(); i++) {
+        for (std::uint64_t i = 0; i < attachments.size() - createInfo.colourAttachments.size(); i++) {
             struct FlagMap {
                 ImageLayout layout;
                 VkImageLayout vkLayout;
@@ -105,7 +105,7 @@ namespace renderer {
         std::vector<std::vector<VkAttachmentReference>> colourReferences(createInfo.subpasses.size());
         std::vector<VkAttachmentReference> depthReferences(createInfo.subpasses.size());
 
-        for (std::size_t i = 0; i < createInfo.subpasses.size(); i++) {
+        for (std::uint64_t i = 0; i < createInfo.subpasses.size(); i++) {
             const auto& subpassInfo = createInfo.subpasses[i];
 
             for (auto inputIndex : subpassInfo.colourAttachmentInputIndices) {
@@ -149,7 +149,7 @@ namespace renderer {
             };
         }
 
-        for (std::size_t i = 0; i < dependencies.size(); i++) {
+        for (std::uint64_t i = 0; i < dependencies.size(); i++) {
             dependencies[i] = {
                 .srcSubpass = createInfo.subpassDependencies[i].subpassSourceIndex.has_value() ? createInfo.subpassDependencies[i].subpassSourceIndex.value() : VK_SUBPASS_EXTERNAL,
                 .dstSubpass = createInfo.subpassDependencies[i].subpassDestinationIndex.has_value() ? createInfo.subpassDependencies[i].subpassDestinationIndex.value() : VK_SUBPASS_EXTERNAL,

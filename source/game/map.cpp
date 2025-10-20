@@ -10,7 +10,7 @@
 // #include <glm/gtc/matrix_transform.hpp>
 //
 // namespace game {
-//     void loadMap(entt::registry& registry, const std::string& filepath, std::size_t& tileCount) {
+//     void loadMap(entt::registry& registry, const std::string& filepath, std::uint64_t& tileCount) {
 //         std::ifstream mapFile(filepath);
 //         std::string mapFileContents(std::istreambuf_iterator<char>{mapFile}, {});
 //         nlohmann::json mapFileJson = nlohmann::json::parse(mapFileContents);

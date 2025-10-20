@@ -12,16 +12,16 @@ namespace renderer {
         std::vector<VkSemaphore> signals(submitInfo.signals.size());
         std::vector<VkPipelineStageFlags> flags(submitInfo.waitFlags.size());
 
-        for (std::size_t i = 0; i < buffers.size(); i++) {
+        for (std::uint64_t i = 0; i < buffers.size(); i++) {
             buffers[i] = submitInfo.commandBuffers[i].commandBuffer_;
         }
 
-        for (std::size_t i = 0; i < waits.size(); i++) {
+        for (std::uint64_t i = 0; i < waits.size(); i++) {
             flags[i] = PipelineStageFlags::mapFrom(submitInfo.waitFlags[i]);
             waits[i] = submitInfo.waits[i].semaphore_;
         }
 
-        for (std::size_t i = 0; i < signals.size(); i++) {
+        for (std::uint64_t i = 0; i < signals.size(); i++) {
             signals[i] = submitInfo.signals[i].semaphore_;
         }
 

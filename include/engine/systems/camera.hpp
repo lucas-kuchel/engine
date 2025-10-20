@@ -8,6 +8,6 @@
 
 namespace engine::systems {
     void createCameras(entt::registry& registry, renderer::Device& device);
-    void updateCameras(entt::registry& registry, renderer::Buffer& stagingBuffer, renderer::CommandBuffer& commandBuffer, std::size_t& stagingBufferOffset);
+    void updateCameras(entt::registry& registry, renderer::Buffer& stagingBuffer, renderer::CommandBuffer& commandBuffer, std::uint64_t& stagingBufferOffset);
     void destroyCameras(entt::registry& registry);
 }

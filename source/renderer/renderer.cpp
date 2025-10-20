@@ -153,7 +153,7 @@ renderer::Renderer::Renderer(app::Window& window) {
         .arrayLayers = 1,
     };
 
-    for (std::size_t i = 0; i < imageCounter_.count; i++) {
+    for (std::uint64_t i = 0; i < imageCounter_.count; i++) {
         depthImages_.push_back(renderer::Image());
 
         auto& image = depthImages_.back();
@@ -195,7 +195,7 @@ renderer::Renderer::Renderer(app::Window& window) {
     acquireSemaphores_.reserve(frameCounter_.count);
     inFlightFences_.reserve(frameCounter_.count);
 
-    for (std::size_t i = 0; i < frameCounter_.count; i++) {
+    for (std::uint64_t i = 0; i < frameCounter_.count; i++) {
         acquireSemaphores_.push_back(renderer::Semaphore());
         inFlightFences_.push_back(renderer::Fence());
 
@@ -210,14 +210,14 @@ renderer::Renderer::Renderer(app::Window& window) {
 }
 
 renderer::Renderer::~Renderer() {
-    for (std::size_t i = 0; i < imageCounter_.count; i++) {
+    for (std::uint64_t i = 0; i < imageCounter_.count; i++) {
         renderer::Image::destroy(depthImages_[i]);
         renderer::ImageView::destroy(depthImageViews_[i]);
         renderer::Framebuffer::destroy(framebuffers_[i]);
         renderer::Semaphore::destroy(presentSemaphores_[i]);
     }
 
-    for (std::size_t i = 0; i < frameCounter_.count; i++) {
+    for (std::uint64_t i = 0; i < frameCounter_.count; i++) {
         renderer::Semaphore::destroy(acquireSemaphores_[i]);
         renderer::Fence::destroy(inFlightFences_[i]);
     }
@@ -345,7 +345,7 @@ void renderer::Renderer::acquireImage(const std::vector<Fence>& fences) {
             .arrayLayers = 1,
         };
 
-        for (std::size_t i = 0; i < imageCounter_.count; i++) {
+        for (std::uint64_t i = 0; i < imageCounter_.count; i++) {
             depthImages_.push_back(renderer::Image());
 
             auto& image = depthImages_.back();

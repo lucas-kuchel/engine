@@ -235,8 +235,8 @@ namespace renderer {
     struct DescriptorSetBufferBinding {
         Buffer& buffer;
 
-        std::size_t offsetBytes;
-        std::size_t rangeBytes;
+        std::uint64_t offsetBytes;
+        std::uint64_t rangeBytes;
     };
 
     struct DescriptorSetImageBinding {
