@@ -435,9 +435,9 @@ void engine::systems::checkTriggers(entt::registry& registry) {
                 // scale = registry.get<components::Scale>(activatorEntity).scale;
             }
 
-            auto collides = [&](glm::vec2& position) {
-                glm::vec2 entityMin = position;
-                glm::vec2 entityMax = position + scale;
+            auto collides = [&](glm::vec2& pos) {
+                glm::vec2 entityMin = pos;
+                glm::vec2 entityMax = pos + scale;
 
                 glm::vec2 triggerMin = trigger.bounds.position;
                 glm::vec2 triggerMax = trigger.bounds.position + trigger.bounds.extent;

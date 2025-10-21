@@ -9,41 +9,51 @@
 #include <glm/gtc/quaternion.hpp>
 
 void engine::systems::animateCameras(entt::registry& registry, float deltaTime) {
-    // TODO: camera animations are so broken
+    std::vector<entt::entity> scaleAnimationsFinished;
+    std::vector<entt::entity> positionAnimationsFinished;
 
-    std::vector<entt::entity> animationsFinished;
-
-    for (auto& entity : registry.view<components::Camera, components::CameraAnimator, components::Position>()) {
+    for (auto& entity : registry.view<components::Camera, components::CameraScaleAnimator>()) {
         auto& camera = registry.get<components::Camera>(entity);
-        auto& animator = registry.get<components::CameraAnimator>(entity);
+        auto& animator = registry.get<components::CameraScaleAnimator>(entity);
 
         animator.timeElapsed += deltaTime;
 
-        float t = animator.timeElapsed / animator.duration;
+        float t = std::clamp(animator.timeElapsed / animator.duration, 0.0f, 1.0f);
+
+        float smoothT = t * t * (3.0f - 2.0f * t);
+
+        camera.scale = glm::mix(animator.startScale, animator.targetScale, smoothT);
 
         if (t >= 1.0f) {
-            animationsFinished.push_back(entity);
-
             camera.scale = animator.targetScale;
-
-            continue;
-        }
-
-        t = std::clamp(t, 0.0f, 1.0f);
-
-        float scaleOffset = (animator.targetScale - animator.startScale) * t;
-
-        if (scaleOffset > (animator.targetScale - camera.scale)) {
-            camera.scale = animator.targetScale;
-        }
-        else {
-            camera.scale += scaleOffset - animator.lastScale;
-            animator.lastScale = scaleOffset;
+            scaleAnimationsFinished.push_back(entity);
         }
     }
 
-    for (auto& entity : animationsFinished) {
-        registry.remove<components::CameraAnimator>(entity);
+    for (auto entity : registry.view<components::Camera, components::Position, components::CameraPositionAnimator>()) {
+        auto& position = registry.get<components::Position>(entity);
+        auto& animator = registry.get<components::CameraPositionAnimator>(entity);
+
+        animator.timeElapsed += deltaTime;
+
+        float t = std::clamp(animator.timeElapsed / animator.duration, 0.0f, 1.0f);
+
+        float smoothT = t * t * (3.0f - 2.0f * t);
+
+        position.position = glm::vec3(glm::mix(animator.startPosition, animator.targetPosition, smoothT), position.position.z);
+
+        if (t >= 1.0f) {
+            position.position = glm::vec3(animator.targetPosition, position.position.z);
+            positionAnimationsFinished.push_back(entity);
+        }
+    }
+
+    for (auto& entity : scaleAnimationsFinished) {
+        registry.remove<components::CameraScaleAnimator>(entity);
+    }
+
+    for (auto& entity : positionAnimationsFinished) {
+        registry.remove<components::CameraPositionAnimator>(entity);
     }
 }
 

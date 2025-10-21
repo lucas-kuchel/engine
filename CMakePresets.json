@@ -10,6 +10,7 @@
             "displayName": "Debug Build",
             "description": "Builds application for debugging - No optimisations, all warnings enabled and debug symbols",
             "hidden": false,
+            "generator": "Ninja",
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Debug",
                 "CMAKE_CXX_STANDARD": "23",
@@ -24,6 +25,7 @@
             "displayName": "Release Build",
             "description": "Builds application For Release - All optimisations, all warnings disabled and no debug symbols",
             "hidden": false,
+            "generator": "Ninja",
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Release",
                 "CMAKE_CXX_STANDARD": "23",

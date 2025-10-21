@@ -53,7 +53,7 @@ engine::Engine::~Engine() {
 void engine::EngineAPI::setSpace(const std::string& space) {
     auto& world = engine_.registry_.get<components::World>(engine_.currentWorld_);
     auto& camera = engine_.registry_.get<components::Camera>(engine_.currentCamera_);
-    auto& cameraPosition = engine_.registry_.get<components::Position>(engine_.currentCamera_);
+    auto& position = engine_.registry_.get<components::Position>(engine_.currentCamera_);
 
     for (auto& spaceEntity : world.spaces) {
         auto& spaceComponent = engine_.registry_.get<components::Space>(spaceEntity);
@@ -66,23 +66,26 @@ void engine::EngineAPI::setSpace(const std::string& space) {
 
         // TODO: add flag to space for camera transitions
         if (true) {
-            auto& cameraAnimator = engine_.registry_.emplace_or_replace<components::CameraAnimator>(engine_.currentCamera_);
-
-            cameraAnimator.timeElapsed = 0.0f;
-            cameraAnimator.duration = 1.0f;
-            cameraAnimator.targetScale = spaceComponent.camera.scale;
-            cameraAnimator.startScale = camera.scale;
-            cameraAnimator.startPosition = cameraPosition.position;
+            auto& cameraScaleAnimator = engine_.registry_.emplace_or_replace<components::CameraScaleAnimator>(engine_.currentCamera_);
+            cameraScaleAnimator.timeElapsed = 0.0f;
+            cameraScaleAnimator.duration = 1.0f;
+            cameraScaleAnimator.targetScale = spaceComponent.camera.scale;
+            cameraScaleAnimator.startScale = camera.scale;
 
             if (spaceComponent.camera.position.has_value()) {
-                cameraAnimator.targetPosition = glm::vec3(spaceComponent.camera.position.value(), 1.0f);
+                auto& cameraPositionAnimator = engine_.registry_.emplace_or_replace<components::CameraPositionAnimator>(engine_.currentCamera_);
+
+                cameraPositionAnimator.timeElapsed = 0.0f;
+                cameraPositionAnimator.duration = 1.0f;
+                cameraPositionAnimator.startPosition = position.position;
+                cameraPositionAnimator.targetPosition = spaceComponent.camera.position.value();
             }
         }
         else {
             camera.scale = spaceComponent.camera.scale;
 
             if (spaceComponent.camera.position.has_value()) {
-                cameraPosition.position = glm::vec3(spaceComponent.camera.position.value(), 1.0f);
+                position.position = glm::vec3(spaceComponent.camera.position.value(), position.position.z);
             }
         }
 
@@ -94,29 +97,32 @@ void engine::EngineAPI::resetSpace() {
     auto& world = engine_.registry_.get<components::World>(engine_.currentWorld_);
     auto& defaults = engine_.registry_.get<components::Defaults>(world.defaults);
     auto& camera = engine_.registry_.get<components::Camera>(engine_.currentCamera_);
-    auto& cameraPosition = engine_.registry_.get<components::Position>(engine_.currentCamera_);
+    auto& position = engine_.registry_.get<components::Position>(engine_.currentCamera_);
 
     camera.mode = defaults.camera.mode;
 
     // TODO: add flag to space for camera transitions
     if (true) {
-        auto& cameraAnimator = engine_.registry_.emplace_or_replace<components::CameraAnimator>(engine_.currentCamera_);
-
-        cameraAnimator.timeElapsed = 0.0f;
-        cameraAnimator.duration = 1.0f;
-        cameraAnimator.targetScale = defaults.camera.scale;
-        cameraAnimator.startScale = camera.scale;
-        cameraAnimator.startPosition = cameraPosition.position;
+        auto& cameraScaleAnimator = engine_.registry_.emplace_or_replace<components::CameraScaleAnimator>(engine_.currentCamera_);
+        cameraScaleAnimator.timeElapsed = 0.0f;
+        cameraScaleAnimator.duration = 1.0f;
+        cameraScaleAnimator.targetScale = defaults.camera.scale;
+        cameraScaleAnimator.startScale = camera.scale;
 
         if (defaults.camera.position.has_value()) {
-            cameraAnimator.targetPosition = glm::vec3(defaults.camera.position.value(), 1.0f);
+            auto& cameraPositionAnimator = engine_.registry_.emplace_or_replace<components::CameraPositionAnimator>(engine_.currentCamera_);
+
+            cameraPositionAnimator.timeElapsed = 0.0f;
+            cameraPositionAnimator.duration = 1.0f;
+            cameraPositionAnimator.startPosition = position.position;
+            cameraPositionAnimator.targetPosition = defaults.camera.position.value();
         }
     }
     else {
         camera.scale = defaults.camera.scale;
 
         if (defaults.camera.position.has_value()) {
-            cameraPosition.position = glm::vec3(defaults.camera.position.value(), 1.0f);
+            position.position = glm::vec3(defaults.camera.position.value(), position.position.z);
         }
     }
 

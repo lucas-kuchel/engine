@@ -11,6 +11,8 @@ find_package(Lua REQUIRED)
 find_package(Vulkan REQUIRED)
 find_package(VulkanMemoryAllocator CONFIG REQUIRED)
 
+set(CMAKE_BUILD_PARALLEL_LEVEL ${CMAKE_HOST_SYSTEM_PROCESSOR_COUNT})
+
 find_path(SOL2_INCLUDE_DIRS "sol/abort.hpp")
 
 add_executable(engine ${SOURCES})
