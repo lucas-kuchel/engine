@@ -4,6 +4,6 @@ function setSpace(newSpace)
         print("entered global space")
     else
         engine:setSpace(newSpace)
-        print("entered space: ", newSpace)
+        print("entered space: " .. newSpace)
     end
 end

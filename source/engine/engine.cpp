@@ -559,14 +559,15 @@ void engine::Engine::update() {
 
     renderer::CommandBuffer::beginCapture(transferCommandBuffer);
 
-    systems::cachePositions(registry_);                                                              // store lastPositions
-    systems::updatePositionControllers(registry_, keysHeld_);                                        // move all assigned controllers
-    systems::integrateMovements(registry_, deltaTime_);                                              // integrate accel+vel+pos
-    systems::checkTriggers(registry_);                                                               // check map trigger zones for intersects
-    systems::performTriggers(registry_, *this);                                                      // run actions (scripts) defined by triggers that were triggered
-    systems::animateCameras(registry_, deltaTime_);                                                  // run camera scale/position lerp
-    systems::updateCameras(registry_, stagingBuffer, transferCommandBuffer, stagingBufferOffset);    // upload camera matrix data
-    systems::updateTileMeshes(registry_, transferCommandBuffer, stagingBuffer, stagingBufferOffset); // upload updated world instance data
+    systems::cachePositions(registry_);
+    systems::updateCameraScale(registry_, renderer::Swapchain::getExtent(renderer_.getSwapchain()));
+    systems::updatePositionControllers(registry_, keysHeld_);
+    systems::integrateMovements(registry_, deltaTime_);
+    systems::checkTriggers(registry_);
+    systems::performTriggers(registry_, *this);
+    systems::animateCameras(registry_, deltaTime_);
+    systems::updateCameras(registry_, stagingBuffer, transferCommandBuffer, stagingBufferOffset);
+    systems::updateTileMeshes(registry_, transferCommandBuffer, stagingBuffer, stagingBufferOffset);
 
     renderer::CommandBuffer::endCapture(transferCommandBuffer);
 

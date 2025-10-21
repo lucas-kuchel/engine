@@ -8,6 +8,14 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/quaternion.hpp>
 
+void engine::systems::updateCameraScale(entt::registry& registry, glm::vec2 scale) {
+    for (auto& entity : registry.view<components::Camera, components::Scale>()) {
+        auto& cameraScale = registry.get<components::Scale>(entity);
+
+        cameraScale.scale = scale;
+    }
+}
+
 void engine::systems::animateCameras(entt::registry& registry, float deltaTime) {
     std::vector<entt::entity> scaleAnimationsFinished;
     std::vector<entt::entity> positionAnimationsFinished;
@@ -20,7 +28,7 @@ void engine::systems::animateCameras(entt::registry& registry, float deltaTime) 
 
         float t = std::clamp(animator.timeElapsed / animator.duration, 0.0f, 1.0f);
 
-        float smoothT = t * t * (3.0f - 2.0f * t);
+        float smoothT = t * t * t * (t * (t * 6 - 15) + 10);
 
         camera.scale = glm::mix(animator.startScale, animator.targetScale, smoothT);
 
@@ -38,7 +46,7 @@ void engine::systems::animateCameras(entt::registry& registry, float deltaTime) 
 
         float t = std::clamp(animator.timeElapsed / animator.duration, 0.0f, 1.0f);
 
-        float smoothT = t * t * (3.0f - 2.0f * t);
+        float smoothT = t * t * t * (t * (t * 6 - 15) + 10);
 
         position.position = glm::vec3(glm::mix(animator.startPosition, animator.targetPosition, smoothT), position.position.z);
 

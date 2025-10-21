@@ -11,7 +11,10 @@ layout(location = 0) out vec4 outColour;
 void main() {
     vec2 fractionalLocalPosition = fract(inLocalPosition);
     vec2 scaledLocalPosition = fractionalLocalPosition * inTextureExtent;
-    vec2 texturePosition = scaledLocalPosition + inTexturePosition;
+    vec2 texturePosition = clamp(
+        scaledLocalPosition + inTexturePosition,
+        inTexturePosition,
+        inTexturePosition + inTextureExtent - 1e-6);
 
     outColour = texture(inAlbedoTexture, texturePosition);
 
