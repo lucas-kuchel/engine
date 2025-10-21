@@ -17,8 +17,10 @@ namespace engine::components {
         struct Event {
             entt::entity action = entt::null;
             std::vector<std::optional<std::string>> parameters;
-            bool triggered = false;
         };
+
+        bool onEnterTriggered = false;
+        bool onExitTriggered = false;
 
         std::vector<Event> onEnter;
         std::vector<Event> onExit;

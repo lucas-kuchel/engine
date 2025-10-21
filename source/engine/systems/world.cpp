@@ -424,67 +424,54 @@ void engine::systems::checkTriggers(entt::registry& registry) {
     for (auto& triggerEntity : registry.view<components::Trigger>()) {
         auto& trigger = registry.get<components::Trigger>(triggerEntity);
 
-        for (auto& activatorEntity : registry.view<components::Position, components::CanActivateTriggerTag>()) {
+        for (auto& activatorEntity : registry.view<components::Position, components::CanTriggerTag>()) {
             auto& position = registry.get<components::Position>(activatorEntity);
-            auto& tag = registry.get<components::CanActivateTriggerTag>(activatorEntity);
 
             glm::vec2 position2D = {position.position.x, position.position.y};
+            glm::vec2 lastPosition2D = {position.lastPosition.x, position.lastPosition.y};
             glm::vec2 scale = {1.0f, 1.0f};
 
             if (registry.all_of<components::Scale>(activatorEntity)) {
                 // scale = registry.get<components::Scale>(activatorEntity).scale;
             }
 
-            glm::vec2 entityMin = position2D;
-            glm::vec2 entityMax = position2D + scale;
+            auto collides = [&](glm::vec2& position) {
+                glm::vec2 entityMin = position;
+                glm::vec2 entityMax = position + scale;
 
-            glm::vec2 triggerMin = trigger.bounds.position;
-            glm::vec2 triggerMax = trigger.bounds.position + trigger.bounds.extent;
+                glm::vec2 triggerMin = trigger.bounds.position;
+                glm::vec2 triggerMax = trigger.bounds.position + trigger.bounds.extent;
 
-            bool inside = (entityMax.x > triggerMin.x) &&
-                          (entityMin.x < triggerMax.x) &&
-                          (entityMax.y > triggerMin.y) &&
-                          (entityMin.y < triggerMax.y);
+                return (entityMax.x > triggerMin.x) && (entityMin.x < triggerMax.x) &&
+                       (entityMax.y > triggerMin.y) && (entityMin.y < triggerMax.y);
+            };
 
-            bool wasInside = (tag.currentTrigger == triggerEntity);
-            if (inside && !wasInside) {
-                // Just entered
-                tag.currentTrigger = triggerEntity;
-                for (auto& event : trigger.onEnter)
-                    event.triggered = true;
-            }
-            else if (!inside && wasInside) {
-                // Just exited
-                tag.currentTrigger = entt::null;
-                for (auto& event : trigger.onExit)
-                    event.triggered = true;
-            }
+            bool lastCollides = collides(lastPosition2D);
+            bool thisCollides = collides(position2D);
+
+            trigger.onEnterTriggered = !lastCollides && thisCollides;
+            trigger.onExitTriggered = lastCollides && !thisCollides;
         }
     }
 }
 
 void engine::systems::performTriggers(entt::registry& registry, Engine& engine) {
+    auto runActions = [&](bool& condition, auto& container) {
+        if (condition) {
+            for (auto& actionEntity : container) {
+                auto& action = registry.get<components::Action>(actionEntity.action);
+
+                engine.runFunction(action.name, action.script.function, actionEntity.parameters);
+            }
+        }
+
+        condition = false;
+    };
+
     for (auto& entity : registry.view<components::Trigger>()) {
         auto& trigger = registry.get<components::Trigger>(entity);
 
-        for (auto& onEnter : trigger.onEnter) {
-            if (onEnter.triggered) {
-                auto& action = registry.get<components::Action>(onEnter.action);
-
-                engine.runFunction(action.name, action.script.function, onEnter.parameters);
-
-                onEnter.triggered = false;
-            }
-        }
-
-        for (auto& onExit : trigger.onExit) {
-            if (onExit.triggered) {
-                auto& action = registry.get<components::Action>(onExit.action);
-
-                engine.runFunction(action.name, action.script.function, onExit.parameters);
-
-                onExit.triggered = false;
-            }
-        }
+        runActions(trigger.onEnterTriggered, trigger.onEnter);
+        runActions(trigger.onExitTriggered, trigger.onExit);
     }
 }

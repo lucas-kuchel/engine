@@ -59,6 +59,126 @@
                     "y": 10.0
                 }
             }
+        },
+        {
+            "transform": {
+                "position": {
+                    "x": -51.0,
+                    "y": -11.0,
+                    "z": -0.5
+                },
+                "scale": {
+                    "width": 50.0,
+                    "height": 14.0
+                },
+                "rotation": 0.0
+            },
+            "texture": {
+                "sample": {
+                    "width": 0.2,
+                    "height": 0.2,
+                    "x": 0.4,
+                    "y": 0.0
+                },
+                "offset": {
+                    "x": 0.0,
+                    "y": 0.0
+                },
+                "scale": {
+                    "x": 50.0,
+                    "y": 14.0
+                }
+            }
+        },
+        {
+            "transform": {
+                "position": {
+                    "x": 11.0,
+                    "y": -11.0,
+                    "z": -0.5
+                },
+                "scale": {
+                    "width": 50.0,
+                    "height": 14.0
+                },
+                "rotation": 0.0
+            },
+            "texture": {
+                "sample": {
+                    "width": 0.2,
+                    "height": 0.2,
+                    "x": 0.4,
+                    "y": 0.0
+                },
+                "offset": {
+                    "x": 0.0,
+                    "y": 0.0
+                },
+                "scale": {
+                    "x": 50.0,
+                    "y": 14.0
+                }
+            }
+        },
+        {
+            "transform": {
+                "position": {
+                    "x": -51.0,
+                    "y": -61.0,
+                    "z": -0.5
+                },
+                "scale": {
+                    "width": 112.0,
+                    "height": 50.0
+                },
+                "rotation": 0.0
+            },
+            "texture": {
+                "sample": {
+                    "width": 0.2,
+                    "height": 0.2,
+                    "x": 0.4,
+                    "y": 0.0
+                },
+                "offset": {
+                    "x": 0.0,
+                    "y": 0.0
+                },
+                "scale": {
+                    "x": 112.0,
+                    "y": 50.0
+                }
+            }
+        },
+        {
+            "transform": {
+                "position": {
+                    "x": -51.0,
+                    "y": 3.0,
+                    "z": -0.5
+                },
+                "scale": {
+                    "width": 112.0,
+                    "height": 50.0
+                },
+                "rotation": 0.0
+            },
+            "texture": {
+                "sample": {
+                    "width": 0.2,
+                    "height": 0.2,
+                    "x": 0.4,
+                    "y": 0.0
+                },
+                "offset": {
+                    "x": 0.0,
+                    "y": 0.0
+                },
+                "scale": {
+                    "x": 112.0,
+                    "y": 50.0
+                }
+            }
         }
     ]
 }

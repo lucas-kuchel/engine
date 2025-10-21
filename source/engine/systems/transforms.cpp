@@ -1,21 +1,25 @@
+#include <engine/components/camera.hpp>
 #include <engine/components/transforms.hpp>
 #include <engine/systems/transforms.hpp>
 
 // #include <glm/gtc/matrix_transform.hpp>
 
+void engine::systems::cachePositions(entt::registry& registry) {
+    for (auto& entity : registry.view<components::Position>()) {
+        auto& position = registry.get<components::Position>(entity);
+        position.lastPosition = position.position;
+    }
+}
+
 void engine::systems::integrateMovements(entt::registry& registry, float deltaTime) {
-    for (auto& entity : registry.view<components::Velocity, components::Acceleration>()) {
+    for (auto& entity : registry.view<components::Velocity, components::Acceleration, components::Position>()) {
         auto& velocity = registry.get<components::Velocity>(entity);
         auto& acceleration = registry.get<components::Acceleration>(entity);
+        auto& position = registry.get<components::Position>(entity);
 
         velocity.velocity += acceleration.acceleration * deltaTime;
         acceleration.acceleration = {0.0f, 0.0f, 0.0f};
-
-        if (registry.all_of<components::Position>(entity)) {
-            auto& position = registry.get<components::Position>(entity);
-
-            position.position += velocity.velocity * deltaTime;
-        }
+        position.position += velocity.velocity * deltaTime;
     }
 }
 

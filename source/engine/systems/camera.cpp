@@ -8,6 +8,45 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/quaternion.hpp>
 
+void engine::systems::animateCameras(entt::registry& registry, float deltaTime) {
+    // TODO: camera animations are so broken
+
+    std::vector<entt::entity> animationsFinished;
+
+    for (auto& entity : registry.view<components::Camera, components::CameraAnimator, components::Position>()) {
+        auto& camera = registry.get<components::Camera>(entity);
+        auto& animator = registry.get<components::CameraAnimator>(entity);
+
+        animator.timeElapsed += deltaTime;
+
+        float t = animator.timeElapsed / animator.duration;
+
+        if (t >= 1.0f) {
+            animationsFinished.push_back(entity);
+
+            camera.scale = animator.targetScale;
+
+            continue;
+        }
+
+        t = std::clamp(t, 0.0f, 1.0f);
+
+        float scaleOffset = (animator.targetScale - animator.startScale) * t;
+
+        if (scaleOffset > (animator.targetScale - camera.scale)) {
+            camera.scale = animator.targetScale;
+        }
+        else {
+            camera.scale += scaleOffset - animator.lastScale;
+            animator.lastScale = scaleOffset;
+        }
+    }
+
+    for (auto& entity : animationsFinished) {
+        registry.remove<components::CameraAnimator>(entity);
+    }
+}
+
 void engine::systems::createCameras(entt::registry& registry, renderer::Device& device) {
     for (auto& entity : registry.view<components::CameraBuffer>()) {
         auto& buffer = registry.get<components::CameraBuffer>(entity);
@@ -33,12 +72,6 @@ void engine::systems::updateCameras(entt::registry& registry, renderer::Buffer& 
     }
 
     for (auto& entity : registry.view<components::CameraBuffer>()) {
-        auto& buffer = registry.get<components::CameraBuffer>(entity);
-
-        if (!buffer.buffer) {
-            continue;
-        }
-
         components::CameraUploadData uploadData = {};
 
         if (registry.all_of<components::Camera>(entity)) {
@@ -86,6 +119,12 @@ void engine::systems::updateCameras(entt::registry& registry, renderer::Buffer& 
             uploadData.projection = glm::orthoRH_ZO(left, right, bottom, top, camera.near, camera.far);
             uploadData.projection[1][1] *= -1.0f;
             uploadData.view = glm::lookAt(position, target, glm::vec3{0.0f, 1.0f, 0.0f});
+        }
+
+        auto& buffer = registry.get<components::CameraBuffer>(entity);
+
+        if (!buffer.buffer) {
+            continue;
         }
 
         auto mapping = renderer::Buffer::map(stagingBuffer, renderer::Buffer::size(buffer.buffer), stagingBufferOffset);

@@ -37,9 +37,10 @@ engine::Engine::Engine()
         sol::lib::os,
         sol::lib::debug);
 
-    luaState_.new_usertype<EngineAPI>("EngineAPI",
-                                      "resetSpace", &EngineAPI::resetSpace,
-                                      "setSpace", &EngineAPI::setSpace);
+    luaState_.new_usertype<EngineAPI>(
+        "EngineAPI",
+        "resetSpace", &EngineAPI::resetSpace,
+        "setSpace", &EngineAPI::setSpace);
 
     luaState_["engine"] = api_;
 
@@ -51,18 +52,73 @@ engine::Engine::~Engine() {
 
 void engine::EngineAPI::setSpace(const std::string& space) {
     auto& world = engine_.registry_.get<components::World>(engine_.currentWorld_);
+    auto& camera = engine_.registry_.get<components::Camera>(engine_.currentCamera_);
+    auto& cameraPosition = engine_.registry_.get<components::Position>(engine_.currentCamera_);
 
     for (auto& spaceEntity : world.spaces) {
         auto& spaceComponent = engine_.registry_.get<components::Space>(spaceEntity);
 
-        if (spaceComponent.name == space) {
-            world.currentSpace = spaceEntity;
+        if (spaceComponent.name != space) {
+            continue;
         }
+
+        world.currentSpace = spaceEntity;
+
+        // TODO: add flag to space for camera transitions
+        if (true) {
+            auto& cameraAnimator = engine_.registry_.emplace_or_replace<components::CameraAnimator>(engine_.currentCamera_);
+
+            cameraAnimator.timeElapsed = 0.0f;
+            cameraAnimator.duration = 1.0f;
+            cameraAnimator.targetScale = spaceComponent.camera.scale;
+            cameraAnimator.startScale = camera.scale;
+            cameraAnimator.startPosition = cameraPosition.position;
+
+            if (spaceComponent.camera.position.has_value()) {
+                cameraAnimator.targetPosition = glm::vec3(spaceComponent.camera.position.value(), 1.0f);
+            }
+        }
+        else {
+            camera.scale = spaceComponent.camera.scale;
+
+            if (spaceComponent.camera.position.has_value()) {
+                cameraPosition.position = glm::vec3(spaceComponent.camera.position.value(), 1.0f);
+            }
+        }
+
+        break;
     }
 }
 
 void engine::EngineAPI::resetSpace() {
     auto& world = engine_.registry_.get<components::World>(engine_.currentWorld_);
+    auto& defaults = engine_.registry_.get<components::Defaults>(world.defaults);
+    auto& camera = engine_.registry_.get<components::Camera>(engine_.currentCamera_);
+    auto& cameraPosition = engine_.registry_.get<components::Position>(engine_.currentCamera_);
+
+    camera.mode = defaults.camera.mode;
+
+    // TODO: add flag to space for camera transitions
+    if (true) {
+        auto& cameraAnimator = engine_.registry_.emplace_or_replace<components::CameraAnimator>(engine_.currentCamera_);
+
+        cameraAnimator.timeElapsed = 0.0f;
+        cameraAnimator.duration = 1.0f;
+        cameraAnimator.targetScale = defaults.camera.scale;
+        cameraAnimator.startScale = camera.scale;
+        cameraAnimator.startPosition = cameraPosition.position;
+
+        if (defaults.camera.position.has_value()) {
+            cameraAnimator.targetPosition = glm::vec3(defaults.camera.position.value(), 1.0f);
+        }
+    }
+    else {
+        camera.scale = defaults.camera.scale;
+
+        if (defaults.camera.position.has_value()) {
+            cameraPosition.position = glm::vec3(defaults.camera.position.value(), 1.0f);
+        }
+    }
 
     world.currentSpace = std::nullopt;
 }
@@ -75,12 +131,12 @@ void engine::Engine::runFunction(const std::string&, const std::string& function
     std::vector<sol::object> luaArgs;
     luaArgs.reserve(parameters.size());
 
-    for (const auto& param : parameters) {
-        if (param) {
-            luaArgs.push_back(sol::make_object(luaState_, *param)); // non-const string pushed
+    for (const auto& parameter : parameters) {
+        if (parameter.has_value()) {
+            luaArgs.push_back(sol::make_object(luaState_, *parameter));
         }
         else {
-            luaArgs.push_back(sol::lua_nil); // nil for std::nullopt
+            luaArgs.push_back(sol::lua_nil);
         }
     }
 
@@ -386,12 +442,16 @@ void engine::Engine::start() {
     registry_.emplace<components::Acceleration>(currentCamera_);
     registry_.emplace<components::PositionController>(currentCamera_, app::Key::W, app::Key::S, app::Key::A, app::Key::D);
     registry_.emplace<components::Speed>(currentCamera_, 5.0f);
-    registry_.emplace<components::CanActivateTriggerTag>(currentCamera_);
+    registry_.emplace<components::CanTriggerTag>(currentCamera_);
 
     cameraComponent.near = 0.1f;
     cameraComponent.far = 100.0f;
     cameraComponent.mode = worldDefaults.camera.mode;
-    cameraComponent.scale = 10.0f;
+    cameraComponent.scale = worldDefaults.camera.scale;
+
+    if (worldDefaults.camera.position.has_value()) {
+        cameraPosition.position = glm::vec3(worldDefaults.camera.position.value(), 1.0f);
+    }
 
     cameraScale.scale = window_.extent();
 
@@ -493,14 +553,14 @@ void engine::Engine::update() {
 
     renderer::CommandBuffer::beginCapture(transferCommandBuffer);
 
-    systems::updatePositionControllers(registry_, keysHeld_);
-    systems::integrateMovements(registry_, deltaTime_);
-
-    systems::checkTriggers(registry_);
-    systems::performTriggers(registry_, *this);
-
-    systems::updateCameras(registry_, stagingBuffer, transferCommandBuffer, stagingBufferOffset);
-    systems::updateTileMeshes(registry_, transferCommandBuffer, stagingBuffer, stagingBufferOffset);
+    systems::cachePositions(registry_);                                                              // store lastPositions
+    systems::updatePositionControllers(registry_, keysHeld_);                                        // move all assigned controllers
+    systems::integrateMovements(registry_, deltaTime_);                                              // integrate accel+vel+pos
+    systems::checkTriggers(registry_);                                                               // check map trigger zones for intersects
+    systems::performTriggers(registry_, *this);                                                      // run actions (scripts) defined by triggers that were triggered
+    systems::animateCameras(registry_, deltaTime_);                                                  // run camera scale/position lerp
+    systems::updateCameras(registry_, stagingBuffer, transferCommandBuffer, stagingBufferOffset);    // upload camera matrix data
+    systems::updateTileMeshes(registry_, transferCommandBuffer, stagingBuffer, stagingBufferOffset); // upload updated world instance data
 
     renderer::CommandBuffer::endCapture(transferCommandBuffer);
 

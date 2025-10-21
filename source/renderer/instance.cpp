@@ -57,7 +57,7 @@ namespace renderer {
             requestedExtensions.emplace_back(windowExtensions[i]);
         }
 
-#if defined(PLATFORM_APPLE)
+#if defined(ENGINE_PLATFORM_APPLE)
         requestedExtensions.emplace_back(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME);
 #endif
 
@@ -114,7 +114,7 @@ namespace renderer {
             .ppEnabledExtensionNames = selectedExtensions.data(),
         };
 
-#if defined(PLATFORM_APPLE)
+#if defined(ENGINE_PLATFORM_APPLE)
         instanceCreateInfo.flags = VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
 #endif
 

@@ -22,6 +22,19 @@ namespace engine::components {
         CameraMode mode = CameraMode::FOLLOW;
     };
 
+    struct CameraAnimator {
+        float timeElapsed = 0.0f;
+        float duration = 1.0f;
+
+        float targetScale = 1.0f;
+        float lastScale = 1.0f;
+        float startScale = 1.0f;
+
+        glm::vec3 startPosition = {0.0f, 0.0f, 0.0f};
+        glm::vec3 lastPosition = {0.0f, 0.0f, 0.0f};
+        glm::vec3 targetPosition = {0.0f, 0.0f, 0.0f};
+    };
+
     struct alignas(128) CameraUploadData {
         glm::mat4 projection = {1.0f};
         glm::mat4 view = {1.0f};
