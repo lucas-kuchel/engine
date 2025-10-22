@@ -2,23 +2,21 @@
     {
         "position": {
             "x": -1.0,
-            "y": 0.0
+            "y": -10.0
         },
         "scale": {
             "width": 1.0,
             "height": 10.0
-        },
-        "rotation": 0.0
+        }
     },
     {
         "position": {
             "x": 10.0,
-            "y": 0.0
+            "y": -10.0
         },
         "scale": {
             "width": 1.0,
             "height": 10.0
-        },
-        "rotation": 0.0
+        }
     }
 ]

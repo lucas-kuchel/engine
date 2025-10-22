@@ -91,7 +91,7 @@ void engine::EngineAPI::setSpace(const std::string& space) {
             camera.scale = spaceComponent.camera.scale;
 
             if (spaceComponent.camera.position.has_value()) {
-                position.position = glm::vec3(spaceComponent.camera.position.value(), position.position.z);
+                position.position = spaceComponent.camera.position.value();
             }
         }
 
@@ -127,19 +127,20 @@ void engine::EngineAPI::resetSpace() {
         camera.scale = world.defaults.camera.scale;
 
         if (world.defaults.camera.position.has_value()) {
-            position.position = glm::vec3(world.defaults.camera.position.value(), position.position.z);
+            position.position = world.defaults.camera.position.value();
         }
     }
 
     world.currentSpace = entt::null;
 }
 
-void engine::Engine::addScript(const std::string&, const std::string& filepath) {
+void engine::Engine::addScript(const std::string& filepath) {
     luaState_.script_file(filepath);
 }
 
-void engine::Engine::runFunction(const std::string&, const std::string& function, std::vector<std::optional<std::string>>& parameters) {
+void engine::Engine::runFunction(const std::string& function, std::vector<std::optional<std::string>>& parameters) {
     std::vector<sol::object> luaArgs;
+
     luaArgs.reserve(parameters.size());
 
     for (const auto& parameter : parameters) {
@@ -444,22 +445,25 @@ void engine::Engine::start() {
     auto& characterInstance = tiles_.emplace_back();
     auto& characterPosition = registry_.emplace<components::Position>(currentCharacter_);
 
-    characterPosition.position = {0.0f, 0.0f, -0.5f};
+    characterPosition.position = {0.0f, 0.0f};
+    characterPosition.depth = -0.5f;
     characterInstance.texture = {
         .sample = {
-            .extent = {0.2, 0.2},
             .position = {0.2, 0.0},
+            .extent = {0.2, 0.2},
         },
-        .scale = {1.0, 1.0},
         .offset = {0.0, 0.0},
+        .scale = {1.0, 1.0},
     };
 
-    registry_.emplace<components::PositionController>(currentCharacter_, app::Key::W, app::Key::S, app::Key::A, app::Key::D);
+    registry_.emplace<components::Speed>(currentCharacter_, 5.0f);
+    registry_.emplace<components::Scale>(currentCharacter_);
     registry_.emplace<components::Velocity>(currentCharacter_);
     registry_.emplace<components::Acceleration>(currentCharacter_);
-    registry_.emplace<components::Proxy<components::Tile>>(currentCharacter_, tiles_.size() - 1);
-    registry_.emplace<components::Speed>(currentCharacter_, 5.0f);
+    registry_.emplace<components::PositionController>(currentCharacter_, app::Key::W, app::Key::S, app::Key::A, app::Key::D);
+    registry_.emplace<components::Proxy<components::TileInstance>>(currentCharacter_, tiles_.size() - 1);
     registry_.emplace<components::CanTriggerTag>(currentCharacter_);
+    registry_.emplace<components::CanCollideTag>(currentCharacter_);
     registry_.emplace<components::ActiveCharacterTag>(currentCharacter_);
     registry_.emplace<components::Character>(currentCharacter_);
 
@@ -474,22 +478,19 @@ void engine::Engine::start() {
 
     registry_.emplace<components::ActiveCameraTag>(currentCamera_);
 
-    cameraComponent.near = 0.1f;
-    cameraComponent.far = 100.0f;
+    cameraComponent.near = -1.0f;
+    cameraComponent.far = 1.0f;
     cameraComponent.mode = worldComponent.defaults.camera.mode;
     cameraComponent.scale = worldComponent.defaults.camera.scale;
-
-    if (worldComponent.defaults.camera.position.has_value()) {
-        cameraPosition.position = glm::vec3(worldComponent.defaults.camera.position.value(), 1.0f);
-    }
+    cameraPosition.depth = 0.0f;
 
     cameraScale.scale = window_.extent();
 
     if (worldComponent.defaults.camera.position.has_value()) {
-        cameraPosition.position = glm::vec3(worldComponent.defaults.camera.position.value(), 0.0f);
+        cameraPosition.position = glm::vec3(worldComponent.defaults.camera.position.value(), 0.5f);
     }
     else {
-        cameraPosition.position = {0.0f, 0.0f, 1.0f};
+        cameraPosition.position = {0.0f, 0.0f};
     }
 
     systems::createCameras(registry_, device);
@@ -505,9 +506,7 @@ void engine::Engine::start() {
     };
 
     renderer::Queue::submit(transferQueue, submitInfo);
-
     renderer::Device::waitForFences(device, {temporaryFence});
-
     renderer::Fence::destroy(temporaryFence);
 
     createBasicPipelineResources();
@@ -585,6 +584,7 @@ void engine::Engine::update() {
     systems::updateCameraScale(registry_, renderer::Swapchain::getExtent(renderer_.getSwapchain()));
     systems::updatePositionControllers(registry_, keysHeld_);
     systems::integrateMovements(registry_, deltaTime_);
+    systems::testCollisions(registry_);
     systems::checkTriggers(registry_);
     systems::performTriggers(registry_, *this);
     systems::animateCameras(registry_, deltaTime_);
@@ -765,7 +765,7 @@ void engine::Engine::createBasicPipelineResources() {
                 renderer::VertexInputBindingDescription{
                     .inputRate = renderer::VertexInputRate::PER_INSTANCE,
                     .binding = 1,
-                    .strideBytes = sizeof(components::Tile),
+                    .strideBytes = sizeof(components::TileInstance),
                 },
             },
             .attributes = {
@@ -795,19 +795,14 @@ void engine::Engine::createBasicPipelineResources() {
                     .location = 4,
                 },
                 renderer::VertexAttributeDescription{
-                    .format = renderer::VertexAttributeFormat::R32G32B32A32_FLOAT,
+                    .format = renderer::VertexAttributeFormat::R32G32_FLOAT,
                     .binding = 1,
                     .location = 5,
                 },
                 renderer::VertexAttributeDescription{
-                    .format = renderer::VertexAttributeFormat::R32G32_FLOAT,
+                    .format = renderer::VertexAttributeFormat::R32G32B32_FLOAT,
                     .binding = 1,
                     .location = 6,
-                },
-                renderer::VertexAttributeDescription{
-                    .format = renderer::VertexAttributeFormat::R32G32_FLOAT,
-                    .binding = 1,
-                    .location = 7,
                 },
             },
         },

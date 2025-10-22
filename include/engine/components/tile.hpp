@@ -7,7 +7,7 @@
 #include <glm/glm.hpp>
 
 namespace engine::components {
-    struct Tile {
+    struct TileInstance {
         struct alignas(32) Texture {
             struct Sample {
                 glm::vec2 position;
@@ -18,7 +18,8 @@ namespace engine::components {
             glm::vec2 scale;
         } texture;
 
-        engine::components::TransformUploadData transform;
+        glm::vec2 scale;
+        glm::vec3 position;
     };
 
     struct TileMesh {

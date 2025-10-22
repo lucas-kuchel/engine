@@ -6,7 +6,7 @@
 
 void engine::systems::cameraFollowCharacter(entt::registry& registry, entt::entity& character, entt::entity& camera, float deltaTime) {
     if (!registry.all_of<components::Position, components::Character, components::ActiveCharacterTag>(character) ||
-        !registry.all_of<components::Camera, components::ActiveCameraTag, components::Position>(camera)) {
+        !registry.all_of<components::Position, components::Camera, components::ActiveCameraTag>(camera)) {
         return;
     }
 
@@ -19,5 +19,5 @@ void engine::systems::cameraFollowCharacter(entt::registry& registry, entt::enti
     }
 
     auto direction = characterPosition.position - cameraPosition.position;
-    cameraPosition.position += glm::vec3(direction.x, direction.y, 0.0f) * deltaTime * 4.0f;
+    cameraPosition.position += direction * deltaTime * 4.0f;
 }

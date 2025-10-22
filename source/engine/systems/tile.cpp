@@ -35,7 +35,7 @@ void engine::systems::createTileMeshes(entt::registry& registry, Engine& engine,
             .device = device,
             .memoryType = renderer::MemoryType::DEVICE_LOCAL,
             .usageFlags = renderer::BufferUsageFlags::VERTEX | renderer::BufferUsageFlags::TRANSFER_DESTINATION,
-            .sizeBytes = engine.getTiles().size() * sizeof(components::Tile),
+            .sizeBytes = engine.getTiles().size() * sizeof(components::TileInstance),
         };
 
         tileMesh.vertexBuffer = renderer::Buffer::create(vertexBufferCreateInfo);

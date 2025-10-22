@@ -35,10 +35,10 @@ namespace engine {
 
         void run();
 
-        void addScript(const std::string& module, const std::string& filepath);
-        void runFunction(const std::string& module, const std::string& function, std::vector<std::optional<std::string>>& parameters);
+        void addScript(const std::string& filepath);
+        void runFunction(const std::string& function, std::vector<std::optional<std::string>>& parameters);
 
-        std::vector<components::Tile>& getTiles() {
+        std::vector<components::TileInstance>& getTiles() {
             return tiles_;
         }
 
@@ -65,7 +65,7 @@ namespace engine {
         app::Context context_;
         app::Window window_;
 
-        std::vector<components::Tile> tiles_;
+        std::vector<components::TileInstance> tiles_;
 
         renderer::Renderer renderer_;
         renderer::CommandPool transferCommandPool_;

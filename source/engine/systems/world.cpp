@@ -36,6 +36,7 @@ void engine::systems::loadWorlds(entt::registry& registry, Engine& engine) {
         std::string spacesPath = world.path + slashTerminator + "spaces.json";
         std::string tilesPath = world.path + slashTerminator + "tiles.json";
         std::string triggersPath = world.path + slashTerminator + "triggers.json";
+        std::string collidersPath = world.path + slashTerminator + "colliders.json";
         std::string scriptsPath = world.path + slashTerminator + "scripts/";
 
         if (!std::filesystem::exists(defaultsPath)) {
@@ -62,11 +63,26 @@ void engine::systems::loadWorlds(entt::registry& registry, Engine& engine) {
             continue;
         }
 
+        if (!std::filesystem::exists(collidersPath)) {
+            continue;
+        }
+
         nlohmann::json defaultsJson = nlohmann::json::parse(std::string{std::istreambuf_iterator<char>{std::ifstream(defaultsPath).rdbuf()}, {}});
         nlohmann::json actionsJson = nlohmann::json::parse(std::string{std::istreambuf_iterator<char>{std::ifstream(actionsPath).rdbuf()}, {}});
         nlohmann::json spacesJson = nlohmann::json::parse(std::string{std::istreambuf_iterator<char>{std::ifstream(spacesPath).rdbuf()}, {}});
         nlohmann::json tilesJson = nlohmann::json::parse(std::string{std::istreambuf_iterator<char>{std::ifstream(tilesPath).rdbuf()}, {}});
         nlohmann::json triggersJson = nlohmann::json::parse(std::string{std::istreambuf_iterator<char>{std::ifstream(triggersPath).rdbuf()}, {}});
+        nlohmann::json collidersJson = nlohmann::json::parse(std::string{std::istreambuf_iterator<char>{std::ifstream(collidersPath).rdbuf()}, {}});
+
+        for (const auto& entry : std::filesystem::recursive_directory_iterator(scriptsPath)) {
+            if (!entry.is_regular_file()) {
+                continue;
+            }
+
+            if (entry.path().extension() == ".lua") {
+                engine.addScript(entry.path().string());
+            }
+        }
 
         if (!defaultsJson.contains("name") || !defaultsJson.at("name").is_string() || !defaultsJson.contains("camera") || !defaultsJson.at("camera").is_object()) {
             continue;
@@ -148,8 +164,6 @@ void engine::systems::loadWorlds(entt::registry& registry, Engine& engine) {
             action.name = actionJson.at("name").get<std::string>();
             action.script.filepath = scriptJson.at("filepath").get<std::string>();
             action.script.function = scriptJson.at("function").get<std::string>();
-
-            engine.addScript(action.name, scriptsPath + action.script.filepath);
         }
 
         if (!spacesJson.is_array()) {
@@ -182,8 +196,16 @@ void engine::systems::loadWorlds(entt::registry& registry, Engine& engine) {
             auto& space = registry.emplace<components::Space>(spaceEntity);
 
             space.name = spaceJson.at("name").get<std::string>();
-            space.bounds.position = {boundsJson.at("x").get<float>(), boundsJson.at("y").get<float>()};
-            space.bounds.extent = {boundsJson.at("width").get<float>(), boundsJson.at("height").get<float>()};
+
+            space.bounds.position = {
+                boundsJson.at("x").get<float>(),
+                boundsJson.at("y").get<float>(),
+            };
+
+            space.bounds.extent = {
+                boundsJson.at("width").get<float>(),
+                boundsJson.at("height").get<float>(),
+            };
 
             if (!spaceJson.contains("camera") || !spaceJson.at("camera").is_object()) {
                 continue;
@@ -218,7 +240,8 @@ void engine::systems::loadWorlds(entt::registry& registry, Engine& engine) {
 
                 space.camera.position = glm::vec2{
                     cameraPositionJson.at("x").get<float>(),
-                    cameraPositionJson.at("y").get<float>()};
+                    cameraPositionJson.at("y").get<float>(),
+                };
             }
             else {
                 continue;
@@ -248,22 +271,19 @@ void engine::systems::loadWorlds(entt::registry& registry, Engine& engine) {
 
             tile = registry.create();
 
-            registry.emplace<components::Proxy<components::Tile>>(tile, tileIndex);
+            registry.emplace<components::Proxy<components::TileInstance>>(tile, tileIndex);
             registry.emplace<components::StaticTileTag>(tile);
 
             if (!transformJson.contains("position") || !transformJson.at("position").is_object() ||
-                !transformJson.contains("scale") || !transformJson.at("scale").is_object() ||
-                !transformJson.contains("rotation") || !transformJson.at("rotation").is_number_float()) {
+                !transformJson.contains("scale") || !transformJson.at("scale").is_object()) {
                 continue;
             }
 
             auto& positionJson = transformJson.at("position");
             auto& scaleJson = transformJson.at("scale");
-            auto& rotationJson = transformJson.at("rotation");
 
             glm::vec3 position = {0.0f, 0.0f, 0.0f};
             glm::vec2 scale = {1.0f, 1.0f};
-            float rotation = 0.0f;
 
             position.x = positionJson.at("x").get<float>();
             position.y = positionJson.at("y").get<float>();
@@ -272,16 +292,8 @@ void engine::systems::loadWorlds(entt::registry& registry, Engine& engine) {
             scale.x = scaleJson.at("width").get<float>();
             scale.y = scaleJson.at("height").get<float>();
 
-            rotation = rotationJson.get<float>();
-
-            float sin = std::sin(glm::radians(rotation));
-            float cos = std::cos(glm::radians(rotation));
-
-            tileInstance.transform.position = glm::vec4(position, 1.0f);
-            tileInstance.transform.model = glm::mat2{
-                glm::vec2{cos * scale.x, -sin * scale.y},
-                glm::vec2{sin * scale.x, cos * scale.y},
-            };
+            tileInstance.position = position;
+            tileInstance.scale = scale;
 
             if (!textureJson.contains("sample") || !textureJson.at("sample").is_object() ||
                 !textureJson.contains("offset") || !textureJson.at("offset").is_object() ||
@@ -297,21 +309,24 @@ void engine::systems::loadWorlds(entt::registry& registry, Engine& engine) {
                 sampleJson.at("x").get<float>(),
                 sampleJson.at("y").get<float>(),
             };
+
             tileInstance.texture.sample.extent = {
                 sampleJson.at("width").get<float>(),
                 sampleJson.at("height").get<float>(),
             };
+
             tileInstance.texture.offset = {
                 offsetJson.at("x").get<float>(),
                 offsetJson.at("y").get<float>(),
             };
+
             tileInstance.texture.scale = {
-                scaleTexJson.at("x").get<float>(),
-                scaleTexJson.at("y").get<float>(),
+                scaleTexJson.at("width").get<float>(),
+                scaleTexJson.at("height").get<float>(),
             };
         }
 
-        if (!triggersJson.at("triggers").is_array()) {
+        if (!triggersJson.is_array()) {
             continue;
         }
 
@@ -325,8 +340,7 @@ void engine::systems::loadWorlds(entt::registry& registry, Engine& engine) {
             auto& transformJson = triggerJson.at("transform");
 
             if (!transformJson.contains("position") || !transformJson.at("position").is_object() ||
-                !transformJson.contains("scale") || !transformJson.at("scale").is_object() ||
-                !transformJson.contains("rotation") || !transformJson.at("rotation").is_number_float()) {
+                !transformJson.contains("scale") || !transformJson.at("scale").is_object()) {
                 continue;
             }
 
@@ -338,20 +352,18 @@ void engine::systems::loadWorlds(entt::registry& registry, Engine& engine) {
             auto& trigger = registry.emplace<components::Trigger>(triggerEntity);
             auto& position = registry.emplace<components::Position>(triggerEntity);
             auto& scale = registry.emplace<components::Scale>(triggerEntity);
-            auto& rotation = registry.emplace<components::Rotation>(triggerEntity);
 
             position.position = {
                 transformJson.at("position").at("x").get<float>(),
                 transformJson.at("position").at("y").get<float>(),
-                -0.5f,
             };
+
+            position.depth = -0.5f;
 
             scale.scale = {
                 transformJson.at("scale").at("width").get<float>(),
                 transformJson.at("scale").at("height").get<float>(),
             };
-
-            rotation.angle = transformJson.at("rotation").get<float>();
 
             if (!triggerJson.contains("on_collide") || !triggerJson.at("on_collide").is_array()) {
                 continue;
@@ -431,67 +443,113 @@ void engine::systems::loadWorlds(entt::registry& registry, Engine& engine) {
                 trigger.onSeparate.push_back(event);
             }
         }
+
+        if (!collidersJson.is_array()) {
+            continue;
+        }
+
+        world.colliders.reserve(collidersJson.size());
+
+        for (auto& colliderJson : collidersJson) {
+            if (!colliderJson.contains("position") || !colliderJson.at("position").is_object() ||
+                !colliderJson.contains("scale") || !colliderJson.at("scale").is_object()) {
+                continue;
+            }
+
+            auto triggerEntity = registry.create();
+            world.triggers.push_back(triggerEntity);
+
+            registry.emplace<components::ColliderTag>(triggerEntity);
+
+            auto& position = registry.emplace<components::Position>(triggerEntity);
+            auto& scale = registry.emplace<components::Scale>(triggerEntity);
+
+            position.position = {
+                colliderJson.at("position").at("x").get<float>(),
+                colliderJson.at("position").at("y").get<float>(),
+            };
+
+            position.depth = -0.5f;
+
+            scale.scale = {
+                colliderJson.at("scale").at("width").get<float>(),
+                colliderJson.at("scale").at("height").get<float>(),
+            };
+        }
+    }
+}
+
+void engine::systems::testCollisions(entt::registry& registry) {
+    for (auto& colliderEntity : registry.view<components::ColliderTag, components::Scale, components::Position>()) {
+        auto& colliderPosition = registry.get<components::Position>(colliderEntity);
+        auto& colliderScale = registry.get<components::Scale>(colliderEntity);
+
+        auto resolveCollision = [&](glm::vec2& position, glm::vec2& velocity, glm::vec2& scale) {
+            glm::vec2 entityMin = position;
+            glm::vec2 entityMax = position + scale;
+            glm::vec2 colliderMin = colliderPosition.position;
+            glm::vec2 colliderMax = colliderPosition.position + colliderScale.scale;
+
+            bool overlapX = entityMax.x > colliderMin.x && entityMin.x < colliderMax.x;
+            bool overlapY = entityMax.y > colliderMin.y && entityMin.y < colliderMax.y;
+
+            if (!(overlapX && overlapY)) {
+                return;
+            }
+
+            float overlapLeft = entityMax.x - colliderMin.x;
+            float overlapRight = colliderMax.x - entityMin.x;
+            float overlapTop = entityMax.y - colliderMin.y;
+            float overlapBottom = colliderMax.y - entityMin.y;
+
+            float minOverlapX = (overlapLeft < overlapRight) ? -overlapLeft : overlapRight;
+            float minOverlapY = (overlapTop < overlapBottom) ? -overlapTop : overlapBottom;
+
+            if (std::abs(minOverlapX) < std::abs(minOverlapY)) {
+                position.x += minOverlapX;
+                velocity.x = 0.0f;
+            }
+            else {
+                position.y += minOverlapY;
+                velocity.y = 0.0f;
+            }
+        };
+
+        for (auto& activatorEntity : registry.view<components::Position, components::Velocity, components::Scale, components::CanTriggerTag>()) {
+            auto& activatorPosition = registry.get<components::Position>(activatorEntity);
+            auto& activatorVelocity = registry.get<components::Velocity>(activatorEntity);
+            auto& activatorScale = registry.get<components::Scale>(activatorEntity);
+
+            resolveCollision(activatorPosition.position, activatorVelocity.velocity, activatorScale.scale);
+        }
     }
 }
 
 void engine::systems::checkTriggers(entt::registry& registry) {
-    for (auto& triggerEntity : registry.view<components::Trigger, components::TriggerTag, components::Position, components::Rotation, components::Scale>()) {
+    for (auto& triggerEntity : registry.view<components::Trigger, components::TriggerTag, components::Scale, components::Position>()) {
         auto& trigger = registry.get<components::Trigger>(triggerEntity);
-        auto& position = registry.get<components::Position>(triggerEntity);
-        auto& rotation = registry.get<components::Rotation>(triggerEntity);
-        auto& scale = registry.get<components::Scale>(triggerEntity);
+        auto& triggerPosition = registry.get<components::Position>(triggerEntity);
+        auto& triggerScale = registry.get<components::Scale>(triggerEntity);
 
-        for (auto& activatorEntity : registry.view<components::Position, components::CanTriggerTag>()) {
+        auto collides = [&](glm::vec2& position, glm::vec2& scale) {
+            glm::vec2 entityMin = position;
+            glm::vec2 entityMax = position + scale;
+            glm::vec2 triggerMin = triggerPosition.position;
+            glm::vec2 triggerMax = triggerPosition.position + triggerScale.scale;
+
+            return (entityMax.x > triggerMin.x) && (entityMin.x < triggerMax.x) &&
+                   (entityMax.y > triggerMin.y) && (entityMin.y < triggerMax.y);
+        };
+
+        for (auto& activatorEntity : registry.view<components::Position, components::Scale, components::CanTriggerTag>()) {
             auto& activatorPosition = registry.get<components::Position>(activatorEntity);
+            auto& activatorScale = registry.get<components::Scale>(activatorEntity);
 
-            glm::vec2 position2D = {activatorPosition.position.x, activatorPosition.position.y};
-            glm::vec2 lastPosition2D = {activatorPosition.lastPosition.x, activatorPosition.lastPosition.y};
-            glm::vec2 activatorScale = {1.0f, 1.0f};
+            bool lastCollides = collides(activatorPosition.lastPosition, activatorScale.scale);
+            bool thisCollides = collides(activatorPosition.position, activatorScale.scale);
 
-            if (registry.all_of<components::Scale>(activatorEntity)) {
-                activatorScale = registry.get<components::Scale>(activatorEntity).scale;
-            }
-
-            struct OBB {
-                glm::vec2 position;
-                glm::vec2 halfExtent;
-                float rotation;
-            };
-
-            auto collides = [&](OBB& a, OBB& b) {
-                float sinA = std::sin(a.rotation);
-                float cosA = std::cos(a.rotation);
-
-                float sinB = std::sin(b.rotation);
-                float cosB = std::cos(b.rotation);
-
-                glm::mat2 rotationA = {
-                    glm::vec2{cosA, sinA},
-                    glm::vec2{-sinA, cosA},
-                };
-
-                glm::mat2 rotationB = {
-                    glm::vec2{cosB, sinB},
-                    glm::vec2{-sinB, cosB},
-                };
-
-                glm::vec2 positionDelta = b.position - a.position;
-
-                for (std::uint64_t i = 0; i < 2; i++) {
-                }
-
-                return false;
-            };
-
-            OBB activatorOBB;
-            OBB lastActivatorOBB;
-            OBB triggerOBB;
-
-            bool lastCollides = collides(activatorOBB, triggerOBB);
-            bool thisCollides = collides(lastActivatorOBB, triggerOBB);
-
-            trigger.collideTriggered = !lastCollides && thisCollides;
-            trigger.separateTriggered = lastCollides && !thisCollides;
+            trigger.collideTriggered = trigger.collideTriggered | (!lastCollides && thisCollides);
+            trigger.separateTriggered = trigger.separateTriggered | (lastCollides && !thisCollides);
         }
     }
 }
@@ -502,7 +560,7 @@ void engine::systems::performTriggers(entt::registry& registry, Engine& engine) 
             for (auto& actionEntity : container) {
                 auto& action = registry.get<components::Action>(actionEntity.action);
 
-                engine.runFunction(action.name, action.script.function, actionEntity.parameters);
+                engine.runFunction(action.script.function, actionEntity.parameters);
             }
         }
 

@@ -48,10 +48,10 @@ void engine::systems::animateCameras(entt::registry& registry, float deltaTime) 
 
         float smoothT = t * t * t * (t * (t * 6 - 15) + 10);
 
-        position.position = glm::vec3(glm::mix(animator.startPosition, animator.targetPosition, smoothT), position.position.z);
+        position.position = glm::vec3(glm::mix(animator.startPosition, animator.targetPosition, smoothT), position.depth);
 
         if (t >= 1.0f) {
-            position.position = glm::vec3(animator.targetPosition, position.position.z);
+            position.position = glm::vec3(animator.targetPosition, position.depth);
             positionAnimationsFinished.push_back(entity);
         }
     }
@@ -92,51 +92,34 @@ void engine::systems::updateCameras(entt::registry& registry, renderer::Buffer& 
     for (auto& entity : registry.view<components::CameraBuffer>()) {
         components::CameraUploadData uploadData = {};
 
-        if (registry.all_of<components::Camera>(entity)) {
+        if (registry.all_of<components::Camera, components::Position, components::Scale>(entity)) {
             auto& camera = registry.get<components::Camera>(entity);
+            auto& scale = registry.get<components::Scale>(entity);
+            auto& position = registry.get<components::Position>(entity);
 
-            glm::vec3 position = {0.0f, 0.0f, 0.0f};
-            glm::vec2 scale = {1.0f, 1.0f};
+            uploadData.projection = {1.0f};
+            uploadData.view = {1.0f};
+
             float rotation = 0.0f;
-
-            if (registry.all_of<components::Position>(entity)) {
-                position = registry.get<components::Position>(entity).position;
-            }
-
-            if (registry.all_of<components::Scale>(entity)) {
-                scale = registry.get<components::Scale>(entity).scale;
-            }
 
             if (registry.all_of<components::Rotation>(entity)) {
                 rotation = registry.get<components::Rotation>(entity).angle;
             }
 
-            bool widthIsLonger = scale.x >= scale.y;
-
-            float halfShort = camera.scale;
-            float halfWidth, halfHeight;
-
-            if (widthIsLonger) {
-                halfWidth = halfShort * (scale.x / scale.y);
-                halfHeight = halfShort;
-            }
-            else {
-                halfWidth = halfShort;
-                halfHeight = halfShort * (scale.y / scale.x);
-            }
+            float aspect = scale.scale.x / scale.scale.y;
+            float halfHeight = camera.scale;
+            float halfWidth = camera.scale * aspect;
 
             float left = -halfWidth;
             float right = halfWidth;
             float bottom = -halfHeight;
             float top = halfHeight;
 
-            glm::quat quaternion = {glm::radians(glm::vec3{0.0f, 0.0f, rotation})};
-            glm::vec3 forward = quaternion * glm::vec3{0.0f, 0.0f, -1.0f};
-            glm::vec3 target = position + forward;
-
             uploadData.projection = glm::orthoRH_ZO(left, right, bottom, top, camera.near, camera.far);
             uploadData.projection[1][1] *= -1.0f;
-            uploadData.view = glm::lookAt(position, target, glm::vec3{0.0f, 1.0f, 0.0f});
+
+            uploadData.view = glm::translate(uploadData.view, glm::vec3{-position.position, -position.depth});
+            uploadData.view = glm::rotate(uploadData.view, glm::radians(rotation), glm::vec3{0.0f, 0.0f, 1.0f});
         }
 
         auto& buffer = registry.get<components::CameraBuffer>(entity);
