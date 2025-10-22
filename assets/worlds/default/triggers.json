@@ -17,6 +17,10 @@
                 "parameters": [
                     "house"
                 ]
+            },{
+                "action": "change_tile",
+                "parameters": [
+                ]
             }
         ],
         "on_separate": [

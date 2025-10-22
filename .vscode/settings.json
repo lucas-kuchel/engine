@@ -1,6 +1,10 @@
 {
     "Lua.diagnostics.globals": [
         "setSpace",
-        "engine"
+        "engine",
+        "shiftTexture"
+    ],
+    "Lua.diagnostics.disable": [
+        "lowercase-global"
     ]
 }

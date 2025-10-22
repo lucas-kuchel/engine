@@ -29,6 +29,7 @@
         }
     },
     {
+        "group": 0,
         "transform": {
             "position": {
                 "x": 0.0,

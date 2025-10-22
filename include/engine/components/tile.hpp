@@ -22,6 +22,10 @@ namespace engine::components {
         glm::vec3 position;
     };
 
+    struct Tile {
+        std::optional<std::uint32_t> group;
+    };
+
     struct TileMesh {
         renderer::Buffer vertexBuffer;
         renderer::Buffer instanceBuffer;

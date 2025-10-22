@@ -5,5 +5,12 @@
             "function": "setSpace",
             "filepath": "basic.lua"
         }
+    },
+    {
+        "name": "change_tile",
+        "script": {
+            "function": "changeTile",
+            "filepath": "basic.lua"
+        }
     }
 ]

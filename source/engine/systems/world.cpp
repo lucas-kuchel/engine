@@ -271,8 +271,22 @@ void engine::systems::loadWorlds(entt::registry& registry, Engine& engine) {
 
             tile = registry.create();
 
-            registry.emplace<components::Proxy<components::TileInstance>>(tile, tileIndex);
+            auto& tileComponent = registry.emplace<components::Tile>(tile);
+            auto& tileProxy = registry.emplace<components::Proxy<components::TileInstance>>(tile, tileIndex);
+
             registry.emplace<components::StaticTileTag>(tile);
+
+            if (tileJson.contains("group") && tileJson.at("group").is_number_unsigned()) {
+                tileComponent.group = tileJson.at("group").get<std::uint32_t>();
+
+                auto& sparseTileGroups = engine.getSparseTileGroups();
+
+                if (sparseTileGroups.size() <= tileComponent.group.value()) {
+                    sparseTileGroups.resize(tileComponent.group.value() + 1);
+                }
+
+                sparseTileGroups[tileComponent.group.value()].push_back(tileProxy);
+            }
 
             if (!transformJson.contains("position") || !transformJson.at("position").is_object() ||
                 !transformJson.contains("scale") || !transformJson.at("scale").is_object()) {

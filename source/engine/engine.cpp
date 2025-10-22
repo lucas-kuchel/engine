@@ -45,9 +45,42 @@ engine::Engine::Engine()
     luaState_.new_usertype<EngineAPI>(
         "EngineAPI",
         "resetSpace", &EngineAPI::resetSpace,
-        "setSpace", &EngineAPI::setSpace);
+        "setSpace", &EngineAPI::setSpace,
+        "getTileGroupProxies", &EngineAPI::getTileGroupProxies,
+        "getTileInstances", &EngineAPI::getTileInstances);
 
     luaState_["engine"] = api_;
+
+    luaState_.new_usertype<TileProxy>(
+        "TileProxy",
+        "index", &TileProxy::index);
+
+    luaState_.new_usertype<TileInstance::Texture::Sample>(
+        "TileInstanceTextureSample",
+        "position", &TileInstance::Texture::Sample::position,
+        "extent", &TileInstance::Texture::Sample::extent);
+
+    luaState_.new_usertype<TileInstance::Texture>(
+        "TileInstanceTexture",
+        "sample", &TileInstance::Texture::sample,
+        "scale", &TileInstance::Texture::scale,
+        "offset", &TileInstance::Texture::offset);
+
+    luaState_.new_usertype<TileInstance>(
+        "TileInstance",
+        "position", &TileInstance::position,
+        "scale", &TileInstance::scale,
+        "texture", &TileInstance::texture);
+
+    luaState_.new_usertype<SpanProxy<TileInstance>>(
+        "TileInstanceSpan",
+        "__len", &SpanProxy<TileInstance>::size,
+        "get", &SpanProxy<TileInstance>::get);
+
+    luaState_.new_usertype<SpanProxy<TileProxy>>(
+        "TileProxySpan",
+        "__len", &SpanProxy<TileProxy>::size,
+        "get", &SpanProxy<TileProxy>::get);
 
     run();
 }
@@ -132,6 +165,14 @@ void engine::EngineAPI::resetSpace() {
     }
 
     world.currentSpace = entt::null;
+}
+
+engine::SpanProxy<engine::TileInstance> engine::EngineAPI::getTileInstances() {
+    return SpanProxy<TileInstance>{std::span(engine_.tiles_)};
+}
+
+engine::SpanProxy<engine::TileProxy> engine::EngineAPI::getTileGroupProxies(std::uint32_t group) {
+    return SpanProxy<TileProxy>{std::span(engine_.sparseTileGroups_[group])};
 }
 
 void engine::Engine::addScript(const std::string& filepath) {

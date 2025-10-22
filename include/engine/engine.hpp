@@ -5,6 +5,7 @@
 #include <app/window.hpp>
 #include <renderer/renderer.hpp>
 
+#include <engine/components/proxy.hpp>
 #include <engine/components/tile.hpp>
 
 #include <chrono>
@@ -15,6 +16,22 @@
 namespace engine {
     class Engine;
 
+    using TileInstance = components::TileInstance;
+    using TileProxy = components::Proxy<components::TileInstance>;
+
+    template <typename T>
+    struct SpanProxy {
+        std::span<T> span;
+
+        std::size_t size() const {
+            return span.size();
+        }
+
+        T& get(std::size_t index) {
+            return span[index];
+        }
+    };
+
     class EngineAPI {
     public:
         EngineAPI(Engine& engine)
@@ -23,6 +40,9 @@ namespace engine {
 
         void setSpace(const std::string& space);
         void resetSpace();
+
+        SpanProxy<TileProxy> getTileGroupProxies(std::uint32_t group);
+        SpanProxy<TileInstance> getTileInstances();
 
     private:
         Engine& engine_;
@@ -38,8 +58,12 @@ namespace engine {
         void addScript(const std::string& filepath);
         void runFunction(const std::string& function, std::vector<std::optional<std::string>>& parameters);
 
-        std::vector<components::TileInstance>& getTiles() {
+        auto& getTiles() {
             return tiles_;
+        }
+
+        auto& getSparseTileGroups() {
+            return sparseTileGroups_;
         }
 
     private:
@@ -65,7 +89,8 @@ namespace engine {
         app::Context context_;
         app::Window window_;
 
-        std::vector<components::TileInstance> tiles_;
+        std::vector<TileInstance> tiles_;
+        std::vector<std::vector<TileProxy>> sparseTileGroups_;
 
         renderer::Renderer renderer_;
         renderer::CommandPool transferCommandPool_;
