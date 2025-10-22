@@ -1,17 +1,17 @@
 #include <engine/components/tile.hpp>
 #include <engine/components/world.hpp>
+#include <engine/engine.hpp>
 #include <engine/systems/tile.hpp>
 
 #include <cstring>
 
-void engine::systems::createTileMeshes(entt::registry& registry, renderer::Device& device, renderer::CommandBuffer& commandBuffer, renderer::Buffer& stagingBuffer, std::uint64_t& stagingBufferOffset) {
+void engine::systems::createTileMeshes(entt::registry& registry, Engine& engine, renderer::Device& device, renderer::CommandBuffer& commandBuffer, renderer::Buffer& stagingBuffer, std::uint64_t& stagingBufferOffset) {
     if (!stagingBuffer) {
         return;
     }
 
-    for (auto& entity : registry.view<components::TileMesh, components::World>()) {
+    for (auto& entity : registry.view<components::TileMesh>()) {
         auto& tileMesh = registry.get<components::TileMesh>(entity);
-        auto& world = registry.get<components::World>(entity);
 
         if (tileMesh.instanceBuffer || tileMesh.vertexBuffer || !renderer::CommandBuffer::capturing(commandBuffer)) {
             continue;
@@ -35,7 +35,7 @@ void engine::systems::createTileMeshes(entt::registry& registry, renderer::Devic
             .device = device,
             .memoryType = renderer::MemoryType::DEVICE_LOCAL,
             .usageFlags = renderer::BufferUsageFlags::VERTEX | renderer::BufferUsageFlags::TRANSFER_DESTINATION,
-            .sizeBytes = world.tiles.size() * sizeof(components::Tile),
+            .sizeBytes = engine.getTiles().size() * sizeof(components::Tile),
         };
 
         tileMesh.vertexBuffer = renderer::Buffer::create(vertexBufferCreateInfo);
@@ -48,7 +48,7 @@ void engine::systems::createTileMeshes(entt::registry& registry, renderer::Devic
         auto mapping = renderer::Buffer::map(stagingBuffer, totalSize, stagingBufferOffset);
 
         std::memcpy(mapping.data.data(), vertices.data(), vertexBufferSize);
-        std::memcpy(mapping.data.data() + vertexBufferSize, world.tiles.data(), instanceBufferSize);
+        std::memcpy(mapping.data.data() + vertexBufferSize, engine.getTiles().data(), instanceBufferSize);
 
         renderer::Buffer::unmap(stagingBuffer, mapping);
 
@@ -71,7 +71,7 @@ void engine::systems::createTileMeshes(entt::registry& registry, renderer::Devic
     }
 }
 
-void engine::systems::updateTileMeshes(entt::registry&, renderer::CommandBuffer&, renderer::Buffer&, std::uint64_t&) {
+void engine::systems::updateTileMeshes(entt::registry&, Engine&, renderer::CommandBuffer&, renderer::Buffer&, std::uint64_t&) {
 }
 
 void engine::systems::destroyTileMeshes(entt::registry& registry) {

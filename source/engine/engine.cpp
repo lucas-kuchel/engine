@@ -95,38 +95,37 @@ void engine::EngineAPI::setSpace(const std::string& space) {
 
 void engine::EngineAPI::resetSpace() {
     auto& world = engine_.registry_.get<components::World>(engine_.currentWorld_);
-    auto& defaults = engine_.registry_.get<components::Defaults>(world.defaults);
     auto& camera = engine_.registry_.get<components::Camera>(engine_.currentCamera_);
     auto& position = engine_.registry_.get<components::Position>(engine_.currentCamera_);
 
-    camera.mode = defaults.camera.mode;
+    camera.mode = world.defaults.camera.mode;
 
     // TODO: add flag to space for camera transitions
     if (true) {
         auto& cameraScaleAnimator = engine_.registry_.emplace_or_replace<components::CameraScaleAnimator>(engine_.currentCamera_);
         cameraScaleAnimator.timeElapsed = 0.0f;
         cameraScaleAnimator.duration = 1.0f;
-        cameraScaleAnimator.targetScale = defaults.camera.scale;
+        cameraScaleAnimator.targetScale = world.defaults.camera.scale;
         cameraScaleAnimator.startScale = camera.scale;
 
-        if (defaults.camera.position.has_value()) {
+        if (world.defaults.camera.position.has_value()) {
             auto& cameraPositionAnimator = engine_.registry_.emplace_or_replace<components::CameraPositionAnimator>(engine_.currentCamera_);
 
             cameraPositionAnimator.timeElapsed = 0.0f;
             cameraPositionAnimator.duration = 1.0f;
             cameraPositionAnimator.startPosition = position.position;
-            cameraPositionAnimator.targetPosition = defaults.camera.position.value();
+            cameraPositionAnimator.targetPosition = world.defaults.camera.position.value();
         }
     }
     else {
-        camera.scale = defaults.camera.scale;
+        camera.scale = world.defaults.camera.scale;
 
-        if (defaults.camera.position.has_value()) {
-            position.position = glm::vec3(defaults.camera.position.value(), position.position.z);
+        if (world.defaults.camera.position.has_value()) {
+            position.position = glm::vec3(world.defaults.camera.position.value(), position.position.z);
         }
     }
 
-    world.currentSpace = std::nullopt;
+    world.currentSpace = entt::null;
 }
 
 void engine::Engine::addScript(const std::string&, const std::string& filepath) {
@@ -433,11 +432,10 @@ void engine::Engine::start() {
     worldComponent.path = "assets/worlds/default";
 
     systems::loadWorlds(registry_, *this);
-    systems::createTileMeshes(registry_, device, transferCommandBuffer, stagingBuffer, stagingBufferOffset);
+    systems::createTileMeshes(registry_, *this, device, transferCommandBuffer, stagingBuffer, stagingBufferOffset);
 
     currentCamera_ = registry_.create();
 
-    auto& worldDefaults = registry_.get<components::Defaults>(worldComponent.defaults);
     auto& cameraComponent = registry_.emplace<components::Camera>(currentCamera_);
     auto& cameraPosition = registry_.emplace<components::Position>(currentCamera_);
     auto& cameraBuffer = registry_.emplace<components::CameraBuffer>(currentCamera_);
@@ -452,17 +450,17 @@ void engine::Engine::start() {
 
     cameraComponent.near = 0.1f;
     cameraComponent.far = 100.0f;
-    cameraComponent.mode = worldDefaults.camera.mode;
-    cameraComponent.scale = worldDefaults.camera.scale;
+    cameraComponent.mode = worldComponent.defaults.camera.mode;
+    cameraComponent.scale = worldComponent.defaults.camera.scale;
 
-    if (worldDefaults.camera.position.has_value()) {
-        cameraPosition.position = glm::vec3(worldDefaults.camera.position.value(), 1.0f);
+    if (worldComponent.defaults.camera.position.has_value()) {
+        cameraPosition.position = glm::vec3(worldComponent.defaults.camera.position.value(), 1.0f);
     }
 
     cameraScale.scale = window_.extent();
 
-    if (worldDefaults.camera.position.has_value()) {
-        cameraPosition.position = glm::vec3(worldDefaults.camera.position.value(), 0.0f);
+    if (worldComponent.defaults.camera.position.has_value()) {
+        cameraPosition.position = glm::vec3(worldComponent.defaults.camera.position.value(), 0.0f);
     }
     else {
         cameraPosition.position = {0.0f, 0.0f, 1.0f};
@@ -567,7 +565,7 @@ void engine::Engine::update() {
     systems::performTriggers(registry_, *this);
     systems::animateCameras(registry_, deltaTime_);
     systems::updateCameras(registry_, stagingBuffer, transferCommandBuffer, stagingBufferOffset);
-    systems::updateTileMeshes(registry_, transferCommandBuffer, stagingBuffer, stagingBufferOffset);
+    systems::updateTileMeshes(registry_, *this, transferCommandBuffer, stagingBuffer, stagingBufferOffset);
 
     renderer::CommandBuffer::endCapture(transferCommandBuffer);
 
@@ -629,11 +627,10 @@ void engine::Engine::render() {
     renderer::CommandBuffer::setPipelineScissors(commandBuffer, {scissor}, 0);
     renderer::CommandBuffer::bindDescriptorSets(commandBuffer, renderer::DeviceOperation::GRAPHICS, basicPipelineLayout_, 0, {basicDescriptorSet_});
 
-    auto& world = registry_.get<components::World>(currentWorld_);
     auto& tileMesh = registry_.get<components::TileMesh>(currentWorld_);
 
     renderer::CommandBuffer::bindVertexBuffers(commandBuffer, {tileMesh.vertexBuffer, tileMesh.instanceBuffer}, {0, 0}, 0);
-    renderer::CommandBuffer::draw(commandBuffer, 4, static_cast<std::uint32_t>(world.tiles.size()), 0, 0);
+    renderer::CommandBuffer::draw(commandBuffer, 4, static_cast<std::uint32_t>(tiles_.size()), 0, 0);
 
     renderer::CommandBuffer::endRenderPass(commandBuffer);
     renderer::CommandBuffer::endCapture(commandBuffer);

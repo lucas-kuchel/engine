@@ -5,8 +5,12 @@
 
 #include <entt/entt.hpp>
 
+namespace engine {
+    class Engine;
+}
+
 namespace engine::systems {
-    void createTileMeshes(entt::registry& registry, renderer::Device& device, renderer::CommandBuffer& commandBuffer, renderer::Buffer& stagingBuffer, std::uint64_t& stagingBufferOffset);
-    void updateTileMeshes(entt::registry& registry, renderer::CommandBuffer& commandBuffer, renderer::Buffer& stagingBuffer, std::uint64_t& stagingBufferOffset);
+    void createTileMeshes(entt::registry& registry, Engine& engine, renderer::Device& device, renderer::CommandBuffer& commandBuffer, renderer::Buffer& stagingBuffer, std::uint64_t& stagingBufferOffset);
+    void updateTileMeshes(entt::registry& registry, Engine& engine, renderer::CommandBuffer& commandBuffer, renderer::Buffer& stagingBuffer, std::uint64_t& stagingBufferOffset);
     void destroyTileMeshes(entt::registry& registry);
 }

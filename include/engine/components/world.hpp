@@ -1,5 +1,6 @@
 #pragma once
 
+#include <engine/components/defaults.hpp>
 #include <engine/components/tile.hpp>
 
 #include <entt/entt.hpp>
@@ -8,14 +9,13 @@ namespace engine::components {
     struct World {
         std::string path;
 
-        entt::entity defaults;
-
         std::vector<entt::entity> actions;
         std::vector<entt::entity> spaces;
         std::vector<entt::entity> triggers;
+        std::vector<entt::entity> tiles;
 
-        std::vector<components::Tile> tiles;
+        Defaults defaults;
 
-        std::optional<entt::entity> currentSpace;
+        entt::entity currentSpace;
     };
 }

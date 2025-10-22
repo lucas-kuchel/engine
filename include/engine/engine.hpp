@@ -5,6 +5,8 @@
 #include <app/window.hpp>
 #include <renderer/renderer.hpp>
 
+#include <engine/components/tile.hpp>
+
 #include <chrono>
 
 #include <entt/entt.hpp>
@@ -36,6 +38,10 @@ namespace engine {
         void addScript(const std::string& module, const std::string& filepath);
         void runFunction(const std::string& module, const std::string& function, std::vector<std::optional<std::string>>& parameters);
 
+        std::vector<components::Tile>& getTiles() {
+            return tiles_;
+        }
+
     private:
         app::WindowCreateInfo createWindow();
 
@@ -57,6 +63,8 @@ namespace engine {
 
         app::Context context_;
         app::Window window_;
+
+        std::vector<components::Tile> tiles_;
 
         renderer::Renderer renderer_;
         renderer::CommandPool transferCommandPool_;

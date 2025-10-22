@@ -2,6 +2,7 @@
 #include <engine/components/camera.hpp>
 #include <engine/components/defaults.hpp>
 #include <engine/components/entity_tags.hpp>
+#include <engine/components/proxy.hpp>
 #include <engine/components/space.hpp>
 #include <engine/components/tile.hpp>
 #include <engine/components/trigger.hpp>
@@ -108,13 +109,10 @@ void engine::systems::loadWorlds(entt::registry& registry, Engine& engine) {
             continue;
         }
 
-        world.defaults = registry.create();
-        auto& defaults = registry.emplace<components::Defaults>(world.defaults);
-
-        defaults.name = defaultsJson.at("name").get<std::string>();
-        defaults.camera.mode = defaultsCameraMode;
-        defaults.camera.position = defaultsCameraPosition;
-        defaults.camera.scale = defaultsCameraJson.at("scale").get<float>();
+        world.defaults.name = defaultsJson.at("name").get<std::string>();
+        world.defaults.camera.mode = defaultsCameraMode;
+        world.defaults.camera.position = defaultsCameraPosition;
+        world.defaults.camera.scale = defaultsCameraJson.at("scale").get<float>();
 
         if (!actionsJson.contains("actions") || !actionsJson.at("actions").is_array()) {
             continue;
@@ -247,6 +245,11 @@ void engine::systems::loadWorlds(entt::registry& registry, Engine& engine) {
 
             world.tiles.emplace_back();
             auto& tile = world.tiles.back();
+            tile = registry.create();
+
+            auto& tileInstance = engine.getTiles().emplace_back();
+
+            registry.emplace<components::Proxy<components::Tile>>(tile, tileInstance);
 
             if (!transformJson.contains("position") || !transformJson.at("position").is_object() ||
                 !transformJson.contains("scale") || !transformJson.at("scale").is_object() ||
@@ -274,8 +277,8 @@ void engine::systems::loadWorlds(entt::registry& registry, Engine& engine) {
             float sin = std::sin(glm::radians(rotation));
             float cos = std::cos(glm::radians(rotation));
 
-            tile.transform.position = glm::vec4(position, 1.0f);
-            tile.transform.model = glm::mat2{
+            tileInstance.transform.position = glm::vec4(position, 1.0f);
+            tileInstance.transform.model = glm::mat2{
                 glm::vec2{cos * scale.x, -sin * scale.y},
                 glm::vec2{sin * scale.x, cos * scale.y},
             };
@@ -290,19 +293,19 @@ void engine::systems::loadWorlds(entt::registry& registry, Engine& engine) {
             auto& offsetJson = textureJson.at("offset");
             auto& scaleTexJson = textureJson.at("scale");
 
-            tile.texture.sample.position = {
+            tileInstance.texture.sample.position = {
                 sampleJson.at("x").get<float>(),
                 sampleJson.at("y").get<float>(),
             };
-            tile.texture.sample.extent = {
+            tileInstance.texture.sample.extent = {
                 sampleJson.at("width").get<float>(),
                 sampleJson.at("height").get<float>(),
             };
-            tile.texture.offset = {
+            tileInstance.texture.offset = {
                 offsetJson.at("x").get<float>(),
                 offsetJson.at("y").get<float>(),
             };
-            tile.texture.scale = {
+            tileInstance.texture.scale = {
                 scaleTexJson.at("x").get<float>(),
                 scaleTexJson.at("y").get<float>(),
             };
