@@ -1,54 +1,47 @@
 function setSpace(newSpace)
     if newSpace == nil then
         engine:resetSpace()
-        print("entered global space")
     else
         engine:setSpace(newSpace)
-        print("entered space: " .. newSpace)
     end
 end
 
-function changeTile()
-    local ok, err = pcall(function()
-        print("changing tile")
+function darkenOutside()
+    local tileProxies = engine:getTileGroupProxies(0)
 
-        local tileProxies = engine:getTileGroupProxies(0)
-        print("group size:", #tileProxies)
+    if #tileProxies == 0 then return end
 
-        if #tileProxies == 0 then return end
+    local tiles = engine:getTileInstances()
 
-        for i, proxy in ipairs(tileProxies) do
-            print("proxy at", i, proxy, proxy.index)
+    for i = 1, #tileProxies do
+        local proxy = tileProxies[i]
+
+        if proxy.index <= #tiles then
+            local tile = tiles[proxy.index]
+
+            tile.colourMultiplier.r = 0.1
+            tile.colourMultiplier.g = 0.1
+            tile.colourMultiplier.b = 0.1
         end
+    end
+end
 
-        local firstProxy = tileProxies[1]
-        print("firstProxy.index:", firstProxy.index)
+function brightenOutside()
+    local tileProxies = engine:getTileGroupProxies(0)
 
-        local tiles = engine:getTiles()
-        print("tiles count:", #tiles)
+    if #tileProxies == 0 then return end
 
-        -- choose whether tiles are 1-based or 0-based in your binding:
-        local idx = firstProxy.index + 1 -- use +1 if tiles[] is 1-based
-        print("attempting index:", idx)
+    local tiles = engine:getTileInstances()
 
-        if idx < 1 or idx > #tiles then
-            print("index out of range, aborting")
-            return
+    for i = 1, #tileProxies do
+        local proxy = tileProxies[i]
+
+        if proxy.index <= #tiles then
+            local tile = tiles[proxy.index]
+
+            tile.colourMultiplier.r = 1.0
+            tile.colourMultiplier.g = 1.0
+            tile.colourMultiplier.b = 1.0
         end
-
-        -- wrap the nested member modification in another pcall
-        local ok2, err2 = pcall(function()
-            local tileInstance = tiles[idx]
-            tileInstance.texture.offset.x = tileInstance.texture.offset.x + 0.1
-            tileInstance.texture.offset.y = tileInstance.texture.offset.y + 0.2
-        end)
-
-        if not ok2 then
-            print("failed modifying tileInstance:", err2)
-        end
-    end)
-
-    if not ok then
-        print("changeTile failed:", err)
     end
 end

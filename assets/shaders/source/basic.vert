@@ -15,10 +15,12 @@ layout(location = 4) in vec2 instanceTextureScale;
 
 layout(location = 5) in vec2 instanceScale;
 layout(location = 6) in vec3 instancePosition;
+layout(location = 7) in vec3 instanceColourMultiplier;
 
 layout(location = 0) out vec2 outLocalPosition;
 layout(location = 1) out vec2 outTexturePosition;
 layout(location = 2) out vec2 outTextureExtent;
+layout(location = 3) out vec3 outColourMultiplier;
 
 void main() {
     vec3 scaledPosition = vec3(vertexPosition * instanceScale, 0.0);
@@ -28,4 +30,5 @@ void main() {
     outLocalPosition = vertexPosition * instanceTextureScale + instanceTextureOffset;
     outTexturePosition = instanceTexturePosition;
     outTextureExtent = instanceTextureExtent;
+    outColourMultiplier = instanceColourMultiplier;
 }

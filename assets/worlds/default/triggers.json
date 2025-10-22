@@ -17,8 +17,9 @@
                 "parameters": [
                     "house"
                 ]
-            },{
-                "action": "change_tile",
+            },
+            {
+                "action": "darken_outside",
                 "parameters": [
                 ]
             }
@@ -28,6 +29,11 @@
                 "action": "set_space",
                 "parameters": [
                     null
+                ]
+            },
+            {
+                "action": "brighten_outside",
+                "parameters": [
                 ]
             }
         ]

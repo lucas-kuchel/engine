@@ -28,7 +28,7 @@ namespace engine {
         }
 
         T& get(std::size_t index) {
-            return span[index];
+            return span[index - 1];
         }
     };
 

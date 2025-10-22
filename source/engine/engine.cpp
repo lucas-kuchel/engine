@@ -49,7 +49,7 @@ engine::Engine::Engine()
         "getTileGroupProxies", &EngineAPI::getTileGroupProxies,
         "getTileInstances", &EngineAPI::getTileInstances);
 
-    luaState_["engine"] = api_;
+    luaState_["engine"] = &api_;
 
     luaState_.new_usertype<TileProxy>(
         "TileProxy",
@@ -70,19 +70,36 @@ engine::Engine::Engine()
         "TileInstance",
         "position", &TileInstance::position,
         "scale", &TileInstance::scale,
-        "texture", &TileInstance::texture);
+        "texture", &TileInstance::texture,
+        "colourMultiplier", &TileInstance::colourMultiplier);
 
     luaState_.new_usertype<SpanProxy<TileInstance>>(
         "TileInstanceSpan",
+        sol::meta_function::length, &SpanProxy<TileInstance>::size,
+        sol::meta_function::index, &SpanProxy<TileInstance>::get,
         "__len", &SpanProxy<TileInstance>::size,
         "get", &SpanProxy<TileInstance>::get);
 
     luaState_.new_usertype<SpanProxy<TileProxy>>(
         "TileProxySpan",
+        sol::meta_function::length, &SpanProxy<TileProxy>::size,
+        sol::meta_function::index, &SpanProxy<TileProxy>::get,
         "__len", &SpanProxy<TileProxy>::size,
         "get", &SpanProxy<TileProxy>::get);
 
-    run();
+    luaState_.new_usertype<glm::vec2>(
+        "vec2",
+        "x", &glm::vec2::x,
+        "y", &glm::vec2::y);
+
+    luaState_.new_usertype<glm::vec3>(
+        "vec3",
+        "x", &glm::vec3::x,
+        "y", &glm::vec3::y,
+        "z", &glm::vec3::z,
+        "r", &glm::vec3::r,
+        "g", &glm::vec3::g,
+        "b", &glm::vec3::b);
 }
 
 engine::Engine::~Engine() {
@@ -496,6 +513,7 @@ void engine::Engine::start() {
         .offset = {0.0, 0.0},
         .scale = {1.0, 1.0},
     };
+    characterInstance.colourMultiplier = {1.0f, 1.0f, 1.0f};
 
     registry_.emplace<components::Speed>(currentCharacter_, 5.0f);
     registry_.emplace<components::Scale>(currentCharacter_);
@@ -844,6 +862,11 @@ void engine::Engine::createBasicPipelineResources() {
                     .format = renderer::VertexAttributeFormat::R32G32B32_FLOAT,
                     .binding = 1,
                     .location = 6,
+                },
+                renderer::VertexAttributeDescription{
+                    .format = renderer::VertexAttributeFormat::R32G32B32_FLOAT,
+                    .binding = 1,
+                    .location = 7,
                 },
             },
         },

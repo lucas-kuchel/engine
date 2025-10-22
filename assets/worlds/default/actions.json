@@ -7,9 +7,16 @@
         }
     },
     {
-        "name": "change_tile",
+        "name": "darken_outside",
         "script": {
-            "function": "changeTile",
+            "function": "darkenOutside",
+            "filepath": "basic.lua"
+        }
+    },
+    {
+        "name": "brighten_outside",
+        "script": {
+            "function": "brightenOutside",
             "filepath": "basic.lua"
         }
     }

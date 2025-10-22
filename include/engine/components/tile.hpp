@@ -20,6 +20,7 @@ namespace engine::components {
 
         glm::vec2 scale;
         glm::vec3 position;
+        glm::vec3 colourMultiplier;
     };
 
     struct Tile {

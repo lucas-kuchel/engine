@@ -276,6 +276,8 @@ void engine::systems::loadWorlds(entt::registry& registry, Engine& engine) {
 
             registry.emplace<components::StaticTileTag>(tile);
 
+            tileInstance.colourMultiplier = {1.0f, 1.0f, 1.0f};
+
             if (tileJson.contains("group") && tileJson.at("group").is_number_unsigned()) {
                 tileComponent.group = tileJson.at("group").get<std::uint32_t>();
 
@@ -285,7 +287,15 @@ void engine::systems::loadWorlds(entt::registry& registry, Engine& engine) {
                     sparseTileGroups.resize(tileComponent.group.value() + 1);
                 }
 
-                sparseTileGroups[tileComponent.group.value()].push_back(tileProxy);
+                sparseTileGroups[tileComponent.group.value()].emplace_back(tileProxy.index + 1);
+            }
+
+            if (tileJson.contains("colour_multiplier") && tileJson.at("colour_multiplier").is_object()) {
+                tileInstance.colourMultiplier = {
+                    tileJson.at("colour_multiplier").at("r").get<float>(),
+                    tileJson.at("colour_multiplier").at("g").get<float>(),
+                    tileJson.at("colour_multiplier").at("b").get<float>(),
+                };
             }
 
             if (!transformJson.contains("position") || !transformJson.at("position").is_object() ||
