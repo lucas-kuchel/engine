@@ -1,10 +1,10 @@
 #pragma once
 
-#include <functional>
+#include <cstdint>
 
 namespace engine::components {
     template <typename T>
     struct Proxy {
-        std::reference_wrapper<T> value;
+        std::uint64_t index = 0;
     };
 }

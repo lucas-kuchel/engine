@@ -4,6 +4,11 @@
 #include <engine/components/entity_tags.hpp>
 #include <engine/components/space.hpp>
 
+#include <engine/components/proxy.hpp>
+
+#include <engine/components/character.hpp>
+#include <engine/systems/character.hpp>
+
 #include <engine/components/transforms.hpp>
 #include <engine/systems/transforms.hpp>
 
@@ -63,6 +68,7 @@ void engine::EngineAPI::setSpace(const std::string& space) {
         }
 
         world.currentSpace = spaceEntity;
+        camera.mode = spaceComponent.camera.mode;
 
         // TODO: add flag to space for camera transitions
         if (true) {
@@ -432,6 +438,31 @@ void engine::Engine::start() {
     worldComponent.path = "assets/worlds/default";
 
     systems::loadWorlds(registry_, *this);
+
+    currentCharacter_ = registry_.create();
+
+    auto& characterInstance = tiles_.emplace_back();
+    auto& characterPosition = registry_.emplace<components::Position>(currentCharacter_);
+
+    characterPosition.position = {0.0f, 0.0f, -0.5f};
+    characterInstance.texture = {
+        .sample = {
+            .extent = {0.2, 0.2},
+            .position = {0.2, 0.0},
+        },
+        .scale = {1.0, 1.0},
+        .offset = {0.0, 0.0},
+    };
+
+    registry_.emplace<components::PositionController>(currentCharacter_, app::Key::W, app::Key::S, app::Key::A, app::Key::D);
+    registry_.emplace<components::Velocity>(currentCharacter_);
+    registry_.emplace<components::Acceleration>(currentCharacter_);
+    registry_.emplace<components::Proxy<components::Tile>>(currentCharacter_, tiles_.size() - 1);
+    registry_.emplace<components::Speed>(currentCharacter_, 5.0f);
+    registry_.emplace<components::CanTriggerTag>(currentCharacter_);
+    registry_.emplace<components::ActiveCharacterTag>(currentCharacter_);
+    registry_.emplace<components::Character>(currentCharacter_);
+
     systems::createTileMeshes(registry_, *this, device, transferCommandBuffer, stagingBuffer, stagingBufferOffset);
 
     currentCamera_ = registry_.create();
@@ -442,11 +473,6 @@ void engine::Engine::start() {
     auto& cameraScale = registry_.emplace<components::Scale>(currentCamera_);
 
     registry_.emplace<components::ActiveCameraTag>(currentCamera_);
-    registry_.emplace<components::Velocity>(currentCamera_);
-    registry_.emplace<components::Acceleration>(currentCamera_);
-    registry_.emplace<components::PositionController>(currentCamera_, app::Key::W, app::Key::S, app::Key::A, app::Key::D);
-    registry_.emplace<components::Speed>(currentCamera_, 5.0f);
-    registry_.emplace<components::CanTriggerTag>(currentCamera_);
 
     cameraComponent.near = 0.1f;
     cameraComponent.far = 100.0f;
@@ -467,8 +493,6 @@ void engine::Engine::start() {
     }
 
     systems::createCameras(registry_, device);
-
-    // game::createMesh(tileCount_, tileMesh_, device_, stagingBuffer_, transferCommandBuffer_, stagingBufferOffset);
 
     renderer::CommandBuffer::endCapture(transferCommandBuffer);
 
@@ -564,6 +588,8 @@ void engine::Engine::update() {
     systems::checkTriggers(registry_);
     systems::performTriggers(registry_, *this);
     systems::animateCameras(registry_, deltaTime_);
+    systems::cameraFollowCharacter(registry_, currentCharacter_, currentCamera_, deltaTime_);
+    systems::transformInstances(registry_, tiles_);
     systems::updateCameras(registry_, stagingBuffer, transferCommandBuffer, stagingBufferOffset);
     systems::updateTileMeshes(registry_, *this, transferCommandBuffer, stagingBuffer, stagingBufferOffset);
 

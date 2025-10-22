@@ -24,4 +24,7 @@ namespace engine::components {
 
     struct CanCollideTag {
     };
+
+    struct StaticTileTag {
+    };
 }

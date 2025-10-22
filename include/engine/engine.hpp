@@ -59,6 +59,7 @@ namespace engine {
         EngineAPI api_;
 
         entt::entity currentWorld_;
+        entt::entity currentCharacter_;
         entt::entity currentCamera_;
 
         app::Context context_;

@@ -243,13 +243,14 @@ void engine::systems::loadWorlds(entt::registry& registry, Engine& engine) {
             auto& transformJson = tileJson.at("transform");
             auto& textureJson = tileJson.at("texture");
 
-            world.tiles.emplace_back();
-            auto& tile = world.tiles.back();
-            tile = registry.create();
-
+            auto& tile = world.tiles.emplace_back();
+            auto tileIndex = engine.getTiles().size();
             auto& tileInstance = engine.getTiles().emplace_back();
 
-            registry.emplace<components::Proxy<components::Tile>>(tile, tileInstance);
+            tile = registry.create();
+
+            registry.emplace<components::Proxy<components::Tile>>(tile, tileIndex);
+            registry.emplace<components::StaticTileTag>(tile);
 
             if (!transformJson.contains("position") || !transformJson.at("position").is_object() ||
                 !transformJson.contains("scale") || !transformJson.at("scale").is_object() ||

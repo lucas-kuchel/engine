@@ -71,7 +71,36 @@ void engine::systems::createTileMeshes(entt::registry& registry, Engine& engine,
     }
 }
 
-void engine::systems::updateTileMeshes(entt::registry&, Engine&, renderer::CommandBuffer&, renderer::Buffer&, std::uint64_t&) {
+void engine::systems::updateTileMeshes(entt::registry& registry, Engine& engine, renderer::CommandBuffer& commandBuffer, renderer::Buffer& stagingBuffer, std::uint64_t& stagingBufferOffset) {
+    if (!stagingBuffer) {
+        return;
+    }
+
+    for (auto& entity : registry.view<components::TileMesh>()) {
+        auto& tileMesh = registry.get<components::TileMesh>(entity);
+
+        if (!tileMesh.instanceBuffer || !tileMesh.vertexBuffer || !renderer::CommandBuffer::capturing(commandBuffer)) {
+            continue;
+        }
+
+        std::size_t instanceBufferSize = renderer::Buffer::size(tileMesh.instanceBuffer);
+
+        auto mapping = renderer::Buffer::map(stagingBuffer, instanceBufferSize, stagingBufferOffset);
+
+        std::memcpy(mapping.data.data(), engine.getTiles().data(), instanceBufferSize);
+
+        renderer::Buffer::unmap(stagingBuffer, mapping);
+
+        renderer::BufferCopyRegion instanceCopyRegion = {
+            .sourceOffsetBytes = stagingBufferOffset,
+            .destinationOffsetBytes = 0,
+            .sizeBytes = instanceBufferSize,
+        };
+
+        stagingBufferOffset += instanceBufferSize;
+
+        renderer::CommandBuffer::copyBuffer(commandBuffer, stagingBuffer, tileMesh.instanceBuffer, {instanceCopyRegion});
+    }
 }
 
 void engine::systems::destroyTileMeshes(entt::registry& registry) {
