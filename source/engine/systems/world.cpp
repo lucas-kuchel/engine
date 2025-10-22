@@ -114,13 +114,13 @@ void engine::systems::loadWorlds(entt::registry& registry, Engine& engine) {
         world.defaults.camera.position = defaultsCameraPosition;
         world.defaults.camera.scale = defaultsCameraJson.at("scale").get<float>();
 
-        if (!actionsJson.contains("actions") || !actionsJson.at("actions").is_array()) {
+        if (!actionsJson.is_array()) {
             continue;
         }
 
-        world.actions.reserve(actionsJson.at("actions").size());
+        world.actions.reserve(actionsJson.size());
 
-        for (auto& actionJson : actionsJson.at("actions")) {
+        for (auto& actionJson : actionsJson) {
             if (!actionJson.contains("name") || !actionJson.at("name").is_string()) {
                 continue;
             }
@@ -152,14 +152,13 @@ void engine::systems::loadWorlds(entt::registry& registry, Engine& engine) {
             engine.addScript(action.name, scriptsPath + action.script.filepath);
         }
 
-        // --- Load Spaces ---
-        if (!spacesJson.contains("spaces") || !spacesJson.at("spaces").is_array()) {
+        if (!spacesJson.is_array()) {
             continue;
         }
 
-        world.spaces.reserve(spacesJson.at("spaces").size());
+        world.spaces.reserve(spacesJson.size());
 
-        for (auto& spaceJson : spacesJson.at("spaces")) {
+        for (auto& spaceJson : spacesJson) {
             if (!spaceJson.contains("name") || !spaceJson.at("name").is_string()) {
                 continue;
             }
@@ -228,13 +227,13 @@ void engine::systems::loadWorlds(entt::registry& registry, Engine& engine) {
             space.camera.scale = cameraJson.at("scale").get<float>();
         }
 
-        if (!tilesJson.contains("tiles") || !tilesJson.at("tiles").is_array()) {
+        if (!tilesJson.is_array()) {
             continue;
         }
 
-        world.tiles.reserve(tilesJson.at("tiles").size());
+        world.tiles.reserve(tilesJson.size());
 
-        for (auto& tileJson : tilesJson.at("tiles")) {
+        for (auto& tileJson : tilesJson) {
             if (!tileJson.contains("transform") || !tileJson.at("transform").is_object() ||
                 !tileJson.contains("texture") || !tileJson.at("texture").is_object()) {
                 continue;
@@ -312,149 +311,187 @@ void engine::systems::loadWorlds(entt::registry& registry, Engine& engine) {
             };
         }
 
-        if (!triggersJson.contains("triggers") || !triggersJson.at("triggers").is_array()) {
+        if (!triggersJson.at("triggers").is_array()) {
             continue;
         }
 
-        world.triggers.reserve(triggersJson.at("triggers").size());
+        world.triggers.reserve(triggersJson.size());
 
-        for (auto& triggerJson : triggersJson.at("triggers")) {
-            if (!triggerJson.contains("bounds") || !triggerJson.at("bounds").is_object()) {
+        for (auto& triggerJson : triggersJson) {
+            if (!triggerJson.contains("transform") || !triggerJson.at("transform").is_object()) {
                 continue;
             }
 
-            auto& boundsJson = triggerJson.at("bounds");
+            auto& transformJson = triggerJson.at("transform");
 
-            if (!boundsJson.contains("x") || !boundsJson.at("x").is_number_float() ||
-                !boundsJson.contains("y") || !boundsJson.at("y").is_number_float() ||
-                !boundsJson.contains("width") || !boundsJson.at("width").is_number_float() ||
-                !boundsJson.contains("height") || !boundsJson.at("height").is_number_float()) {
+            if (!transformJson.contains("position") || !transformJson.at("position").is_object() ||
+                !transformJson.contains("scale") || !transformJson.at("scale").is_object() ||
+                !transformJson.contains("rotation") || !transformJson.at("rotation").is_number_float()) {
                 continue;
             }
 
             auto triggerEntity = registry.create();
             world.triggers.push_back(triggerEntity);
 
+            registry.emplace<components::TriggerTag>(triggerEntity);
+
             auto& trigger = registry.emplace<components::Trigger>(triggerEntity);
+            auto& position = registry.emplace<components::Position>(triggerEntity);
+            auto& scale = registry.emplace<components::Scale>(triggerEntity);
+            auto& rotation = registry.emplace<components::Rotation>(triggerEntity);
 
-            trigger.bounds.position = {
-                boundsJson.at("x").get<float>(),
-                boundsJson.at("y").get<float>(),
+            position.position = {
+                transformJson.at("position").at("x").get<float>(),
+                transformJson.at("position").at("y").get<float>(),
+                -0.5f,
             };
 
-            trigger.bounds.extent = {
-                boundsJson.at("width").get<float>(),
-                boundsJson.at("height").get<float>(),
+            scale.scale = {
+                transformJson.at("scale").at("width").get<float>(),
+                transformJson.at("scale").at("height").get<float>(),
             };
 
-            if (triggerJson.contains("on_enter") && triggerJson.at("on_enter").is_array()) {
-                for (auto& eventJson : triggerJson.at("on_enter")) {
-                    if (!eventJson.contains("action") || !eventJson.at("action").is_string() ||
-                        !eventJson.contains("parameters") || !eventJson.at("parameters").is_array()) {
-                        continue;
-                    }
+            rotation.angle = transformJson.at("rotation").get<float>();
 
-                    components::Trigger::Event event;
-                    std::string actionName = eventJson.at("action").get<std::string>();
-
-                    for (auto& action : world.actions) {
-                        auto& actionComponent = registry.get<components::Action>(action);
-                        if (actionName == actionComponent.name) {
-                            event.action = action;
-                        }
-                    }
-
-                    if (event.action == entt::null) {
-                        continue;
-                    }
-
-                    for (auto& paramJson : eventJson.at("parameters")) {
-                        if (paramJson.is_null()) {
-                            event.parameters.push_back(std::nullopt);
-                        }
-                        else if (paramJson.is_string()) {
-                            event.parameters.push_back(paramJson.get<std::string>());
-                        }
-                        else {
-                            event.parameters.push_back(std::nullopt);
-                        }
-                    }
-
-                    trigger.onEnter.push_back(event);
-                }
+            if (!triggerJson.contains("on_collide") || !triggerJson.at("on_collide").is_array()) {
+                continue;
             }
 
-            if (triggerJson.contains("on_exit") && triggerJson.at("on_exit").is_array()) {
-                for (auto& eventJson : triggerJson.at("on_exit")) {
-                    if (!eventJson.contains("action") || !eventJson.at("action").is_string() ||
-                        !eventJson.contains("parameters") || !eventJson.at("parameters").is_array()) {
-                        continue;
-                    }
-
-                    components::Trigger::Event event;
-                    std::string actionName = eventJson.at("action").get<std::string>();
-
-                    for (auto& action : world.actions) {
-                        auto& actionComponent = registry.get<components::Action>(action);
-                        if (actionName == actionComponent.name) {
-                            event.action = action;
-                        }
-                    }
-
-                    if (event.action == entt::null) {
-                        continue;
-                    }
-
-                    for (auto& paramJson : eventJson.at("parameters")) {
-                        if (paramJson.is_null()) {
-                            event.parameters.push_back(std::nullopt);
-                        }
-                        else if (paramJson.is_string()) {
-                            event.parameters.push_back(paramJson.get<std::string>());
-                        }
-                        else {
-                            event.parameters.push_back(std::nullopt);
-                        }
-                    }
-
-                    trigger.onExit.push_back(event);
+            for (auto& eventJson : triggerJson.at("on_collide")) {
+                if (!eventJson.contains("action") || !eventJson.at("action").is_string() ||
+                    !eventJson.contains("parameters") || !eventJson.at("parameters").is_array()) {
+                    continue;
                 }
+
+                components::Trigger::Event event;
+                std::string actionName = eventJson.at("action").get<std::string>();
+
+                for (auto& action : world.actions) {
+                    auto& actionComponent = registry.get<components::Action>(action);
+                    if (actionName == actionComponent.name) {
+                        event.action = action;
+                    }
+                }
+
+                if (event.action == entt::null) {
+                    continue;
+                }
+
+                for (auto& paramJson : eventJson.at("parameters")) {
+                    if (paramJson.is_null()) {
+                        event.parameters.push_back(std::nullopt);
+                    }
+                    else if (paramJson.is_string()) {
+                        event.parameters.push_back(paramJson.get<std::string>());
+                    }
+                    else {
+                        event.parameters.push_back(std::nullopt);
+                    }
+                }
+
+                trigger.onCollide.push_back(event);
+            }
+
+            if (!triggerJson.contains("on_separate") || !triggerJson.at("on_separate").is_array()) {
+                continue;
+            }
+
+            for (auto& eventJson : triggerJson.at("on_separate")) {
+                if (!eventJson.contains("action") || !eventJson.at("action").is_string() ||
+                    !eventJson.contains("parameters") || !eventJson.at("parameters").is_array()) {
+                    continue;
+                }
+
+                components::Trigger::Event event;
+                std::string actionName = eventJson.at("action").get<std::string>();
+
+                for (auto& action : world.actions) {
+                    auto& actionComponent = registry.get<components::Action>(action);
+                    if (actionName == actionComponent.name) {
+                        event.action = action;
+                    }
+                }
+
+                if (event.action == entt::null) {
+                    continue;
+                }
+
+                for (auto& paramJson : eventJson.at("parameters")) {
+                    if (paramJson.is_null()) {
+                        event.parameters.push_back(std::nullopt);
+                    }
+                    else if (paramJson.is_string()) {
+                        event.parameters.push_back(paramJson.get<std::string>());
+                    }
+                    else {
+                        event.parameters.push_back(std::nullopt);
+                    }
+                }
+
+                trigger.onSeparate.push_back(event);
             }
         }
     }
 }
 
 void engine::systems::checkTriggers(entt::registry& registry) {
-    for (auto& triggerEntity : registry.view<components::Trigger>()) {
+    for (auto& triggerEntity : registry.view<components::Trigger, components::TriggerTag, components::Position, components::Rotation, components::Scale>()) {
         auto& trigger = registry.get<components::Trigger>(triggerEntity);
+        auto& position = registry.get<components::Position>(triggerEntity);
+        auto& rotation = registry.get<components::Rotation>(triggerEntity);
+        auto& scale = registry.get<components::Scale>(triggerEntity);
 
         for (auto& activatorEntity : registry.view<components::Position, components::CanTriggerTag>()) {
-            auto& position = registry.get<components::Position>(activatorEntity);
+            auto& activatorPosition = registry.get<components::Position>(activatorEntity);
 
-            glm::vec2 position2D = {position.position.x, position.position.y};
-            glm::vec2 lastPosition2D = {position.lastPosition.x, position.lastPosition.y};
-            glm::vec2 scale = {1.0f, 1.0f};
+            glm::vec2 position2D = {activatorPosition.position.x, activatorPosition.position.y};
+            glm::vec2 lastPosition2D = {activatorPosition.lastPosition.x, activatorPosition.lastPosition.y};
+            glm::vec2 activatorScale = {1.0f, 1.0f};
 
             if (registry.all_of<components::Scale>(activatorEntity)) {
-                // scale = registry.get<components::Scale>(activatorEntity).scale;
+                activatorScale = registry.get<components::Scale>(activatorEntity).scale;
             }
 
-            auto collides = [&](glm::vec2& pos) {
-                glm::vec2 entityMin = pos;
-                glm::vec2 entityMax = pos + scale;
-
-                glm::vec2 triggerMin = trigger.bounds.position;
-                glm::vec2 triggerMax = trigger.bounds.position + trigger.bounds.extent;
-
-                return (entityMax.x > triggerMin.x) && (entityMin.x < triggerMax.x) &&
-                       (entityMax.y > triggerMin.y) && (entityMin.y < triggerMax.y);
+            struct OBB {
+                glm::vec2 position;
+                glm::vec2 halfExtent;
+                float rotation;
             };
 
-            bool lastCollides = collides(lastPosition2D);
-            bool thisCollides = collides(position2D);
+            auto collides = [&](OBB& a, OBB& b) {
+                float sinA = std::sin(a.rotation);
+                float cosA = std::cos(a.rotation);
 
-            trigger.onEnterTriggered = !lastCollides && thisCollides;
-            trigger.onExitTriggered = lastCollides && !thisCollides;
+                float sinB = std::sin(b.rotation);
+                float cosB = std::cos(b.rotation);
+
+                glm::mat2 rotationA = {
+                    glm::vec2{cosA, sinA},
+                    glm::vec2{-sinA, cosA},
+                };
+
+                glm::mat2 rotationB = {
+                    glm::vec2{cosB, sinB},
+                    glm::vec2{-sinB, cosB},
+                };
+
+                glm::vec2 positionDelta = b.position - a.position;
+
+                for (std::uint64_t i = 0; i < 2; i++) {
+                }
+
+                return false;
+            };
+
+            OBB activatorOBB;
+            OBB lastActivatorOBB;
+            OBB triggerOBB;
+
+            bool lastCollides = collides(activatorOBB, triggerOBB);
+            bool thisCollides = collides(lastActivatorOBB, triggerOBB);
+
+            trigger.collideTriggered = !lastCollides && thisCollides;
+            trigger.separateTriggered = lastCollides && !thisCollides;
         }
     }
 }
@@ -475,7 +512,7 @@ void engine::systems::performTriggers(entt::registry& registry, Engine& engine) 
     for (auto& entity : registry.view<components::Trigger>()) {
         auto& trigger = registry.get<components::Trigger>(entity);
 
-        runActions(trigger.onEnterTriggered, trigger.onEnter);
-        runActions(trigger.onExitTriggered, trigger.onExit);
+        runActions(trigger.collideTriggered, trigger.onCollide);
+        runActions(trigger.separateTriggered, trigger.onSeparate);
     }
 }

@@ -1,11 +1,9 @@
-{
-    "actions": [
-        {
-            "name": "set_space",
-            "script": {
-                "function": "setSpace",
-                "filepath": "basic.lua"
-            }
+[
+    {
+        "name": "set_space",
+        "script": {
+            "function": "setSpace",
+            "filepath": "basic.lua"
         }
-    ]
-}
+    }
+]

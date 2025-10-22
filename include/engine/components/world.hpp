@@ -11,6 +11,7 @@ namespace engine::components {
 
         std::vector<entt::entity> actions;
         std::vector<entt::entity> spaces;
+        std::vector<entt::entity> colliders;
         std::vector<entt::entity> triggers;
         std::vector<entt::entity> tiles;
 

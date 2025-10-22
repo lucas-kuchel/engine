@@ -10,9 +10,6 @@ namespace engine::components {
     struct ActiveWorldTag {
     };
 
-    struct CollidableTag {
-    };
-
     struct TriggerTag {
     };
 
