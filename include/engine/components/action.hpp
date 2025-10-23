@@ -1,5 +1,6 @@
 #pragma once
 
+#include <optional>
 #include <string>
 
 namespace engine::components {
@@ -11,5 +12,7 @@ namespace engine::components {
     struct Action {
         std::string name;
         Script script;
+        std::optional<float> duration;
+        std::optional<float> elapsed;
     };
 }

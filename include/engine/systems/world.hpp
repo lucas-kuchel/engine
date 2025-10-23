@@ -7,11 +7,12 @@
 
 namespace engine {
     class Engine;
+    class EngineAPI;
 }
 
 namespace engine::systems {
     void loadWorlds(entt::registry& registry, Engine& engine);
     void checkTriggers(entt::registry& registry);
     void testCollisions(entt::registry& registry);
-    void performTriggers(entt::registry& registry, Engine& engine);
+    void performTriggers(entt::registry& registry, Engine& engine, EngineAPI&);
 }

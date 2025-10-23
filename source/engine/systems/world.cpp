@@ -164,6 +164,10 @@ void engine::systems::loadWorlds(entt::registry& registry, Engine& engine) {
             action.name = actionJson.at("name").get<std::string>();
             action.script.filepath = scriptJson.at("filepath").get<std::string>();
             action.script.function = scriptJson.at("function").get<std::string>();
+
+            if (actionJson.contains("duration") && actionJson.at("duration").is_number_float()) {
+                action.duration = actionJson.at("duration").get<float>();
+            }
         }
 
         if (!spacesJson.is_array()) {

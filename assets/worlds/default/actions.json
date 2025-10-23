@@ -8,15 +8,17 @@
     },
     {
         "name": "darken_outside",
+        "duration": 1.0,
         "script": {
-            "function": "darkenOutside",
+            "function": "enterHouse",
             "filepath": "basic.lua"
         }
     },
     {
         "name": "brighten_outside",
+        "duration": 1.0,
         "script": {
-            "function": "brightenOutside",
+            "function": "leaveHouse",
             "filepath": "basic.lua"
         }
     }

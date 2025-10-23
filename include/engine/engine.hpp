@@ -5,6 +5,7 @@
 #include <app/window.hpp>
 #include <renderer/renderer.hpp>
 
+#include <engine/components/action.hpp>
 #include <engine/components/proxy.hpp>
 #include <engine/components/tile.hpp>
 
@@ -38,6 +39,11 @@ namespace engine {
             : engine_(engine) {
         }
 
+        void bindAction(components::Action* action);
+
+        float getActionDuration();
+        float getActionTimeElapsed();
+
         void setSpace(const std::string& space);
         void resetSpace();
 
@@ -46,6 +52,7 @@ namespace engine {
 
     private:
         Engine& engine_;
+        components::Action* action_ = nullptr;
     };
 
     class Engine {
