@@ -165,6 +165,9 @@ void engine::systems::loadWorlds(entt::registry& registry, Engine& engine) {
             action.script.filepath = scriptJson.at("filepath").get<std::string>();
             action.script.function = scriptJson.at("function").get<std::string>();
 
+            action.duration = 0.0f;
+            action.elapsed = 0.0f;
+
             if (actionJson.contains("duration") && actionJson.at("duration").is_number_float()) {
                 action.duration = actionJson.at("duration").get<float>();
             }
@@ -582,13 +585,22 @@ void engine::systems::checkTriggers(entt::registry& registry) {
     }
 }
 
-void engine::systems::performTriggers(entt::registry& registry, Engine& engine) {
+void engine::systems::performTriggers(entt::registry& registry, Engine& engine, EngineAPI& api, float deltaTime) {
     auto runActions = [&](bool& condition, auto& container) {
-        if (condition) {
-            for (auto& actionEntity : container) {
-                auto& action = registry.get<components::Action>(actionEntity.action);
+        for (auto& actionEntity : container) {
+            auto& action = registry.get<components::Action>(actionEntity.action);
+            if (condition || (action.duration > 0.0f && action.elapsed > 0.0f)) {
+                api.bindAction(action);
+
+                if (action.duration > 0.0f) {
+                    action.elapsed += deltaTime;
+                }
 
                 engine.runFunction(action.script.function, actionEntity.parameters);
+
+                if (action.duration > 0.0f && action.elapsed >= action.duration) {
+                    action.elapsed = 0.0f;
+                }
             }
         }
 

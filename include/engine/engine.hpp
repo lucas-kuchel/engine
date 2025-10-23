@@ -39,11 +39,11 @@ namespace engine {
             : engine_(engine) {
         }
 
-        void bindAction(components::Action* action);
-
         float getActionDuration();
         float getActionTimeElapsed();
+        float getDeltaTime();
 
+        void bindAction(components::Action& action);
         void setSpace(const std::string& space);
         void resetSpace();
 

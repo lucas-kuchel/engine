@@ -47,6 +47,9 @@ engine::Engine::Engine()
         "resetSpace", &EngineAPI::resetSpace,
         "setSpace", &EngineAPI::setSpace,
         "getTileGroupProxies", &EngineAPI::getTileGroupProxies,
+        "getDeltaTime", &EngineAPI::getDeltaTime,
+        "getActionTimeElapsed", &EngineAPI::getActionTimeElapsed,
+        "getActionDuration", &EngineAPI::getActionDuration,
         "getTileInstances", &EngineAPI::getTileInstances);
 
     luaState_["engine"] = &api_;
@@ -103,6 +106,22 @@ engine::Engine::Engine()
 }
 
 engine::Engine::~Engine() {
+}
+
+void engine::EngineAPI::bindAction(components::Action& action) {
+    action_ = &action;
+}
+
+float engine::EngineAPI::getActionDuration() {
+    return action_->duration;
+}
+
+float engine::EngineAPI::getActionTimeElapsed() {
+    return action_->elapsed;
+}
+
+float engine::EngineAPI::getDeltaTime() {
+    return engine_.deltaTime_;
 }
 
 void engine::EngineAPI::setSpace(const std::string& space) {
@@ -645,7 +664,7 @@ void engine::Engine::update() {
     systems::integrateMovements(registry_, deltaTime_);
     systems::testCollisions(registry_);
     systems::checkTriggers(registry_);
-    systems::performTriggers(registry_, *this);
+    systems::performTriggers(registry_, *this, api_, deltaTime_);
     systems::animateCameras(registry_, deltaTime_);
     systems::cameraFollowCharacter(registry_, currentCharacter_, currentCamera_, deltaTime_);
     systems::transformInstances(registry_, tiles_);
