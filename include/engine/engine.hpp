@@ -73,6 +73,10 @@ namespace engine {
             return sparseTileGroups_;
         }
 
+        auto& getPlayer() {
+            return currentCharacter_;
+        }
+
     private:
         app::WindowCreateInfo createWindow();
 

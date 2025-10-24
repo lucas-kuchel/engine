@@ -3,5 +3,10 @@
     "camera": {
         "mode": "follow",
         "scale": 8.0
+    },
+    "player": {
+        "groups": [
+            1
+        ]
     }
 }

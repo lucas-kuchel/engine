@@ -23,10 +23,6 @@ namespace engine::components {
         glm::vec3 colourMultiplier;
     };
 
-    struct Tile {
-        std::vector<std::uint32_t> groups;
-    };
-
     struct TileMesh {
         renderer::Buffer vertexBuffer;
         renderer::Buffer instanceBuffer;

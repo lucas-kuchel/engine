@@ -94,6 +94,26 @@ void engine::systems::loadWorlds(entt::registry& registry, Engine& engine) {
             continue;
         }
 
+        if (defaultsJson.contains("player") && defaultsJson.at("player").is_object()) {
+            auto& playerJson = defaultsJson.at("player");
+
+            auto& player = engine.getPlayer();
+            auto& playerProxy = registry.get<components::Proxy<components::TileInstance>>(player);
+
+            if (playerJson.contains("groups") && playerJson.at("groups").is_array()) {
+                for (auto& groupJson : playerJson.at("groups")) {
+                    auto group = groupJson.get<std::uint32_t>();
+                    auto& sparseTileGroups = engine.getSparseTileGroups();
+
+                    if (sparseTileGroups.size() <= group) {
+                        sparseTileGroups.resize(group + 1);
+                    }
+
+                    sparseTileGroups[group].emplace_back(playerProxy.index + 1);
+                }
+            }
+        }
+
         std::string defaultsCameraModeStr = defaultsCameraJson.at("mode").get<std::string>();
         std::optional<glm::vec3> defaultsCameraPosition;
         components::CameraMode defaultsCameraMode;
@@ -278,19 +298,15 @@ void engine::systems::loadWorlds(entt::registry& registry, Engine& engine) {
 
             tile = registry.create();
 
-            auto& tileComponent = registry.emplace<components::Tile>(tile);
             auto& tileProxy = registry.emplace<components::Proxy<components::TileInstance>>(tile, tileIndex);
 
-            registry.emplace<components::StaticTileTag>(tile);
+            registry.emplace<components::TileTag>(tile);
 
             tileInstance.colourMultiplier = {1.0f, 1.0f, 1.0f};
 
             if (tileJson.contains("groups") && tileJson.at("groups").is_array()) {
-                tileComponent.groups.reserve(tileJson.at("groups").size());
-
                 for (auto& groupJson : tileJson.at("groups")) {
-                    auto& group = tileComponent.groups.emplace_back(groupJson.get<std::uint32_t>());
-
+                    auto group = groupJson.get<std::uint32_t>();
                     auto& sparseTileGroups = engine.getSparseTileGroups();
 
                     if (sparseTileGroups.size() <= group) {

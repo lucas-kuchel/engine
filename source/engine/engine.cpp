@@ -515,8 +515,6 @@ void engine::Engine::start() {
 
     worldComponent.path = "assets/worlds/default";
 
-    systems::loadWorlds(registry_, *this);
-
     currentCharacter_ = registry_.create();
 
     auto& characterInstance = tiles_.emplace_back();
@@ -546,6 +544,7 @@ void engine::Engine::start() {
     registry_.emplace<components::ActiveCharacterTag>(currentCharacter_);
     registry_.emplace<components::Character>(currentCharacter_);
 
+    systems::loadWorlds(registry_, *this);
     systems::createTileMeshes(registry_, *this, device, transferCommandBuffer, stagingBuffer, stagingBufferOffset);
 
     currentCamera_ = registry_.create();

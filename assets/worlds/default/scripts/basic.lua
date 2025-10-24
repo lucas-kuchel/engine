@@ -23,7 +23,6 @@ end
 
 function enterHouse()
     local outsideTileProxies = engine:getTileGroupProxies(0)
-    local insideTileProxies = engine:getTileGroupProxies(1)
     local wallTileProxies = engine:getTileGroupProxies(2)
     local tiles = engine:getTileInstances()
     local elapsed = engine:getActionTimeElapsed()
@@ -31,14 +30,12 @@ function enterHouse()
 
     local t = math.min(elapsed / duration, 1.0)
 
-    fadeTileProxies(outsideTileProxies, tiles, 0.0, t)
-    fadeTileProxies(insideTileProxies, tiles, 1.0, t)
+    fadeTileProxies(outsideTileProxies, tiles, 0.25, t)
     fadeTileProxies(wallTileProxies, tiles, 0.25, t)
 end
 
 function leaveHouse()
     local outsideTileProxies = engine:getTileGroupProxies(0)
-    local insideTileProxies = engine:getTileGroupProxies(1)
     local wallTileProxies = engine:getTileGroupProxies(2)
     local tiles = engine:getTileInstances()
     local elapsed = engine:getActionTimeElapsed()
@@ -47,7 +44,6 @@ function leaveHouse()
     local t = math.min(elapsed / duration, 1.0)
 
     fadeTileProxies(outsideTileProxies, tiles, 1.0, t)
-    fadeTileProxies(insideTileProxies, tiles, 0.25, t)
     fadeTileProxies(wallTileProxies, tiles, 1.0, t)
 end
 

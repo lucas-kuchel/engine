@@ -25,7 +25,7 @@ void engine::systems::integrateMovements(entt::registry& registry, float deltaTi
 }
 
 void engine::systems::transformInstances(entt::registry& registry, std::span<components::TileInstance> instances) {
-    for (auto& entity : registry.view<components::Proxy<components::TileInstance>, components::Position, components::Scale>(entt::exclude<components::StaticTileTag>)) {
+    for (auto& entity : registry.view<components::Proxy<components::TileInstance>, components::Position, components::Scale>(entt::exclude<components::TileTag>)) {
         auto& proxy = registry.get<components::Proxy<components::TileInstance>>(entity);
         auto& position = registry.get<components::Position>(entity);
         auto& scale = registry.get<components::Scale>(entity);
