@@ -33,7 +33,7 @@ function enterHouse()
 
     fadeTileProxies(outsideTileProxies, tiles, 0.0, t)
     fadeTileProxies(insideTileProxies, tiles, 1.0, t)
-    fadeTileProxies(wallTileProxies, tiles, 0.5, t)
+    fadeTileProxies(wallTileProxies, tiles, 0.25, t)
 end
 
 function leaveHouse()
@@ -47,6 +47,50 @@ function leaveHouse()
     local t = math.min(elapsed / duration, 1.0)
 
     fadeTileProxies(outsideTileProxies, tiles, 1.0, t)
-    fadeTileProxies(insideTileProxies, tiles, 0.0, t)
+    fadeTileProxies(insideTileProxies, tiles, 0.25, t)
     fadeTileProxies(wallTileProxies, tiles, 1.0, t)
+end
+
+function openDoor()
+    local doorProxies = engine:getTileGroupProxies(3)
+    local indoorProxies = engine:getTileGroupProxies(1)
+    local tiles = engine:getTileInstances()
+
+    for i = 1, #doorProxies do
+        local proxy = doorProxies[i]
+        local tile = tiles[proxy.index]
+
+        tile.texture.sample.position.x = 0.2
+    end
+
+    for i = 1, #indoorProxies do
+        local proxy = indoorProxies[i]
+        local tile = tiles[proxy.index]
+
+        tile.colourMultiplier.r = 1.0
+        tile.colourMultiplier.g = 1.0
+        tile.colourMultiplier.b = 1.0
+    end
+end
+
+function closeDoor()
+    local doorProxies = engine:getTileGroupProxies(3)
+    local indoorProxies = engine:getTileGroupProxies(1)
+    local tiles = engine:getTileInstances()
+
+    for i = 1, #doorProxies do
+        local proxy = doorProxies[i]
+        local tile = tiles[proxy.index]
+
+        tile.texture.sample.position.x = 0.0
+    end
+
+    for i = 1, #indoorProxies do
+        local proxy = indoorProxies[i]
+        local tile = tiles[proxy.index]
+
+        tile.colourMultiplier.r = 0.25
+        tile.colourMultiplier.g = 0.25
+        tile.colourMultiplier.b = 0.25
+    end
 end

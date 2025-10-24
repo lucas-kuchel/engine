@@ -521,8 +521,9 @@ void engine::Engine::start() {
 
     auto& characterInstance = tiles_.emplace_back();
     auto& characterPosition = registry_.emplace<components::Position>(currentCharacter_);
+    auto& characterScale = registry_.emplace<components::Scale>(currentCharacter_);
 
-    characterPosition.position = {0.0f, 0.0f};
+    characterPosition.position = {5.0f, -12.0f};
     characterPosition.depth = -0.5f;
     characterInstance.texture = {
         .sample = {
@@ -530,12 +531,12 @@ void engine::Engine::start() {
             .extent = {0.2, 0.2},
         },
         .offset = {0.0, 0.0},
-        .scale = {1.0, 1.0},
+        .scale = {0.75, 1.0},
     };
     characterInstance.colourMultiplier = {1.0f, 1.0f, 1.0f};
+    characterScale.scale = {0.75f, 1.0f};
 
     registry_.emplace<components::Speed>(currentCharacter_, 5.0f);
-    registry_.emplace<components::Scale>(currentCharacter_);
     registry_.emplace<components::Velocity>(currentCharacter_);
     registry_.emplace<components::Acceleration>(currentCharacter_);
     registry_.emplace<components::PositionController>(currentCharacter_, app::Key::W, app::Key::S, app::Key::A, app::Key::D);
@@ -658,7 +659,6 @@ void engine::Engine::update() {
 
     renderer::CommandBuffer::beginCapture(transferCommandBuffer);
 
-    systems::cachePositions(registry_);
     systems::updateCameraScale(registry_, renderer::Swapchain::getExtent(renderer_.getSwapchain()));
     systems::updatePositionControllers(registry_, keysHeld_);
     systems::integrateMovements(registry_, deltaTime_);
@@ -670,6 +670,7 @@ void engine::Engine::update() {
     systems::transformInstances(registry_, tiles_);
     systems::updateCameras(registry_, stagingBuffer, transferCommandBuffer, stagingBufferOffset);
     systems::updateTileMeshes(registry_, *this, transferCommandBuffer, stagingBuffer, stagingBufferOffset);
+    systems::cachePositions(registry_);
 
     renderer::CommandBuffer::endCapture(transferCommandBuffer);
 

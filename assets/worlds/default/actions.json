@@ -21,5 +21,19 @@
             "function": "leaveHouse",
             "filepath": "basic.lua"
         }
+    },
+    {
+        "name": "open_door",
+        "script": {
+            "function": "openDoor",
+            "filepath": "basic.lua"
+        }
+    },
+    {
+        "name": "close_door",
+        "script": {
+            "function": "closeDoor",
+            "filepath": "basic.lua"
+        }
     }
 ]

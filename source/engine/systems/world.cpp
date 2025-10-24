@@ -285,16 +285,20 @@ void engine::systems::loadWorlds(entt::registry& registry, Engine& engine) {
 
             tileInstance.colourMultiplier = {1.0f, 1.0f, 1.0f};
 
-            if (tileJson.contains("group") && tileJson.at("group").is_number_unsigned()) {
-                tileComponent.group = tileJson.at("group").get<std::uint32_t>();
+            if (tileJson.contains("groups") && tileJson.at("groups").is_array()) {
+                tileComponent.groups.reserve(tileJson.at("groups").size());
 
-                auto& sparseTileGroups = engine.getSparseTileGroups();
+                for (auto& groupJson : tileJson.at("groups")) {
+                    auto& group = tileComponent.groups.emplace_back(groupJson.get<std::uint32_t>());
 
-                if (sparseTileGroups.size() <= tileComponent.group.value()) {
-                    sparseTileGroups.resize(tileComponent.group.value() + 1);
+                    auto& sparseTileGroups = engine.getSparseTileGroups();
+
+                    if (sparseTileGroups.size() <= group) {
+                        sparseTileGroups.resize(group + 1);
+                    }
+
+                    sparseTileGroups[group].emplace_back(tileProxy.index + 1);
                 }
-
-                sparseTileGroups[tileComponent.group.value()].emplace_back(tileProxy.index + 1);
             }
 
             if (tileJson.contains("colour_multiplier") && tileJson.at("colour_multiplier").is_object()) {

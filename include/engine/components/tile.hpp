@@ -24,7 +24,7 @@ namespace engine::components {
     };
 
     struct Tile {
-        std::optional<std::uint32_t> group;
+        std::vector<std::uint32_t> groups;
     };
 
     struct TileMesh {

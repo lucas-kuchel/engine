@@ -8,8 +8,7 @@
             "scale": {
                 "width": 10.0,
                 "height": 10.0
-            },
-            "rotation": 0.0
+            }
         },
         "on_collide": [
             {
@@ -33,6 +32,32 @@
             },
             {
                 "action": "brighten_outside",
+                "parameters": [
+                ]
+            }
+        ]
+    },
+    {
+        "transform": {
+            "position": {
+                "x": 4.5,
+                "y": -11.0
+            },
+            "scale": {
+                "width": 1.0,
+                "height": 3.0
+            }
+        },
+        "on_collide": [
+            {
+                "action": "open_door",
+                "parameters": [
+                ]
+            }
+        ],
+        "on_separate": [
+            {
+                "action": "close_door",
                 "parameters": [
                 ]
             }
