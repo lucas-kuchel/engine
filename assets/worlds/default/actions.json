@@ -7,6 +7,13 @@
         }
     },
     {
+        "name": "reset_space",
+        "script": {
+            "function": "resetSpace",
+            "filepath": "basic.lua"
+        }
+    },
+    {
         "name": "darken_outside",
         "duration": 1.0,
         "script": {

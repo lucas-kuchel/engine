@@ -25,9 +25,8 @@
         ],
         "on_separate": [
             {
-                "action": "set_space",
+                "action": "reset_space",
                 "parameters": [
-                    null
                 ]
             },
             {

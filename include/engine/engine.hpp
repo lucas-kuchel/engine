@@ -44,6 +44,8 @@ namespace engine {
         float getDeltaTime();
 
         void bindAction(components::Action& action);
+        void addToGroup(const TileProxy& proxy, std::uint32_t group);
+        void removeFromGroup(const TileProxy& proxy, std::uint32_t group);
         void setSpace(const std::string& space);
         void resetSpace();
 

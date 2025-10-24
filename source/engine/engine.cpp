@@ -50,6 +50,8 @@ engine::Engine::Engine()
         "getDeltaTime", &EngineAPI::getDeltaTime,
         "getActionTimeElapsed", &EngineAPI::getActionTimeElapsed,
         "getActionDuration", &EngineAPI::getActionDuration,
+        "addToGroup", &EngineAPI::addToGroup,
+        "removeFromGroup", &EngineAPI::removeFromGroup,
         "getTileInstances", &EngineAPI::getTileInstances);
 
     luaState_["engine"] = &api_;
@@ -106,6 +108,31 @@ engine::Engine::Engine()
 }
 
 engine::Engine::~Engine() {
+}
+
+void engine::EngineAPI::addToGroup(const TileProxy& proxy, std::uint32_t group) {
+    auto& list = engine_.sparseTileGroups_[static_cast<std::size_t>(group)];
+
+    for (const auto& entry : list) {
+        if (entry.index == proxy.index) {
+            return;
+        }
+    }
+
+    list.push_back(proxy);
+}
+
+void engine::EngineAPI::removeFromGroup(const TileProxy& proxy, std::uint32_t group) {
+    auto& list = engine_.sparseTileGroups_[static_cast<std::size_t>(group)];
+
+    for (std::size_t i = 0; i < list.size(); i++) {
+        if (list[i].index == proxy.index) {
+            list[i] = list.back();
+            list.pop_back();
+
+            return;
+        }
+    }
 }
 
 void engine::EngineAPI::bindAction(components::Action& action) {

@@ -1,8 +1,24 @@
 function setSpace(newSpace)
-    if newSpace == nil then
-        engine:resetSpace()
-    else
-        engine:setSpace(newSpace)
+    engine:setSpace(newSpace)
+
+    local playerProxies = engine:getTileGroupProxies(5)
+
+    for i = 1, #playerProxies do
+        local proxy = playerProxies[i]
+
+        engine:addToGroup(proxy, 1)
+    end
+end
+
+function resetSpace()
+    engine:resetSpace()
+
+    local playerProxies = engine:getTileGroupProxies(5)
+
+    for i = 1, #playerProxies do
+        local proxy = playerProxies[i]
+
+        engine:removeFromGroup(proxy, 1)
     end
 end
 
@@ -30,8 +46,8 @@ function enterHouse()
 
     local t = math.min(elapsed / duration, 1.0)
 
-    fadeTileProxies(outsideTileProxies, tiles, 0.25, t)
-    fadeTileProxies(wallTileProxies, tiles, 0.25, t)
+    fadeTileProxies(outsideTileProxies, tiles, 0.5, t)
+    fadeTileProxies(wallTileProxies, tiles, 0.5, t)
 end
 
 function leaveHouse()
