@@ -8,7 +8,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/quaternion.hpp>
 
-void engine::systems::updateCameraScale(entt::registry& registry, glm::vec2 scale) {
+void engine::systems::updateCameraScales(entt::registry& registry, glm::vec2 scale) {
     for (auto& entity : registry.view<components::Camera, components::Scale>()) {
         auto& cameraScale = registry.get<components::Scale>(entity);
 
@@ -48,10 +48,10 @@ void engine::systems::animateCameras(entt::registry& registry, float deltaTime) 
 
         float smoothT = t * t * t * (t * (t * 6 - 15) + 10);
 
-        position.position = glm::vec3(glm::mix(animator.startPosition, animator.targetPosition, smoothT), position.depth);
+        position.position = glm::vec3(glm::mix(animator.startPosition, animator.targetPosition, smoothT), 0.0f);
 
         if (t >= 1.0f) {
-            position.position = glm::vec3(animator.targetPosition, position.depth);
+            position.position = glm::vec3(animator.targetPosition, 0.0f);
             positionAnimationsFinished.push_back(entity);
         }
     }
@@ -118,8 +118,8 @@ void engine::systems::updateCameras(entt::registry& registry, renderer::Buffer& 
             uploadData.projection = glm::orthoRH_ZO(left, right, bottom, top, camera.near, camera.far);
             uploadData.projection[1][1] *= -1.0f;
 
-            uploadData.view = glm::translate(uploadData.view, glm::vec3{-position.position, -position.depth});
             uploadData.view = glm::rotate(uploadData.view, glm::radians(rotation), glm::vec3{0.0f, 0.0f, 1.0f});
+            uploadData.view = glm::translate(uploadData.view, glm::vec3{-position.position, 0.0f});
         }
 
         auto& buffer = registry.get<components::CameraBuffer>(entity);

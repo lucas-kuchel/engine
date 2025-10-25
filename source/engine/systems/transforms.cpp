@@ -5,10 +5,48 @@
 #include <engine/components/transforms.hpp>
 #include <engine/systems/transforms.hpp>
 
-void engine::systems::cachePositions(entt::registry& registry) {
-    for (auto& entity : registry.view<components::Position>()) {
-        auto& position = registry.get<components::Position>(entity);
-        position.lastPosition = position.position;
+void engine::systems::integrateFriction(entt::registry& registry, components::World& world, float deltaTime) {
+    const float normalForce = 1.0f;
+    const float staticFriction = world.currentState.physics.staticFriction;
+    const float kineticFriction = world.currentState.physics.kineticFriction;
+    const float velocityEpsilon = 1e-4f;
+
+    const float minTractionScale = 0.2f;
+    const float maxTractionScale = 1.0f;
+
+    for (auto& entity : registry.view<components::ApplyFrictionTag, components::Velocity, components::Acceleration, components::Last<components::Velocity>>()) {
+        auto& velocity = registry.get<components::Velocity>(entity).velocity;
+        auto& lastVelocity = registry.get<components::Last<components::Velocity>>(entity).value.velocity;
+        auto& acceleration = registry.get<components::Acceleration>(entity).acceleration;
+
+        float speed = glm::length(velocity);
+
+        if (speed < velocityEpsilon) {
+            velocity = {0.0f, 0.0f};
+            continue;
+        }
+
+        float accelMagnitude = glm::length(acceleration);
+        float lastAccelMagnitude = glm::length(lastVelocity - velocity) / std::max(deltaTime, 1e-6f);
+        bool isAccelerating = accelMagnitude > lastAccelMagnitude;
+
+        if (isAccelerating) {
+            float tractionFactor = glm::mix(minTractionScale, maxTractionScale, glm::clamp(kineticFriction / (staticFriction + 1e-6f), 0.0f, 1.0f));
+
+            acceleration *= tractionFactor;
+            velocity += acceleration * deltaTime;
+        }
+        else {
+            float frictionAccel = kineticFriction * normalForce;
+            float decelAmount = frictionAccel * deltaTime;
+
+            if (decelAmount >= speed) {
+                velocity = {0.0f, 0.0f};
+            }
+            else {
+                velocity -= (velocity / speed) * decelAmount;
+            }
+        }
     }
 }
 
@@ -31,7 +69,12 @@ void engine::systems::transformInstances(entt::registry& registry, std::span<com
         auto& scale = registry.get<components::Scale>(entity);
         auto& tileInstance = instances[proxy.index];
 
-        tileInstance.position = glm::vec3{position.position, position.depth};
-        tileInstance.scale = scale.scale;
+        tileInstance.transform.position = {
+            position.position.x,
+            position.position.y,
+            tileInstance.transform.position.z,
+        };
+
+        tileInstance.transform.scale = scale.scale;
     }
 }

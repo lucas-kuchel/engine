@@ -24,5 +24,10 @@ namespace engine::components {
             float scale;
 
         } camera;
+
+        struct Physics {
+            float staticFriction = 1.0f;
+            float kineticFriction = 1.0f;
+        } physics;
     };
 }

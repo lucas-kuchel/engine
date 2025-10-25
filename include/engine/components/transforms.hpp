@@ -5,10 +5,7 @@
 
 namespace engine::components {
     struct Position {
-        glm::vec2 lastPosition = {0.0f, 0.0f};
         glm::vec2 position = {0.0f, 0.0f};
-
-        float depth = 0.0f;
     };
 
     struct Velocity {
@@ -25,5 +22,10 @@ namespace engine::components {
 
     struct Scale {
         glm::vec2 scale = {1.0f, 1.0f};
+    };
+
+    template <typename T>
+    struct Last {
+        T value;
     };
 }

@@ -14,22 +14,6 @@
         }
     },
     {
-        "name": "darken_outside",
-        "duration": 1.0,
-        "script": {
-            "function": "enterHouse",
-            "filepath": "basic.lua"
-        }
-    },
-    {
-        "name": "brighten_outside",
-        "duration": 1.0,
-        "script": {
-            "function": "leaveHouse",
-            "filepath": "basic.lua"
-        }
-    },
-    {
         "name": "open_door",
         "script": {
             "function": "openDoor",

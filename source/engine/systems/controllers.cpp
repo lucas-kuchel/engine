@@ -25,3 +25,16 @@ void engine::systems::updatePositionControllers(entt::registry& registry, std::s
         }
     }
 }
+
+void engine::systems::clampSpeeds(entt::registry& registry) {
+    for (auto& entity : registry.view<components::Speed, components::Velocity>()) {
+        auto& velocity = registry.get<components::Velocity>(entity).velocity;
+        auto& maxSpeed = registry.get<components::Speed>(entity).speed;
+
+        float currentSpeed = glm::length(velocity);
+
+        if (currentSpeed > maxSpeed) {
+            velocity = (velocity / currentSpeed) * maxSpeed;
+        }
+    }
+}

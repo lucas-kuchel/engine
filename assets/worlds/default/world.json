@@ -8,5 +8,9 @@
         "groups": [
             5
         ]
+    },
+    "physics": {
+        "kinetic_friction": 10.0,
+        "static_friction": 10.0
     }
 }

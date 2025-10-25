@@ -22,6 +22,9 @@ namespace engine::components {
     struct CanCollideTag {
     };
 
+    struct ApplyFrictionTag {
+    };
+
     struct TileTag {
     };
 }

@@ -7,20 +7,25 @@
 #include <glm/glm.hpp>
 
 namespace engine::components {
-    struct TileInstance {
-        struct alignas(32) Texture {
-            struct Sample {
-                glm::vec2 position;
-                glm::vec2 extent;
-            } sample;
-
-            glm::vec2 offset;
+    struct alignas(16) TileInstance {
+        struct Transform {
+            glm::vec3 position;
             glm::vec2 scale;
-        } texture;
+        } transform;
 
-        glm::vec2 scale;
-        glm::vec3 position;
-        glm::vec3 colourMultiplier;
+        struct Appearance {
+            struct Texture {
+                struct Sample {
+                    glm::vec2 position;
+                    glm::vec2 extent;
+                } sample;
+
+                glm::vec2 offset;
+                glm::vec2 repeat;
+            } texture;
+
+            float opacity;
+        } appearance;
     };
 
     struct TileMesh {

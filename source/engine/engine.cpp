@@ -1,6 +1,5 @@
 #include <engine/engine.hpp>
 
-#include <engine/components/defaults.hpp>
 #include <engine/components/entity_tags.hpp>
 #include <engine/components/space.hpp>
 
@@ -52,6 +51,8 @@ engine::Engine::Engine()
         "getActionDuration", &EngineAPI::getActionDuration,
         "addToGroup", &EngineAPI::addToGroup,
         "removeFromGroup", &EngineAPI::removeFromGroup,
+        "getCameraInfo", &EngineAPI::getCameraInfo,
+        "setCameraInfo", &EngineAPI::setCameraInfo,
         "getTileInstances", &EngineAPI::getTileInstances);
 
     luaState_["engine"] = &api_;
@@ -60,23 +61,49 @@ engine::Engine::Engine()
         "TileProxy",
         "index", &TileProxy::index);
 
-    luaState_.new_usertype<TileInstance::Texture::Sample>(
-        "TileInstanceTextureSample",
-        "position", &TileInstance::Texture::Sample::position,
-        "extent", &TileInstance::Texture::Sample::extent);
+    luaState_.new_usertype<TileInstance::Appearance::Texture::Sample>(
+        "TileInstanceAppearanceTextureSample",
+        "position", &TileInstance::Appearance::Texture::Sample::position,
+        "extent", &TileInstance::Appearance::Texture::Sample::extent);
 
-    luaState_.new_usertype<TileInstance::Texture>(
-        "TileInstanceTexture",
-        "sample", &TileInstance::Texture::sample,
-        "scale", &TileInstance::Texture::scale,
-        "offset", &TileInstance::Texture::offset);
+    luaState_.new_usertype<TileInstance::Appearance::Texture>(
+        "TileInstanceAppearanceTexture",
+        "sample", &TileInstance::Appearance::Texture::sample,
+        "offset", &TileInstance::Appearance::Texture::offset,
+        "repeat", &TileInstance::Appearance::Texture::repeat);
+
+    luaState_.new_usertype<TileInstance::Appearance>(
+        "TileInstanceAppearance",
+        "texture", &TileInstance::Appearance::texture,
+        "opacity", &TileInstance::Appearance::opacity);
+
+    luaState_.new_usertype<TileInstance::Transform>(
+        "TileInstanceTransform",
+        "position", &TileInstance::Transform::position,
+        "scale", &TileInstance::Transform::scale);
 
     luaState_.new_usertype<TileInstance>(
         "TileInstance",
-        "position", &TileInstance::position,
-        "scale", &TileInstance::scale,
-        "texture", &TileInstance::texture,
-        "colourMultiplier", &TileInstance::colourMultiplier);
+        "transform", &TileInstance::transform,
+        "appearance", &TileInstance::appearance);
+
+    luaState_.new_usertype<CameraInfo>(
+        "CameraInfo",
+        "state", &CameraInfo::state,
+        "position", &CameraInfo::position,
+        "rotation", &CameraInfo::rotation,
+        "scale", &CameraInfo::scale);
+
+    luaState_.new_usertype<components::Camera>(
+        "CameraState",
+        "near", &components::Camera::near,
+        "far", &components::Camera::far,
+        "scale", &components::Camera::scale,
+        "mode", &components::Camera::mode);
+
+    luaState_.new_enum("CameraMode",
+                       "FOLLOW", components::CameraMode::FOLLOW,
+                       "LOCKED", components::CameraMode::LOCKED);
 
     luaState_.new_usertype<SpanProxy<TileInstance>>(
         "TileInstanceSpan",
@@ -105,6 +132,17 @@ engine::Engine::Engine()
         "r", &glm::vec3::r,
         "g", &glm::vec3::g,
         "b", &glm::vec3::b);
+
+    luaState_.new_usertype<glm::vec4>(
+        "vec4",
+        "x", &glm::vec4::x,
+        "y", &glm::vec4::y,
+        "z", &glm::vec4::z,
+        "w", &glm::vec4::w,
+        "r", &glm::vec4::r,
+        "g", &glm::vec4::g,
+        "b", &glm::vec4::b,
+        "a", &glm::vec4::a);
 }
 
 engine::Engine::~Engine() {
@@ -120,6 +158,27 @@ void engine::EngineAPI::addToGroup(const TileProxy& proxy, std::uint32_t group) 
     }
 
     list.push_back(proxy);
+}
+
+engine::CameraInfo engine::EngineAPI::getCameraInfo() {
+    return {
+        .state = engine_.registry_.get<components::Camera>(engine_.currentCamera_),
+        .rotation = engine_.registry_.get<components::Rotation>(engine_.currentCamera_).angle,
+        .scale = engine_.registry_.get<components::Scale>(engine_.currentCamera_).scale,
+        .position = engine_.registry_.get<components::Position>(engine_.currentCamera_).position,
+    };
+}
+
+void engine::EngineAPI::setCameraInfo(CameraInfo& cameraInfo) {
+    auto& state = engine_.registry_.get<components::Camera>(engine_.currentCamera_);
+    auto& rotation = engine_.registry_.get<components::Rotation>(engine_.currentCamera_).angle;
+    auto& scale = engine_.registry_.get<components::Scale>(engine_.currentCamera_).scale;
+    auto& position = engine_.registry_.get<components::Position>(engine_.currentCamera_).position;
+
+    state = cameraInfo.state;
+    rotation = cameraInfo.rotation;
+    scale = cameraInfo.scale;
+    position = cameraInfo.position;
 }
 
 void engine::EngineAPI::removeFromGroup(const TileProxy& proxy, std::uint32_t group) {
@@ -163,7 +222,13 @@ void engine::EngineAPI::setSpace(const std::string& space) {
             continue;
         }
 
-        world.currentSpace = spaceEntity;
+        world.currentState.camera.mode = spaceComponent.camera.mode;
+        world.currentState.camera.scale = spaceComponent.camera.scale;
+
+        world.currentState.physics.kineticFriction = spaceComponent.physics.kineticFriction;
+        world.currentState.physics.staticFriction = spaceComponent.physics.staticFriction;
+
+        // TODO: move to camera update
         camera.mode = spaceComponent.camera.mode;
 
         // TODO: add flag to space for camera transitions
@@ -181,6 +246,7 @@ void engine::EngineAPI::setSpace(const std::string& space) {
                 cameraPositionAnimator.duration = 1.0f;
                 cameraPositionAnimator.startPosition = position.position;
                 cameraPositionAnimator.targetPosition = spaceComponent.camera.position.value();
+                world.currentState.camera.position = spaceComponent.camera.position.value();
             }
         }
         else {
@@ -200,34 +266,28 @@ void engine::EngineAPI::resetSpace() {
     auto& camera = engine_.registry_.get<components::Camera>(engine_.currentCamera_);
     auto& position = engine_.registry_.get<components::Position>(engine_.currentCamera_);
 
-    camera.mode = world.defaults.camera.mode;
+    world.currentState = world.defaultState;
+
+    camera.mode = world.currentState.camera.mode;
 
     // TODO: add flag to space for camera transitions
     if (true) {
         auto& cameraScaleAnimator = engine_.registry_.emplace_or_replace<components::CameraScaleAnimator>(engine_.currentCamera_);
+
         cameraScaleAnimator.timeElapsed = 0.0f;
         cameraScaleAnimator.duration = 1.0f;
-        cameraScaleAnimator.targetScale = world.defaults.camera.scale;
+        cameraScaleAnimator.targetScale = world.defaultState.camera.scale;
         cameraScaleAnimator.startScale = camera.scale;
 
-        if (world.defaults.camera.position.has_value()) {
+        if (world.defaultState.camera.position.has_value()) {
             auto& cameraPositionAnimator = engine_.registry_.emplace_or_replace<components::CameraPositionAnimator>(engine_.currentCamera_);
 
             cameraPositionAnimator.timeElapsed = 0.0f;
             cameraPositionAnimator.duration = 1.0f;
             cameraPositionAnimator.startPosition = position.position;
-            cameraPositionAnimator.targetPosition = world.defaults.camera.position.value();
+            cameraPositionAnimator.targetPosition = world.defaultState.camera.position.value();
         }
     }
-    else {
-        camera.scale = world.defaults.camera.scale;
-
-        if (world.defaults.camera.position.has_value()) {
-            position.position = world.defaults.camera.position.value();
-        }
-    }
-
-    world.currentSpace = entt::null;
 }
 
 engine::SpanProxy<engine::TileInstance> engine::EngineAPI::getTileInstances() {
@@ -540,7 +600,7 @@ void engine::Engine::start() {
 
     registry_.emplace<components::TileMesh>(currentWorld_);
 
-    worldComponent.path = "assets/worlds/default";
+    worldComponent.defaultState.path = "assets/worlds/default";
 
     currentCharacter_ = registry_.create();
 
@@ -549,17 +609,25 @@ void engine::Engine::start() {
     auto& characterScale = registry_.emplace<components::Scale>(currentCharacter_);
 
     characterPosition.position = {5.0f, -12.0f};
-    characterPosition.depth = -0.5f;
-    characterInstance.texture = {
-        .sample = {
-            .position = {0.2, 0.0},
-            .extent = {0.2, 0.2},
-        },
-        .offset = {0.0, 0.0},
-        .scale = {0.75, 1.0},
-    };
-    characterInstance.colourMultiplier = {1.0f, 1.0f, 1.0f};
     characterScale.scale = {0.75f, 1.0f};
+
+    characterInstance = {
+        .transform = {
+            .position = {characterPosition.position, -0.5f},
+            .scale = characterScale.scale,
+        },
+        .appearance = {
+            .texture = {
+                .sample = {
+                    .position = {0.2, 0.0},
+                    .extent = {0.2, 0.2},
+                },
+                .offset = {0.0, 0.0},
+                .repeat = {1.0, 1.0},
+            },
+            .opacity = 1.0f,
+        },
+    };
 
     registry_.emplace<components::Speed>(currentCharacter_, 5.0f);
     registry_.emplace<components::Velocity>(currentCharacter_);
@@ -570,6 +638,9 @@ void engine::Engine::start() {
     registry_.emplace<components::CanCollideTag>(currentCharacter_);
     registry_.emplace<components::ActiveCharacterTag>(currentCharacter_);
     registry_.emplace<components::Character>(currentCharacter_);
+    registry_.emplace<components::ApplyFrictionTag>(currentCharacter_);
+    registry_.emplace<components::Last<components::Position>>(currentCharacter_);
+    registry_.emplace<components::Last<components::Velocity>>(currentCharacter_);
 
     systems::loadWorlds(registry_, *this);
     systems::createTileMeshes(registry_, *this, device, transferCommandBuffer, stagingBuffer, stagingBufferOffset);
@@ -582,17 +653,17 @@ void engine::Engine::start() {
     auto& cameraScale = registry_.emplace<components::Scale>(currentCamera_);
 
     registry_.emplace<components::ActiveCameraTag>(currentCamera_);
+    registry_.emplace<components::Rotation>(currentCamera_);
 
     cameraComponent.near = -1.0f;
     cameraComponent.far = 1.0f;
-    cameraComponent.mode = worldComponent.defaults.camera.mode;
-    cameraComponent.scale = worldComponent.defaults.camera.scale;
-    cameraPosition.depth = 0.0f;
+    cameraComponent.mode = worldComponent.defaultState.camera.mode;
+    cameraComponent.scale = worldComponent.defaultState.camera.scale;
 
     cameraScale.scale = window_.extent();
 
-    if (worldComponent.defaults.camera.position.has_value()) {
-        cameraPosition.position = glm::vec3(worldComponent.defaults.camera.position.value(), 0.5f);
+    if (worldComponent.defaultState.camera.position.has_value()) {
+        cameraPosition.position = worldComponent.defaultState.camera.position.value();
     }
     else {
         cameraPosition.position = {0.0f, 0.0f};
@@ -683,22 +754,43 @@ void engine::Engine::update() {
     deltaTime_ = std::clamp(std::chrono::duration<float>(thisFrameTime_ - lastFrameTime_).count(), 0.0f, 0.1f);
     lastFrameTime_ = thisFrameTime_;
 
-    renderer::CommandBuffer::beginCapture(transferCommandBuffer);
+    // === CAMERA SCALE SET ===
+    systems::updateCameraScales(registry_, renderer::Swapchain::getExtent(renderer_.getSwapchain()));
 
-    systems::updateCameraScale(registry_, renderer::Swapchain::getExtent(renderer_.getSwapchain()));
+    // === MOVEMENT CONTROLS ===
     systems::updatePositionControllers(registry_, keysHeld_);
+    systems::clampSpeeds(registry_);
+
+    // === PHYSICS INTEGRATION ===
+    systems::integrateFriction(registry_, registry_.get<components::World>(currentWorld_), deltaTime_);
     systems::integrateMovements(registry_, deltaTime_);
+
+    // === TESTING COLLISIONS ===
     systems::testCollisions(registry_);
     systems::checkTriggers(registry_);
+
+    // === TRIGGER ACTIONS ===
     systems::performTriggers(registry_, *this, api_, deltaTime_);
+
+    // === CAMERA UPDATES ===
     systems::animateCameras(registry_, deltaTime_);
     systems::cameraFollowCharacter(registry_, currentCharacter_, currentCamera_, deltaTime_);
+
+    // === TRANSFORM TILE INSTANCES
     systems::transformInstances(registry_, tiles_);
+
+    renderer::CommandBuffer::beginCapture(transferCommandBuffer);
+
+    // === GPU OPERATIONS ===
     systems::updateCameras(registry_, stagingBuffer, transferCommandBuffer, stagingBufferOffset);
     systems::updateTileMeshes(registry_, *this, transferCommandBuffer, stagingBuffer, stagingBufferOffset);
-    systems::cachePositions(registry_);
 
     renderer::CommandBuffer::endCapture(transferCommandBuffer);
+
+    // === CACHE LAST VALUES ===
+    systems::cacheLasts<components::Position>(registry_);
+    systems::cacheLasts<components::Velocity>(registry_);
+    systems::cacheLasts<components::Acceleration>(registry_);
 
     renderer::QueueSubmitInfo submitInfo = {
         .fence = stagingBufferFence,
@@ -874,43 +966,51 @@ void engine::Engine::createBasicPipelineResources() {
                 },
             },
             .attributes = {
+                // === VERTEX ===
                 renderer::VertexAttributeDescription{
                     .format = renderer::VertexAttributeFormat::R32G32_FLOAT,
                     .binding = 0,
                     .location = 0,
                 },
+                // === POSITION ===
                 renderer::VertexAttributeDescription{
-                    .format = renderer::VertexAttributeFormat::R32G32_FLOAT,
+                    .format = renderer::VertexAttributeFormat::R32G32B32_FLOAT,
                     .binding = 1,
                     .location = 1,
                 },
+                // === SCALE ===
                 renderer::VertexAttributeDescription{
                     .format = renderer::VertexAttributeFormat::R32G32_FLOAT,
                     .binding = 1,
                     .location = 2,
                 },
+                // === TEXTURE POSITION ===
                 renderer::VertexAttributeDescription{
                     .format = renderer::VertexAttributeFormat::R32G32_FLOAT,
                     .binding = 1,
                     .location = 3,
                 },
+                // === TEXTURE EXTENT ===
                 renderer::VertexAttributeDescription{
                     .format = renderer::VertexAttributeFormat::R32G32_FLOAT,
                     .binding = 1,
                     .location = 4,
                 },
+                // === TEXTURE OFFSET ===
                 renderer::VertexAttributeDescription{
                     .format = renderer::VertexAttributeFormat::R32G32_FLOAT,
                     .binding = 1,
                     .location = 5,
                 },
+                // === TEXTURE REPEAT ===
                 renderer::VertexAttributeDescription{
-                    .format = renderer::VertexAttributeFormat::R32G32B32_FLOAT,
+                    .format = renderer::VertexAttributeFormat::R32G32_FLOAT,
                     .binding = 1,
                     .location = 6,
                 },
+                // === OPACITY ===
                 renderer::VertexAttributeDescription{
-                    .format = renderer::VertexAttributeFormat::R32G32B32_FLOAT,
+                    .format = renderer::VertexAttributeFormat::R32_FLOAT,
                     .binding = 1,
                     .location = 7,
                 },

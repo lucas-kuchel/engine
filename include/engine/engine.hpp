@@ -6,8 +6,10 @@
 #include <renderer/renderer.hpp>
 
 #include <engine/components/action.hpp>
+#include <engine/components/camera.hpp>
 #include <engine/components/proxy.hpp>
 #include <engine/components/tile.hpp>
+#include <engine/components/transforms.hpp>
 
 #include <chrono>
 
@@ -19,6 +21,13 @@ namespace engine {
 
     using TileInstance = components::TileInstance;
     using TileProxy = components::Proxy<components::TileInstance>;
+
+    struct CameraInfo {
+        components::Camera state;
+        float rotation;
+        glm::vec2 scale;
+        glm::vec2 position;
+    };
 
     template <typename T>
     struct SpanProxy {
@@ -42,6 +51,9 @@ namespace engine {
         float getActionDuration();
         float getActionTimeElapsed();
         float getDeltaTime();
+
+        CameraInfo getCameraInfo();
+        void setCameraInfo(CameraInfo& cameraInfo);
 
         void bindAction(components::Action& action);
         void addToGroup(const TileProxy& proxy, std::uint32_t group);

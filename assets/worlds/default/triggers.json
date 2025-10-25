@@ -16,21 +16,11 @@
                 "parameters": [
                     "house"
                 ]
-            },
-            {
-                "action": "darken_outside",
-                "parameters": [
-                ]
             }
         ],
         "on_separate": [
             {
                 "action": "reset_space",
-                "parameters": [
-                ]
-            },
-            {
-                "action": "brighten_outside",
                 "parameters": [
                 ]
             }
