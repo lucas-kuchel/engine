@@ -885,7 +885,7 @@ void engine::Engine::runPreTransferSystems() {
 
     // === CAMERA UPDATES ===
     systems::animateCameras(registry_, deltaTime_);
-    systems::cameraFollowCharacter(registry_, currentCharacter_, currentCamera_, deltaTime_);
+    systems::cameraFollowCharacter(registry_, currentCharacter_, currentCamera_, mousePosition_, deltaTime_);
 
     // === TRANSFORM TILE INSTANCES
     systems::transformInstances(registry_, tiles_);
