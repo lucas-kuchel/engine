@@ -337,8 +337,15 @@ namespace app {
             return;
         }
 
+        auto& extent = self->extent_;
+
+        glm::vec2 ndc = {
+            static_cast<float>((2.0 * x) / extent.x - 1.0),
+            static_cast<float>(1.0 - (2.0 * y) / extent.y),
+        };
+
         WindowMouseMovedEventInfo mouseMoveEventInfo = {
-            .position = {x, y},
+            .position = ndc,
         };
 
         WindowEvent event = {

@@ -369,6 +369,10 @@ void engine::Engine::manageEvents() {
                 keysReleased_[keyIndex(event.info.keyRelease.key)] = true;
                 break;
 
+            case app::WindowEventType::MOUSE_MOVED:
+                mousePosition_ = event.info.mouseMove.position;
+                break;
+
             default:
                 break;
         }
@@ -977,17 +981,25 @@ void engine::Engine::render() {
         .stencilClearValue = 0xFF,
     };
 
+    auto& tileMesh = registry_.get<components::TileMesh>(currentWorld_);
+
     renderer::CommandBuffer::beginCapture(commandBuffer);
     renderer::CommandBuffer::beginRenderPass(commandBuffer, renderPassBeginInfo);
-    renderer::CommandBuffer::bindPipeline(commandBuffer, basicPipeline_);
+
+    renderer::CommandBuffer::bindPipeline(commandBuffer, worldPipeline_);
     renderer::CommandBuffer::setPipelineViewports(commandBuffer, {viewport}, 0);
     renderer::CommandBuffer::setPipelineScissors(commandBuffer, {scissor}, 0);
 
-    auto& tileMesh = registry_.get<components::TileMesh>(currentWorld_);
     renderer::CommandBuffer::bindVertexBuffers(commandBuffer, {tileMesh.vertexBuffer, tileMesh.instanceBuffer}, {0, 0}, 0);
 
     renderer::CommandBuffer::bindDescriptorSets(commandBuffer, renderer::DeviceOperation::GRAPHICS, basicPipelineLayout_, 0, {tilemapDescriptorSet_});
     renderer::CommandBuffer::draw(commandBuffer, 4, static_cast<std::uint32_t>(worldTileCount_), 0, static_cast<std::uint32_t>(worldTileFirst_));
+
+    renderer::CommandBuffer::bindPipeline(commandBuffer, uiPipeline_);
+    renderer::CommandBuffer::setPipelineViewports(commandBuffer, {viewport}, 0);
+    renderer::CommandBuffer::setPipelineScissors(commandBuffer, {scissor}, 0);
+
+    renderer::CommandBuffer::bindVertexBuffers(commandBuffer, {tileMesh.vertexBuffer, tileMesh.instanceBuffer}, {0, 0}, 0);
 
     renderer::CommandBuffer::bindDescriptorSets(commandBuffer, renderer::DeviceOperation::GRAPHICS, basicPipelineLayout_, 0, {buttonsDescriptorSet_});
     renderer::CommandBuffer::draw(commandBuffer, 4, static_cast<std::uint32_t>(buttonsTileCount_), 0, static_cast<std::uint32_t>(buttonsTileFirst_));
@@ -1026,7 +1038,8 @@ void engine::Engine::close() {
     renderer::CommandPool::destroy(transferCommandPool_);
     renderer::DescriptorPool::destroy(descriptorPool_);
     renderer::DescriptorSetLayout::destroy(descriptorSetLayout_);
-    renderer::Pipeline::destroy(basicPipeline_);
+    renderer::Pipeline::destroy(worldPipeline_);
+    renderer::Pipeline::destroy(uiPipeline_);
     renderer::PipelineLayout::destroy(basicPipelineLayout_);
 
     renderer::ImageView::destroy(tilemapImageView_);
@@ -1042,33 +1055,44 @@ void engine::Engine::createBasicPipelineResources() {
     auto& device = renderer_.getDevice();
     auto renderPass = renderer_.getRenderPass();
 
-    std::ifstream vertexShader("assets/shaders/tile.vert.spv", std::ios::binary | std::ios::ate);
-    std::ifstream fragmentShader("assets/shaders/tile.frag.spv", std::ios::binary | std::ios::ate);
+    std::ifstream uiVertShader("assets/shaders/ui.vert.spv", std::ios::binary | std::ios::ate);
+    std::ifstream tileVertShader("assets/shaders/tile.vert.spv", std::ios::binary | std::ios::ate);
+    std::ifstream tileFragShader("assets/shaders/tile.frag.spv", std::ios::binary | std::ios::ate);
 
-    std::uint64_t vertexShaderSize = static_cast<std::uint64_t>(vertexShader.tellg());
-    std::uint64_t fragmentShaderSize = static_cast<std::uint64_t>(fragmentShader.tellg());
+    std::uint64_t uiVertShaderSize = static_cast<std::uint64_t>(uiVertShader.tellg());
+    std::uint64_t tileVertShaderSize = static_cast<std::uint64_t>(tileVertShader.tellg());
+    std::uint64_t tileFragShaderSize = static_cast<std::uint64_t>(tileFragShader.tellg());
 
-    vertexShader.seekg(0, std::ios::beg);
-    fragmentShader.seekg(0, std::ios::beg);
+    uiVertShader.seekg(0, std::ios::beg);
+    tileVertShader.seekg(0, std::ios::beg);
+    tileFragShader.seekg(0, std::ios::beg);
 
-    std::vector<std::uint32_t> vertexShaderBinary(vertexShaderSize / sizeof(std::uint32_t));
-    std::vector<std::uint32_t> fragmentShaderBinary(fragmentShaderSize / sizeof(std::uint32_t));
+    std::vector<std::uint32_t> uiVertShaderBinary(uiVertShaderSize / sizeof(std::uint32_t));
+    std::vector<std::uint32_t> tileVertShaderBinary(tileVertShaderSize / sizeof(std::uint32_t));
+    std::vector<std::uint32_t> tileFragShaderBinary(tileFragShaderSize / sizeof(std::uint32_t));
 
-    vertexShader.read(reinterpret_cast<char*>(vertexShaderBinary.data()), static_cast<std::uint32_t>(vertexShaderSize));
-    fragmentShader.read(reinterpret_cast<char*>(fragmentShaderBinary.data()), static_cast<std::uint32_t>(fragmentShaderSize));
+    uiVertShader.read(reinterpret_cast<char*>(uiVertShaderBinary.data()), static_cast<std::uint32_t>(uiVertShaderSize));
+    tileVertShader.read(reinterpret_cast<char*>(tileVertShaderBinary.data()), static_cast<std::uint32_t>(tileVertShaderSize));
+    tileFragShader.read(reinterpret_cast<char*>(tileFragShaderBinary.data()), static_cast<std::uint32_t>(tileFragShaderSize));
 
-    renderer::ShaderModuleCreateInfo vertexShaderModuleCreateInfo = {
+    renderer::ShaderModuleCreateInfo uiVertShaderModuleCreateInfo = {
         .device = device,
-        .data = vertexShaderBinary,
+        .data = uiVertShaderBinary,
     };
 
-    renderer::ShaderModuleCreateInfo fragmentShaderModuleCreateInfo = {
+    renderer::ShaderModuleCreateInfo tileVertShaderModuleCreateInfo = {
         .device = device,
-        .data = fragmentShaderBinary,
+        .data = tileVertShaderBinary,
     };
 
-    renderer::ShaderModule vertexShaderModule = renderer::ShaderModule::create(vertexShaderModuleCreateInfo);
-    renderer::ShaderModule fragmentShaderModule = renderer::ShaderModule::create(fragmentShaderModuleCreateInfo);
+    renderer::ShaderModuleCreateInfo tileFragShaderModuleCreateInfo = {
+        .device = device,
+        .data = tileFragShaderBinary,
+    };
+
+    renderer::ShaderModule uiVertShaderModule = renderer::ShaderModule::create(uiVertShaderModuleCreateInfo);
+    renderer::ShaderModule tileVertShaderModule = renderer::ShaderModule::create(tileVertShaderModuleCreateInfo);
+    renderer::ShaderModule tileFragShaderModule = renderer::ShaderModule::create(tileFragShaderModuleCreateInfo);
 
     renderer::PipelineLayoutCreateInfo pipelineLayoutCreateInfo = {
         .device = device,
@@ -1078,18 +1102,18 @@ void engine::Engine::createBasicPipelineResources() {
 
     basicPipelineLayout_ = renderer::PipelineLayout::create(pipelineLayoutCreateInfo);
 
-    renderer::PipelineCreateInfo pipelineCreateInfo = {
+    renderer::PipelineCreateInfo worldPipelineCreateInfo = {
         .renderPass = renderPass,
         .layout = basicPipelineLayout_,
         .subpassIndex = 0,
         .shaderStages = {
             {
-                vertexShaderModule,
+                tileVertShaderModule,
                 renderer::ShaderStage::VERTEX,
                 "main",
             },
             {
-                fragmentShaderModule,
+                tileFragShaderModule,
                 renderer::ShaderStage::FRAGMENT,
                 "main",
             },
@@ -1197,10 +1221,131 @@ void engine::Engine::createBasicPipelineResources() {
         },
     };
 
-    pipelines_ = renderer::Device::createPipelines(device, {pipelineCreateInfo});
+    renderer::PipelineCreateInfo uiPipelineCreateInfo = {
+        .renderPass = renderPass,
+        .layout = basicPipelineLayout_,
+        .subpassIndex = 0,
+        .shaderStages = {
+            {
+                uiVertShaderModule,
+                renderer::ShaderStage::VERTEX,
+                "main",
+            },
+            {
+                tileFragShaderModule,
+                renderer::ShaderStage::FRAGMENT,
+                "main",
+            },
+        },
+        .vertexInput = {
+            .bindings = {
+                renderer::VertexInputBindingDescription{
+                    .inputRate = renderer::VertexInputRate::PER_VERTEX,
+                    .binding = 0,
+                    .strideBytes = sizeof(glm::vec2),
+                },
+                renderer::VertexInputBindingDescription{
+                    .inputRate = renderer::VertexInputRate::PER_INSTANCE,
+                    .binding = 1,
+                    .strideBytes = sizeof(components::TileInstance),
+                },
+            },
+            .attributes = {
+                // === VERTEX ===
+                renderer::VertexAttributeDescription{
+                    .format = renderer::VertexAttributeFormat::R32G32_FLOAT,
+                    .binding = 0,
+                    .location = 0,
+                },
+                // === POSITION ===
+                renderer::VertexAttributeDescription{
+                    .format = renderer::VertexAttributeFormat::R32G32B32_FLOAT,
+                    .binding = 1,
+                    .location = 1,
+                },
+                // === SCALE ===
+                renderer::VertexAttributeDescription{
+                    .format = renderer::VertexAttributeFormat::R32G32_FLOAT,
+                    .binding = 1,
+                    .location = 2,
+                },
+                // === TEXTURE POSITION ===
+                renderer::VertexAttributeDescription{
+                    .format = renderer::VertexAttributeFormat::R32G32_FLOAT,
+                    .binding = 1,
+                    .location = 3,
+                },
+                // === TEXTURE EXTENT ===
+                renderer::VertexAttributeDescription{
+                    .format = renderer::VertexAttributeFormat::R32G32_FLOAT,
+                    .binding = 1,
+                    .location = 4,
+                },
+                // === TEXTURE OFFSET ===
+                renderer::VertexAttributeDescription{
+                    .format = renderer::VertexAttributeFormat::R32G32_FLOAT,
+                    .binding = 1,
+                    .location = 5,
+                },
+                // === TEXTURE REPEAT ===
+                renderer::VertexAttributeDescription{
+                    .format = renderer::VertexAttributeFormat::R32G32_FLOAT,
+                    .binding = 1,
+                    .location = 6,
+                },
+                // === COLOUR FACTOR ===
+                renderer::VertexAttributeDescription{
+                    .format = renderer::VertexAttributeFormat::R32G32B32_FLOAT,
+                    .binding = 1,
+                    .location = 7,
+                },
+            },
+        },
+        .inputAssembly = {
+            .topology = renderer::PolygonTopology::TRIANGLE_STRIP,
+            .primitiveRestart = false,
+        },
+        .viewportCount = 1,
+        .scissorCount = 1,
+        .rasterisation = {
+            .frontFaceWinding = renderer::PolygonFaceWinding::ANTICLOCKWISE,
+            .cullMode = renderer::PolygonCullMode::NEVER,
+            .frontface = {
+                .depthComparison = renderer::CompareOperation::LESS_EQUAL,
+                .stencilComparison = renderer::CompareOperation::ALWAYS,
+                .stencilFailOperation = renderer::ValueOperation::KEEP,
+                .depthFailOperation = renderer::ValueOperation::KEEP,
+                .passOperation = renderer::ValueOperation::KEEP,
+                .stencilCompareMask = 0xFF,
+                .stencilWriteMask = 0xFF,
+            },
+            .backface = {
+                .depthComparison = renderer::CompareOperation::LESS_EQUAL,
+                .stencilComparison = renderer::CompareOperation::ALWAYS,
+                .stencilFailOperation = renderer::ValueOperation::KEEP,
+                .depthFailOperation = renderer::ValueOperation::KEEP,
+                .passOperation = renderer::ValueOperation::KEEP,
+                .stencilCompareMask = 0xFF,
+                .stencilWriteMask = 0xFF,
+            },
+            .depthClampEnable = false,
+            .depthTestEnable = true,
+            .depthWriteEnable = true,
+            .depthBoundsTestEnable = false,
+            .stencilTestEnable = false,
+        },
+        .multisample = {},
+        .colourBlend = {
+            .attachments = {renderer::ColourBlendAttachment{}},
+        },
+    };
 
-    basicPipeline_ = pipelines_.front();
+    pipelines_ = renderer::Device::createPipelines(device, {worldPipelineCreateInfo, uiPipelineCreateInfo});
 
-    renderer::ShaderModule::destroy(vertexShaderModule);
-    renderer::ShaderModule::destroy(fragmentShaderModule);
+    worldPipeline_ = pipelines_[0];
+    uiPipeline_ = pipelines_[1];
+
+    renderer::ShaderModule::destroy(uiVertShaderModule);
+    renderer::ShaderModule::destroy(tileVertShaderModule);
+    renderer::ShaderModule::destroy(tileFragShaderModule);
 }

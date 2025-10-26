@@ -27,4 +27,7 @@ namespace engine::components {
 
     struct TileTag {
     };
+
+    struct ButtonTag {
+    };
 }

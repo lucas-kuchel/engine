@@ -135,7 +135,8 @@ namespace engine {
         renderer::DescriptorSet buttonsDescriptorSet_;
         renderer::DescriptorSetLayout descriptorSetLayout_;
         renderer::DescriptorPool descriptorPool_;
-        renderer::Pipeline basicPipeline_;
+        renderer::Pipeline worldPipeline_;
+        renderer::Pipeline uiPipeline_;
         renderer::PipelineLayout basicPipelineLayout_;
 
         renderer::Image tilemapImage_;
@@ -157,6 +158,8 @@ namespace engine {
 
         entt::registry registry_;
         entt::dispatcher dispatcher_;
+
+        glm::vec2 mousePosition_;
 
         sol::state luaState_;
 
