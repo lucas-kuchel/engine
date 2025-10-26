@@ -200,7 +200,9 @@ void engine::systems::loadWorlds(entt::registry& registry, Engine& engine) {
             auto& groupsJson = tileJson.at("groups");
             auto& transformJson = tileJson.at("transform");
             auto& appearanceJson = tileJson.at("appearance");
+
             auto& textureJson = appearanceJson.at("texture");
+            auto& colourFactorJson = appearanceJson.at("colour_factor");
 
             auto& positionJson = transformJson.at("position");
             auto& scaleJson = transformJson.at("scale");
@@ -230,7 +232,11 @@ void engine::systems::loadWorlds(entt::registry& registry, Engine& engine) {
                 sparseTileGroups[group].emplace_back(tileIndex + 1);
             }
 
-            tileInstance.appearance.opacity = appearanceJson.at("opacity").get<float>();
+            tileInstance.appearance.colourFactor = {
+                colourFactorJson.at("r").get<float>(),
+                colourFactorJson.at("g").get<float>(),
+                colourFactorJson.at("b").get<float>(),
+            };
 
             tileInstance.transform.position = {
                 positionJson.at("x").get<float>(),

@@ -30,7 +30,8 @@ function openDoor()
         local proxy = doorProxies[i]
         local tile = tiles[proxy.index]
 
-        tile.appearance.texture.sample.position.x = 0.2
+        tile.transform.scale.x = 0.25
+        tile.appearance.texture.repeats.x = 0.25
     end
 end
 
@@ -42,6 +43,7 @@ function closeDoor()
         local proxy = doorProxies[i]
         local tile = tiles[proxy.index]
 
-        tile.appearance.texture.sample.position.x = 0.0
+        tile.transform.scale.x = 1.0
+        tile.appearance.texture.repeats.x = 1.0
     end
 end

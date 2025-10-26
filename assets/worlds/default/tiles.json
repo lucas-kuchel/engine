@@ -15,7 +15,11 @@
             }
         },
         "appearance": {
-            "opacity": 1.0,
+            "colour_factor": {
+                "r": 1.0,
+                "g": 1.0,
+                "b": 1.0
+            },
             "texture": {
                 "sample": {
                     "extent": {
@@ -52,7 +56,11 @@
             }
         },
         "appearance": {
-            "opacity": 1.0,
+            "colour_factor": {
+                "r": 0.25,
+                "g": 0.25,
+                "b": 0.25
+            },
             "texture": {
                 "sample": {
                     "extent": {
@@ -91,7 +99,11 @@
             }
         },
         "appearance": {
-            "opacity": 1.0,
+            "colour_factor": {
+                "r": 1.0,
+                "g": 1.0,
+                "b": 1.0
+            },
             "texture": {
                 "sample": {
                     "extent": {
@@ -130,7 +142,11 @@
             }
         },
         "appearance": {
-            "opacity": 1.0,
+            "colour_factor": {
+                "r": 1.0,
+                "g": 1.0,
+                "b": 1.0
+            },
             "texture": {
                 "sample": {
                     "extent": {
@@ -167,7 +183,11 @@
             }
         },
         "appearance": {
-            "opacity": 1.0,
+            "colour_factor": {
+                "r": 0.25,
+                "g": 0.25,
+                "b": 0.25
+            },
             "texture": {
                 "sample": {
                     "extent": {
@@ -204,7 +224,11 @@
             }
         },
         "appearance": {
-            "opacity": 1.0,
+            "colour_factor": {
+                "r": 0.25,
+                "g": 0.25,
+                "b": 0.25
+            },
             "texture": {
                 "sample": {
                     "extent": {
@@ -243,7 +267,11 @@
             }
         },
         "appearance": {
-            "opacity": 1.0,
+            "colour_factor": {
+                "r": 1.0,
+                "g": 1.0,
+                "b": 1.0
+            },
             "texture": {
                 "sample": {
                     "extent": {
@@ -282,7 +310,11 @@
             }
         },
         "appearance": {
-            "opacity": 1.0,
+            "colour_factor": {
+                "r": 1.0,
+                "g": 1.0,
+                "b": 1.0
+            },
             "texture": {
                 "sample": {
                     "extent": {
@@ -319,7 +351,11 @@
             }
         },
         "appearance": {
-            "opacity": 1.0,
+            "colour_factor": {
+                "r": 0.25,
+                "g": 0.25,
+                "b": 0.25
+            },
             "texture": {
                 "sample": {
                     "extent": {
@@ -356,7 +392,11 @@
             }
         },
         "appearance": {
-            "opacity": 1.0,
+            "colour_factor": {
+                "r": 0.25,
+                "g": 0.25,
+                "b": 0.25
+            },
             "texture": {
                 "sample": {
                     "extent": {
@@ -396,7 +436,11 @@
             }
         },
         "appearance": {
-            "opacity": 1.0,
+            "colour_factor": {
+                "r": 1.0,
+                "g": 1.0,
+                "b": 1.0
+            },
             "texture": {
                 "sample": {
                     "extent": {

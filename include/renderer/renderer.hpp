@@ -44,59 +44,59 @@ namespace renderer {
             return instance_;
         }
 
-        auto getCommandPool() const {
+        auto getCommandPool() {
             return commandPool_;
         }
 
-        auto getRenderPass() const {
+        auto& getRenderPass() {
             return renderPass_;
         }
 
-        auto getGraphicsQueue() const {
+        auto& getGraphicsQueue() {
             return graphicsQueue_;
         }
 
-        auto getTransferQueue() const {
+        auto& getTransferQueue() {
             return transferQueue_;
         }
 
-        auto getPresentQueue() const {
+        auto& getPresentQueue() {
             return presentQueue_;
         }
 
-        auto getCurrentCommandBuffer() const {
+        auto& getCurrentCommandBuffer() {
             return commandBuffers_[frameCounter_.index];
         }
 
-        auto getCurrentInFlightFence() const {
+        auto& getCurrentInFlightFence() {
             return inFlightFences_[frameCounter_.index];
         }
 
-        auto getCurrentAcquireSemaphore() const {
+        auto& getCurrentAcquireSemaphore() {
             return acquireSemaphores_[frameCounter_.index];
         }
 
-        auto getCurrentFramebuffer() const {
+        auto& getCurrentFramebuffer() {
             return framebuffers_[imageCounter_.index];
         }
 
-        auto getCurrentPresentSemaphore() const {
+        auto& getCurrentPresentSemaphore() {
             return presentSemaphores_[imageCounter_.index];
         }
 
-        auto getCurrentDepthImage() const {
+        auto& getCurrentDepthImage() {
             return depthImages_[imageCounter_.index];
         }
 
-        auto getCurrentDepthImageView() const {
+        auto& getCurrentDepthImageView() {
             return depthImageViews_[imageCounter_.index];
         }
 
-        auto getCurrentSwapchainImage() {
+        auto& getCurrentSwapchainImage() {
             return Swapchain::getImages(swapchain_)[imageCounter_.index];
         }
 
-        auto getCurrentSwapchainImageView() {
+        auto& getCurrentSwapchainImageView() {
             return Swapchain::getImageViews(swapchain_)[imageCounter_.index];
         }
 

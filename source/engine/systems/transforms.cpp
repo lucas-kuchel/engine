@@ -19,32 +19,53 @@ void engine::systems::integrateFriction(entt::registry& registry, components::Wo
         auto& lastVelocity = registry.get<components::Last<components::Velocity>>(entity).value.velocity;
         auto& acceleration = registry.get<components::Acceleration>(entity).acceleration;
 
-        float speed = glm::length(velocity);
-
-        if (speed < velocityEpsilon) {
+        if (glm::length(velocity) < velocityEpsilon) {
             velocity = {0.0f, 0.0f};
             continue;
         }
 
-        float accelMagnitude = glm::length(acceleration);
-        float lastAccelMagnitude = glm::length(lastVelocity - velocity) / std::max(deltaTime, 1e-6f);
-        bool isAccelerating = accelMagnitude > lastAccelMagnitude;
+        float tractionFactor = glm::mix(minTractionScale, maxTractionScale, glm::clamp(kineticFriction / (staticFriction + 1e-6f), 0.0f, 1.0f));
+        float frictionAccel = kineticFriction * normalForce;
+        float decelAmount = frictionAccel * deltaTime;
 
-        if (isAccelerating) {
-            float tractionFactor = glm::mix(minTractionScale, maxTractionScale, glm::clamp(kineticFriction / (staticFriction + 1e-6f), 0.0f, 1.0f));
+        bool isAcceleratingX = std::abs(acceleration.x) > std::abs((velocity.x - lastVelocity.x) / std::max(deltaTime, 1e-6f));
+        bool isAcceleratingY = std::abs(acceleration.y) > std::abs((velocity.y - lastVelocity.y) / std::max(deltaTime, 1e-6f));
 
-            acceleration *= tractionFactor;
-            velocity += acceleration * deltaTime;
-        }
-        else {
-            float frictionAccel = kineticFriction * normalForce;
-            float decelAmount = frictionAccel * deltaTime;
-
-            if (decelAmount >= speed) {
-                velocity = {0.0f, 0.0f};
+        // Hybrid logic: if both axes accelerating or decelerating, treat as full vector
+        if ((isAcceleratingX && isAcceleratingY) || (!isAcceleratingX && !isAcceleratingY)) {
+            if (isAcceleratingX && isAcceleratingY) {
+                // Apply traction as full vector
+                velocity += acceleration * tractionFactor * deltaTime;
             }
             else {
-                velocity -= (velocity / speed) * decelAmount;
+                // Apply friction as vector
+                float speed = glm::length(velocity);
+                if (speed <= decelAmount) {
+                    velocity = {0.0f, 0.0f};
+                }
+                else {
+                    velocity -= (velocity / speed) * decelAmount;
+                }
+            }
+        }
+        else {
+            // Per-axis handling for mixed cases
+            if (isAcceleratingX)
+                velocity.x += acceleration.x * tractionFactor * deltaTime;
+            else {
+                if (std::abs(velocity.x) <= decelAmount)
+                    velocity.x = 0.0f;
+                else
+                    velocity.x -= glm::sign(velocity.x) * decelAmount;
+            }
+
+            if (isAcceleratingY)
+                velocity.y += acceleration.y * tractionFactor * deltaTime;
+            else {
+                if (std::abs(velocity.y) <= decelAmount)
+                    velocity.y = 0.0f;
+                else
+                    velocity.y -= glm::sign(velocity.y) * decelAmount;
             }
         }
     }

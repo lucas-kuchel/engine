@@ -105,6 +105,12 @@ namespace engine {
 
         static std::uint64_t keyIndex(app::Key key);
 
+        void getDeltaTime();
+
+        void runPreTransferSystems();
+        void runMidTransferSystems();
+        void runPostTransferSystems();
+
         EngineAPI api_;
 
         entt::entity currentWorld_;
@@ -117,15 +123,27 @@ namespace engine {
         std::vector<TileInstance> tiles_;
         std::vector<std::vector<TileProxy>> sparseTileGroups_;
 
+        std::size_t worldTileCount_ = 0;
+        std::size_t worldTileFirst_ = 0;
+
+        std::size_t buttonsTileCount_ = 0;
+        std::size_t buttonsTileFirst_ = 0;
+
         renderer::Renderer renderer_;
         renderer::CommandPool transferCommandPool_;
-        renderer::DescriptorSet basicDescriptorSet_;
+        renderer::DescriptorSet tilemapDescriptorSet_;
+        renderer::DescriptorSet buttonsDescriptorSet_;
         renderer::DescriptorSetLayout descriptorSetLayout_;
         renderer::DescriptorPool descriptorPool_;
         renderer::Pipeline basicPipeline_;
         renderer::PipelineLayout basicPipelineLayout_;
+
         renderer::Image tilemapImage_;
+        renderer::Image buttonsImage_;
+
         renderer::ImageView tilemapImageView_;
+        renderer::ImageView buttonsImageView_;
+
         renderer::Sampler sampler_;
 
         std::vector<renderer::Buffer> stagingBuffers_;

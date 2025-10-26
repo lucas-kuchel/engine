@@ -15,20 +15,21 @@ layout(location = 3) in vec2 instanceTexturePosition;
 layout(location = 4) in vec2 instanceTextureExtent;
 layout(location = 5) in vec2 instanceTextureOffset;
 layout(location = 6) in vec2 instanceTextureRepeat;
-layout(location = 7) in float instanceOpacity;
+layout(location = 7) in vec3 instanceColourFactor;
 
 layout(location = 0) out vec2 outLocalPosition;
 layout(location = 1) out vec2 outTexturePosition;
 layout(location = 2) out vec2 outTextureExtent;
-layout(location = 3) out float outOpacity;
+layout(location = 3) out vec3 outColourFactor;
 
 void main() {
     vec3 scaledPosition = vec3(vertexPosition * instanceScale, 0.0);
     vec4 translatedPosition = vec4(scaledPosition, 0.0) + instancePosition;
+    vec2 textureSamplePosition = vec2(vertexPosition.x, -vertexPosition.y);
 
     gl_Position = camera.projection * camera.view * translatedPosition;
-    outLocalPosition = vertexPosition * instanceTextureRepeat + instanceTextureOffset;
+    outLocalPosition = textureSamplePosition * instanceTextureRepeat + instanceTextureOffset;
     outTexturePosition = instanceTexturePosition;
     outTextureExtent = instanceTextureExtent;
-    outOpacity = instanceOpacity;
+    outColourFactor = instanceColourFactor;
 }

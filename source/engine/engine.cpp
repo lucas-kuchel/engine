@@ -70,12 +70,12 @@ engine::Engine::Engine()
         "TileInstanceAppearanceTexture",
         "sample", &TileInstance::Appearance::Texture::sample,
         "offset", &TileInstance::Appearance::Texture::offset,
-        "repeat", &TileInstance::Appearance::Texture::repeat);
+        "repeats", &TileInstance::Appearance::Texture::repeat);
 
     luaState_.new_usertype<TileInstance::Appearance>(
         "TileInstanceAppearance",
         "texture", &TileInstance::Appearance::texture,
-        "opacity", &TileInstance::Appearance::opacity);
+        "colourFactor", &TileInstance::Appearance::colourFactor);
 
     luaState_.new_usertype<TileInstance::Transform>(
         "TileInstanceTransform",
@@ -412,14 +412,24 @@ std::uint64_t engine::Engine::keyIndex(app::Key key) {
 }
 
 void engine::Engine::start() {
-    std::int32_t width = 0;
-    std::int32_t height = 0;
-    std::int32_t channels = 0;
+    std::int32_t tilemapWidth = 0;
+    std::int32_t tilemapHeight = 0;
+    std::int32_t tilemapChannels = 0;
 
-    std::uint8_t* tilemapImageData = stbi_load("assets/images/tilemap.png", &width, &height, &channels, 4);
+    std::uint8_t* tilemapImageData = stbi_load("assets/images/tilemap.png", &tilemapWidth, &tilemapHeight, &tilemapChannels, 4);
 
-    for (int i = 0; i < width * height; i++) {
-        std::swap(tilemapImageData[i * 4 + 0], tilemapImageData[i * 4 + 2]);
+    for (int i = 0; i < tilemapWidth * tilemapHeight; i++) {
+        std::swap(tilemapImageData[i * tilemapChannels + 0], tilemapImageData[i * tilemapChannels + 2]);
+    }
+
+    std::int32_t buttonsWidth = 0;
+    std::int32_t buttonsHeight = 0;
+    std::int32_t buttonsChannels = 0;
+
+    std::uint8_t* buttonsImageData = stbi_load("assets/images/buttons.png", &buttonsWidth, &buttonsHeight, &buttonsChannels, 4);
+
+    for (int i = 0; i < buttonsWidth * buttonsHeight; i++) {
+        std::swap(buttonsImageData[i * buttonsChannels + 0], buttonsImageData[i * buttonsChannels + 2]);
     }
 
     auto& device = renderer_.getDevice();
@@ -450,13 +460,26 @@ void engine::Engine::start() {
         .format = renderer::ImageFormat::B8G8R8A8_SRGB,
         .memoryType = renderer::MemoryType::DEVICE_LOCAL,
         .usageFlags = renderer::ImageUsageFlags::SAMPLED | renderer::ImageUsageFlags::TRANSFER_DESTINATION,
-        .extent = {static_cast<std::uint32_t>(width), static_cast<std::uint32_t>(height), 1},
+        .extent = {static_cast<std::uint32_t>(tilemapWidth), static_cast<std::uint32_t>(tilemapHeight), 1},
+        .sampleCount = 1,
+        .mipLevels = 1,
+        .arrayLayers = 1,
+    };
+
+    renderer::ImageCreateInfo buttonsImageCreateInfo = {
+        .device = device,
+        .type = renderer::ImageType::IMAGE_2D,
+        .format = renderer::ImageFormat::B8G8R8A8_SRGB,
+        .memoryType = renderer::MemoryType::DEVICE_LOCAL,
+        .usageFlags = renderer::ImageUsageFlags::SAMPLED | renderer::ImageUsageFlags::TRANSFER_DESTINATION,
+        .extent = {static_cast<std::uint32_t>(buttonsWidth), static_cast<std::uint32_t>(buttonsHeight), 1},
         .sampleCount = 1,
         .mipLevels = 1,
         .arrayLayers = 1,
     };
 
     tilemapImage_ = renderer::Image::create(tilemapImageCreateInfo);
+    buttonsImage_ = renderer::Image::create(buttonsImageCreateInfo);
 
     renderer::CommandPoolCreateInfo commandPoolCreateInfo = {
         .device = device,
@@ -489,28 +512,30 @@ void engine::Engine::start() {
 
     renderer::DescriptorPoolSize bufferSize = {
         .type = renderer::DescriptorInputType::UNIFORM_BUFFER,
-        .count = 1,
+        .count = 2,
     };
 
     renderer::DescriptorPoolSize imageSize = {
         .type = renderer::DescriptorInputType::IMAGE_SAMPLER,
-        .count = 1,
+        .count = 2,
     };
 
     renderer::DescriptorPoolCreateInfo poolCreateInfo = {
         .device = device,
         .poolSizes = {bufferSize, imageSize},
-        .maximumSetCount = 1,
+        .maximumSetCount = 2,
     };
 
     descriptorPool_ = renderer::DescriptorPool::create(poolCreateInfo);
 
     renderer::DescriptorSetCreateInfo setCreateInfo = {
-        .layouts = {descriptorSetLayout_},
+        .layouts = {descriptorSetLayout_, descriptorSetLayout_},
     };
 
     descriptorSets_ = renderer::DescriptorPool::allocateDescriptorSets(descriptorPool_, setCreateInfo);
-    basicDescriptorSet_ = descriptorSets_[0];
+
+    tilemapDescriptorSet_ = descriptorSets_[0];
+    buttonsDescriptorSet_ = descriptorSets_[1];
 
     renderer::BufferCreateInfo stagingBufferCreateInfo = {
         .device = device,
@@ -538,7 +563,7 @@ void engine::Engine::start() {
 
     renderer::CommandBuffer::beginCapture(transferCommandBuffer);
 
-    renderer::ImageMemoryBarrier memoryBarrier0 = {
+    renderer::ImageMemoryBarrier tilemapMemoryBarrier0 = {
         .image = tilemapImage_,
         .sourceQueue = {},
         .destinationQueue = {},
@@ -553,11 +578,29 @@ void engine::Engine::start() {
         .destinationAccessFlags = renderer::AccessFlags::TRANSFER_WRITE,
     };
 
-    renderer::CommandBuffer::pipelineBarrier(transferCommandBuffer, renderer::PipelineStageFlags::TOP_OF_PIPE, renderer::PipelineStageFlags::TRANSFER, {memoryBarrier0});
+    renderer::ImageMemoryBarrier buttonsMemoryBarrier0 = {
+        .image = buttonsImage_,
+        .sourceQueue = {},
+        .destinationQueue = {},
+        .oldLayout = renderer::ImageLayout::UNDEFINED,
+        .newLayout = renderer::ImageLayout::TRANSFER_DESTINATION_OPTIMAL,
+        .baseMipLevel = 0,
+        .mipLevelCount = 1,
+        .baseArrayLayer = 0,
+        .arrayLayerCount = 1,
+        .aspectMask = renderer::ImageAspectFlags::COLOUR,
+        .sourceAccessFlags = renderer::AccessFlags::NONE,
+        .destinationAccessFlags = renderer::AccessFlags::TRANSFER_WRITE,
+    };
 
-    auto mapping = renderer::Buffer::map(stagingBuffer, renderer::Image::getSize(tilemapImage_), stagingBufferOffset);
+    renderer::CommandBuffer::pipelineBarrier(transferCommandBuffer, renderer::PipelineStageFlags::TOP_OF_PIPE, renderer::PipelineStageFlags::TRANSFER, {tilemapMemoryBarrier0, buttonsMemoryBarrier0});
+
+    std::size_t totalSize = renderer::Image::getSize(tilemapImage_) + renderer::Image::getSize(buttonsImage_);
+
+    auto mapping = renderer::Buffer::map(stagingBuffer, totalSize, stagingBufferOffset);
 
     std::memcpy(mapping.data.data(), tilemapImageData, renderer::Image::getSize(tilemapImage_));
+    std::memcpy(mapping.data.data() + renderer::Image::getSize(tilemapImage_), buttonsImageData, renderer::Image::getSize(buttonsImage_));
 
     renderer::Buffer::unmap(stagingBuffer, mapping);
 
@@ -570,14 +613,29 @@ void engine::Engine::start() {
         .arrayLayerCount = 1,
         .imageAspectMask = renderer::ImageAspectFlags::COLOUR,
         .imageOffset = {0, 0, 0},
-        .imageExtent = {static_cast<std::uint32_t>(width), static_cast<std::uint32_t>(height), 1},
+        .imageExtent = {static_cast<std::uint32_t>(tilemapWidth), static_cast<std::uint32_t>(tilemapHeight), 1},
     };
 
     stagingBufferOffset += renderer::Image::getSize(tilemapImage_);
 
-    renderer::CommandBuffer::copyBufferToImage(transferCommandBuffer, stagingBuffer, tilemapImage_, renderer::ImageLayout::TRANSFER_DESTINATION_OPTIMAL, {tilemapCopyRegion});
+    renderer::BufferImageCopyRegion buttonsCopyRegion = {
+        .bufferOffset = stagingBufferOffset,
+        .bufferRowLength = 0,
+        .bufferImageHeight = 0,
+        .mipLevel = 0,
+        .baseArrayLayer = 0,
+        .arrayLayerCount = 1,
+        .imageAspectMask = renderer::ImageAspectFlags::COLOUR,
+        .imageOffset = {0, 0, 0},
+        .imageExtent = {static_cast<std::uint32_t>(buttonsWidth), static_cast<std::uint32_t>(buttonsHeight), 1},
+    };
 
-    renderer::ImageMemoryBarrier memoryBarrier1 = {
+    stagingBufferOffset += renderer::Image::getSize(buttonsImage_);
+
+    renderer::CommandBuffer::copyBufferToImage(transferCommandBuffer, stagingBuffer, tilemapImage_, renderer::ImageLayout::TRANSFER_DESTINATION_OPTIMAL, {tilemapCopyRegion});
+    renderer::CommandBuffer::copyBufferToImage(transferCommandBuffer, stagingBuffer, buttonsImage_, renderer::ImageLayout::TRANSFER_DESTINATION_OPTIMAL, {buttonsCopyRegion});
+
+    renderer::ImageMemoryBarrier tilemapMemoryBarrier1 = {
         .image = tilemapImage_,
         .sourceQueue = {},
         .destinationQueue = {},
@@ -592,7 +650,22 @@ void engine::Engine::start() {
         .destinationAccessFlags = renderer::AccessFlags::SHADER_READ,
     };
 
-    renderer::CommandBuffer::pipelineBarrier(transferCommandBuffer, renderer::PipelineStageFlags::TRANSFER, renderer::PipelineStageFlags::FRAGMENT_SHADER, {memoryBarrier1});
+    renderer::ImageMemoryBarrier buttonsMemoryBarrier1 = {
+        .image = buttonsImage_,
+        .sourceQueue = {},
+        .destinationQueue = {},
+        .oldLayout = renderer::ImageLayout::TRANSFER_DESTINATION_OPTIMAL,
+        .newLayout = renderer::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
+        .baseMipLevel = 0,
+        .mipLevelCount = 1,
+        .baseArrayLayer = 0,
+        .arrayLayerCount = 1,
+        .aspectMask = renderer::ImageAspectFlags::COLOUR,
+        .sourceAccessFlags = renderer::AccessFlags::TRANSFER_WRITE,
+        .destinationAccessFlags = renderer::AccessFlags::SHADER_READ,
+    };
+
+    renderer::CommandBuffer::pipelineBarrier(transferCommandBuffer, renderer::PipelineStageFlags::TRANSFER, renderer::PipelineStageFlags::FRAGMENT_SHADER, {tilemapMemoryBarrier1, buttonsMemoryBarrier1});
 
     currentWorld_ = registry_.create();
 
@@ -625,7 +698,7 @@ void engine::Engine::start() {
                 .offset = {0.0, 0.0},
                 .repeat = {1.0, 1.0},
             },
-            .opacity = 1.0f,
+            .colourFactor = {1.0f, 1.0f, 1.0f},
         },
     };
 
@@ -642,7 +715,12 @@ void engine::Engine::start() {
     registry_.emplace<components::Last<components::Position>>(currentCharacter_);
     registry_.emplace<components::Last<components::Velocity>>(currentCharacter_);
 
+    worldTileFirst_ = tiles_.size() - 1;
+
     systems::loadWorlds(registry_, *this);
+
+    worldTileCount_ = worldComponent.tiles.size() + 1;
+
     systems::createTileMeshes(registry_, *this, device, transferCommandBuffer, stagingBuffer, stagingBufferOffset);
 
     currentCamera_ = registry_.create();
@@ -693,8 +771,8 @@ void engine::Engine::start() {
         .rangeBytes = renderer::Buffer::size(cameraBuffer.buffer),
     };
 
-    renderer::DescriptorSetUpdateInfo uniformBufferUpdateInfo = {
-        .set = basicDescriptorSet_,
+    renderer::DescriptorSetUpdateInfo tilemapUniformBufferUpdateInfo = {
+        .set = tilemapDescriptorSet_,
         .inputType = renderer::DescriptorInputType::UNIFORM_BUFFER,
         .binding = 0,
         .arrayElement = 0,
@@ -702,7 +780,16 @@ void engine::Engine::start() {
         .images = {},
     };
 
-    renderer::DescriptorPool::updateDescriptorSets(descriptorPool_, {uniformBufferUpdateInfo});
+    renderer::DescriptorSetUpdateInfo buttonsUniformBufferUpdateInfo = {
+        .set = buttonsDescriptorSet_,
+        .inputType = renderer::DescriptorInputType::UNIFORM_BUFFER,
+        .binding = 0,
+        .arrayElement = 0,
+        .buffers = {cameraBufferBinding},
+        .images = {},
+    };
+
+    renderer::DescriptorPool::updateDescriptorSets(descriptorPool_, {tilemapUniformBufferUpdateInfo, buttonsUniformBufferUpdateInfo});
 
     renderer::ImageViewCreateInfo tilemapImageViewCreateInfo = {
         .image = tilemapImage_,
@@ -714,46 +801,66 @@ void engine::Engine::start() {
         .layerCount = 1,
     };
 
-    tilemapImageView_ = renderer::ImageView::create(tilemapImageViewCreateInfo);
+    renderer::ImageViewCreateInfo buttonsImageViewCreateInfo = {
+        .image = buttonsImage_,
+        .type = renderer::ImageViewType::IMAGE_2D,
+        .aspectFlags = renderer::ImageAspectFlags::COLOUR,
+        .baseMipLevel = 0,
+        .levelCount = 1,
+        .baseArrayLayer = 0,
+        .layerCount = 1,
+    };
 
-    renderer::DescriptorSetImageBinding samplerBinding = {
+    tilemapImageView_ = renderer::ImageView::create(tilemapImageViewCreateInfo);
+    buttonsImageView_ = renderer::ImageView::create(buttonsImageViewCreateInfo);
+
+    lastFrameTime_ = std::chrono::high_resolution_clock::now();
+
+    stbi_image_free(tilemapImageData);
+    stbi_image_free(buttonsImageData);
+
+    renderer::DescriptorSetImageBinding worldTilesSamplerBinding = {
         .image = tilemapImageView_,
         .sampler = sampler_,
         .layout = renderer::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
     };
 
-    renderer::DescriptorSetUpdateInfo samplerUpdateInfo = {
-        .set = basicDescriptorSet_,
+    renderer::DescriptorSetUpdateInfo worldTilesSamplerUpdateInfo = {
+        .set = tilemapDescriptorSet_,
         .inputType = renderer::DescriptorInputType::IMAGE_SAMPLER,
         .binding = 1,
         .arrayElement = 0,
         .buffers = {},
-        .images = {samplerBinding},
+        .images = {worldTilesSamplerBinding},
     };
 
-    renderer::DescriptorPool::updateDescriptorSets(descriptorPool_, {samplerUpdateInfo});
+    renderer::DescriptorPool::updateDescriptorSets(descriptorPool_, {worldTilesSamplerUpdateInfo});
 
-    lastFrameTime_ = std::chrono::high_resolution_clock::now();
+    renderer::DescriptorSetImageBinding buttonTilesSamplerBinding = {
+        .image = tilemapImageView_,
+        .sampler = sampler_,
+        .layout = renderer::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
+    };
 
-    stbi_image_free(tilemapImageData);
+    renderer::DescriptorSetUpdateInfo buttonTilesSamplerUpdateInfo = {
+        .set = buttonsDescriptorSet_,
+        .inputType = renderer::DescriptorInputType::IMAGE_SAMPLER,
+        .binding = 1,
+        .arrayElement = 0,
+        .buffers = {},
+        .images = {buttonTilesSamplerBinding},
+    };
+
+    renderer::DescriptorPool::updateDescriptorSets(descriptorPool_, {buttonTilesSamplerUpdateInfo});
 }
 
-void engine::Engine::update() {
-    auto& transferCommandBuffer = transferCommandBuffers_[renderer_.getFrameCounter().index];
-    auto& stagingBuffer = stagingBuffers_[renderer_.getFrameCounter().index];
-    auto& stagingBufferFence = stagingBufferFences_[renderer_.getFrameCounter().index];
-    auto& stagingBufferSemaphore = stagingBufferSemaphores_[renderer_.getFrameCounter().index];
-
-    auto transferQueue = renderer_.getTransferQueue();
-
-    renderer::CommandBuffer::reset(transferCommandBuffer);
-
-    std::uint64_t stagingBufferOffset = 0;
-
+void engine::Engine::getDeltaTime() {
     thisFrameTime_ = std::chrono::high_resolution_clock::now();
     deltaTime_ = std::clamp(std::chrono::duration<float>(thisFrameTime_ - lastFrameTime_).count(), 0.0f, 0.1f);
     lastFrameTime_ = thisFrameTime_;
+}
 
+void engine::Engine::runPreTransferSystems() {
     // === CAMERA SCALE SET ===
     systems::updateCameraScales(registry_, renderer::Swapchain::getExtent(renderer_.getSwapchain()));
 
@@ -778,19 +885,46 @@ void engine::Engine::update() {
 
     // === TRANSFORM TILE INSTANCES
     systems::transformInstances(registry_, tiles_);
+}
 
-    renderer::CommandBuffer::beginCapture(transferCommandBuffer);
+void engine::Engine::runMidTransferSystems() {
+    auto& transferCommandBuffer = transferCommandBuffers_[renderer_.getFrameCounter().index];
+    auto& stagingBuffer = stagingBuffers_[renderer_.getFrameCounter().index];
+
+    std::uint64_t stagingBufferOffset = 0;
 
     // === GPU OPERATIONS ===
     systems::updateCameras(registry_, stagingBuffer, transferCommandBuffer, stagingBufferOffset);
     systems::updateTileMeshes(registry_, *this, transferCommandBuffer, stagingBuffer, stagingBufferOffset);
+}
 
-    renderer::CommandBuffer::endCapture(transferCommandBuffer);
-
+void engine::Engine::runPostTransferSystems() {
     // === CACHE LAST VALUES ===
     systems::cacheLasts<components::Position>(registry_);
     systems::cacheLasts<components::Velocity>(registry_);
     systems::cacheLasts<components::Acceleration>(registry_);
+}
+
+void engine::Engine::update() {
+    auto& transferCommandBuffer = transferCommandBuffers_[renderer_.getFrameCounter().index];
+
+    auto& stagingBufferFence = stagingBufferFences_[renderer_.getFrameCounter().index];
+    auto& stagingBufferSemaphore = stagingBufferSemaphores_[renderer_.getFrameCounter().index];
+    auto& transferQueue = renderer_.getTransferQueue();
+
+    renderer::CommandBuffer::reset(transferCommandBuffer);
+
+    getDeltaTime();
+
+    runPreTransferSystems();
+
+    renderer::CommandBuffer::beginCapture(transferCommandBuffer);
+
+    runMidTransferSystems();
+
+    renderer::CommandBuffer::endCapture(transferCommandBuffer);
+
+    runPostTransferSystems();
 
     renderer::QueueSubmitInfo submitInfo = {
         .fence = stagingBufferFence,
@@ -848,12 +982,15 @@ void engine::Engine::render() {
     renderer::CommandBuffer::bindPipeline(commandBuffer, basicPipeline_);
     renderer::CommandBuffer::setPipelineViewports(commandBuffer, {viewport}, 0);
     renderer::CommandBuffer::setPipelineScissors(commandBuffer, {scissor}, 0);
-    renderer::CommandBuffer::bindDescriptorSets(commandBuffer, renderer::DeviceOperation::GRAPHICS, basicPipelineLayout_, 0, {basicDescriptorSet_});
 
     auto& tileMesh = registry_.get<components::TileMesh>(currentWorld_);
-
     renderer::CommandBuffer::bindVertexBuffers(commandBuffer, {tileMesh.vertexBuffer, tileMesh.instanceBuffer}, {0, 0}, 0);
-    renderer::CommandBuffer::draw(commandBuffer, 4, static_cast<std::uint32_t>(tiles_.size()), 0, 0);
+
+    renderer::CommandBuffer::bindDescriptorSets(commandBuffer, renderer::DeviceOperation::GRAPHICS, basicPipelineLayout_, 0, {tilemapDescriptorSet_});
+    renderer::CommandBuffer::draw(commandBuffer, 4, static_cast<std::uint32_t>(worldTileCount_), 0, static_cast<std::uint32_t>(worldTileFirst_));
+
+    renderer::CommandBuffer::bindDescriptorSets(commandBuffer, renderer::DeviceOperation::GRAPHICS, basicPipelineLayout_, 0, {buttonsDescriptorSet_});
+    renderer::CommandBuffer::draw(commandBuffer, 4, static_cast<std::uint32_t>(buttonsTileCount_), 0, static_cast<std::uint32_t>(buttonsTileFirst_));
 
     renderer::CommandBuffer::endRenderPass(commandBuffer);
     renderer::CommandBuffer::endCapture(commandBuffer);
@@ -891,8 +1028,13 @@ void engine::Engine::close() {
     renderer::DescriptorSetLayout::destroy(descriptorSetLayout_);
     renderer::Pipeline::destroy(basicPipeline_);
     renderer::PipelineLayout::destroy(basicPipelineLayout_);
+
     renderer::ImageView::destroy(tilemapImageView_);
+    renderer::ImageView::destroy(buttonsImageView_);
+
     renderer::Image::destroy(tilemapImage_);
+    renderer::Image::destroy(buttonsImage_);
+
     renderer::Sampler::destroy(sampler_);
 }
 
@@ -900,8 +1042,8 @@ void engine::Engine::createBasicPipelineResources() {
     auto& device = renderer_.getDevice();
     auto renderPass = renderer_.getRenderPass();
 
-    std::ifstream vertexShader("assets/shaders/basic.vert.spv", std::ios::binary | std::ios::ate);
-    std::ifstream fragmentShader("assets/shaders/basic.frag.spv", std::ios::binary | std::ios::ate);
+    std::ifstream vertexShader("assets/shaders/tile.vert.spv", std::ios::binary | std::ios::ate);
+    std::ifstream fragmentShader("assets/shaders/tile.frag.spv", std::ios::binary | std::ios::ate);
 
     std::uint64_t vertexShaderSize = static_cast<std::uint64_t>(vertexShader.tellg());
     std::uint64_t fragmentShaderSize = static_cast<std::uint64_t>(fragmentShader.tellg());
@@ -1008,9 +1150,9 @@ void engine::Engine::createBasicPipelineResources() {
                     .binding = 1,
                     .location = 6,
                 },
-                // === OPACITY ===
+                // === COLOUR FACTOR ===
                 renderer::VertexAttributeDescription{
-                    .format = renderer::VertexAttributeFormat::R32_FLOAT,
+                    .format = renderer::VertexAttributeFormat::R32G32B32_FLOAT,
                     .binding = 1,
                     .location = 7,
                 },

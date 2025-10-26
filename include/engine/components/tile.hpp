@@ -24,7 +24,7 @@ namespace engine::components {
                 glm::vec2 repeat;
             } texture;
 
-            float opacity;
+            glm::vec3 colourFactor;
         } appearance;
     };
 
