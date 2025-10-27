@@ -9,6 +9,7 @@
         "glm",
         "entt",
         "sol2",
-        "lua"
+        "lua",
+        "magic-enum"
     ]
 }

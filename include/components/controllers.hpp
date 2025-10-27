@@ -4,7 +4,7 @@
 
 #include <entt/entt.hpp>
 
-namespace engine::components {
+namespace components {
     struct Speed {
         float speed = 1.0f;
     };

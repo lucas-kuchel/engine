@@ -2,7 +2,7 @@
 
 #include <string>
 
-namespace engine::components {
+namespace components {
     struct Script {
         std::string function;
         std::string filepath;

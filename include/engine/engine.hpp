@@ -3,29 +3,25 @@
 #include <app/configuration.hpp>
 #include <app/context.hpp>
 #include <app/window.hpp>
+#include <components/action.hpp>
+#include <components/camera.hpp>
+#include <components/entity_tags.hpp>
+#include <components/proxy.hpp>
+#include <components/tile.hpp>
+#include <components/transforms.hpp>
+#include <engine/input_manager.hpp>
+#include <entt/entt.hpp>
+#include <magic_enum/magic_enum.hpp>
 #include <renderer/renderer.hpp>
-
-#include <engine/components/action.hpp>
-#include <engine/components/camera.hpp>
-#include <engine/components/entity_tags.hpp>
-#include <engine/components/proxy.hpp>
-#include <engine/components/tile.hpp>
-#include <engine/components/transforms.hpp>
+#include <sol/sol.hpp>
 
 #include <chrono>
-
-#include <entt/entt.hpp>
-#include <sol/sol.hpp>
 
 namespace engine {
     class Engine;
 
-    using TileInstance = components::TileInstance;
-    using TileProxy = components::Proxy<components::TileInstance>;
-    using ColliderProxy = components::Proxy<components::ColliderTag>;
-
     struct CameraInfo {
-        components::Camera state;
+        ::components::Camera state;
         float rotation;
         glm::vec2 scale;
         glm::vec2 position;
@@ -58,15 +54,14 @@ namespace engine {
         void setCameraInfo(CameraInfo& cameraInfo);
 
         void bindAction(components::Action& action);
-        void addToGroup(const TileProxy& proxy, std::uint32_t group);
-        void removeFromGroup(const TileProxy& proxy, std::uint32_t group);
+        void addToGroup(const ::components::Proxy<::components::TileInstance>& proxy, std::uint32_t group);
+        void removeFromGroup(const ::components::Proxy<::components::TileInstance>& proxy, std::uint32_t group);
         void setSpace(const std::string& space);
         void resetSpace();
 
-        SpanProxy<TileProxy> getTileGroupProxies(std::uint32_t group);
-        SpanProxy<ColliderProxy> getColliderGroupProxies(std::uint32_t group);
-        SpanProxy<TileInstance> getTileInstances();
-        SpanProxy<C> getColliderInstances();
+        SpanProxy<::components::Proxy<::components::TileInstance>> getTileGroupProxies(std::uint32_t group);
+        SpanProxy<::components::Proxy<::components::ColliderTag>> getColliderGroupProxies(std::uint32_t group);
+        SpanProxy<::components::TileInstance> getTileInstances();
 
     private:
         Engine& engine_;
@@ -95,8 +90,32 @@ namespace engine {
             return sparseColliderGroups_;
         }
 
-        auto& getPlayer() {
+        auto& getCurrentCharacter() {
             return currentCharacter_;
+        }
+
+        auto& getCurrentCamera() {
+            return currentCamera_;
+        }
+
+        auto& getCurrentWorld() {
+            return currentWorld_;
+        }
+
+        auto& getRegistry() {
+            return registry_;
+        }
+
+        auto& getAPI() {
+            return api_;
+        }
+
+        auto getDeltaTime() const {
+            return deltaTime_;
+        }
+
+        auto& getButtonsTileCount() {
+            return buttonsTileCount_;
         }
 
     private:
@@ -113,29 +132,33 @@ namespace engine {
 
         static std::uint64_t keyIndex(app::Key key);
 
-        void getDeltaTime();
+        void calculateDeltaTime();
 
         void runPreTransferSystems();
         void runMidTransferSystems();
         void runPostTransferSystems();
 
         EngineAPI api_;
+        InputManager inputManager_;
 
         entt::entity currentWorld_;
         entt::entity currentCharacter_;
         entt::entity currentCamera_;
-        entt::entity pauseButton_;
+        entt::registry registry_;
+        entt::dispatcher dispatcher_;
+
+        sol::state luaState_;
 
         app::Context context_;
         app::Window window_;
 
-        std::vector<TileInstance> tiles_;
-        std::vector<std::vector<TileProxy>> sparseTileGroups_;
-        std::vector<std::vector<ColliderProxy>> sparseColliderGroups_;
+        std::vector<::components::TileInstance> tiles_;
+
+        std::vector<std::vector<::components::Proxy<::components::TileInstance>>> sparseTileGroups_;
+        std::vector<std::vector<::components::Proxy<::components::ColliderTag>>> sparseColliderGroups_;
 
         std::size_t worldTileCount_ = 0;
         std::size_t worldTileFirst_ = 0;
-
         std::size_t buttonsTileCount_ = 0;
         std::size_t buttonsTileFirst_ = 0;
 
@@ -151,10 +174,8 @@ namespace engine {
 
         renderer::Image tilemapImage_;
         renderer::Image buttonsImage_;
-
         renderer::ImageView tilemapImageView_;
         renderer::ImageView buttonsImageView_;
-
         renderer::Sampler sampler_;
 
         std::vector<renderer::Buffer> stagingBuffers_;
@@ -164,28 +185,12 @@ namespace engine {
         std::vector<renderer::DescriptorSet> descriptorSets_;
         std::vector<renderer::CommandBuffer> transferCommandBuffers_;
 
-        bool running_ = true;
-
-        entt::registry registry_;
-        entt::dispatcher dispatcher_;
-
-        glm::vec2 mousePosition_;
-        glm::vec2 lastMousePosition_;
-
-        sol::state luaState_;
-
         using TimePoint = std::chrono::time_point<std::chrono::high_resolution_clock>;
-        using KeyArray = std::array<bool, 93>;
 
         TimePoint lastFrameTime_;
         TimePoint thisFrameTime_;
 
+        bool running_ = true;
         float deltaTime_ = 0.0f;
-
-        KeyArray keysPressed_ = {false};
-        KeyArray keysHeld_ = {false};
-        KeyArray keysReleased_ = {false};
-
-        friend class EngineAPI;
     };
 }

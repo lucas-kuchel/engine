@@ -5,7 +5,7 @@
 
 #include <glm/glm.hpp>
 
-namespace engine::components {
+namespace components {
     enum class CameraMode : int;
 
     struct Space {

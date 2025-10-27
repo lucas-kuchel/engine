@@ -1,11 +1,11 @@
-#include <engine/components/camera.hpp>
-#include <engine/components/entity_tags.hpp>
-#include <engine/components/proxy.hpp>
-#include <engine/components/tile.hpp>
-#include <engine/components/transforms.hpp>
-#include <engine/systems/transforms.hpp>
+#include <components/camera.hpp>
+#include <components/entity_tags.hpp>
+#include <components/proxy.hpp>
+#include <components/tile.hpp>
+#include <components/transforms.hpp>
+#include <systems/transforms.hpp>
 
-void engine::systems::integrateFriction(entt::registry& registry, components::World& world, float deltaTime) {
+void systems::integrateFriction(entt::registry& registry, components::World& world, float deltaTime) {
     const float normalForce = 1.0f;
     const float staticFriction = world.currentState.physics.staticFriction;
     const float kineticFriction = world.currentState.physics.kineticFriction;
@@ -71,7 +71,7 @@ void engine::systems::integrateFriction(entt::registry& registry, components::Wo
     }
 }
 
-void engine::systems::integrateMovements(entt::registry& registry, float deltaTime) {
+void systems::integrateMovements(entt::registry& registry, float deltaTime) {
     for (auto& entity : registry.view<components::Velocity, components::Acceleration, components::Position>()) {
         auto& velocity = registry.get<components::Velocity>(entity);
         auto& acceleration = registry.get<components::Acceleration>(entity);
@@ -83,8 +83,8 @@ void engine::systems::integrateMovements(entt::registry& registry, float deltaTi
     }
 }
 
-void engine::systems::transformInstances(entt::registry& registry, std::span<components::TileInstance> instances) {
-    for (auto& entity : registry.view<components::Proxy<components::TileInstance>, components::Position, components::Scale>(entt::exclude<components::TileTag>)) {
+void systems::transformInstances(entt::registry& registry, std::span<components::TileInstance> instances) {
+    for (auto& entity : registry.view<components::Proxy<components::TileInstance>, components::Position, components::Scale>()) {
         auto& proxy = registry.get<components::Proxy<components::TileInstance>>(entity);
         auto& position = registry.get<components::Position>(entity);
         auto& scale = registry.get<components::Scale>(entity);

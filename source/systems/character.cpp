@@ -1,10 +1,10 @@
-#include <engine/components/camera.hpp>
-#include <engine/components/character.hpp>
-#include <engine/components/entity_tags.hpp>
-#include <engine/components/transforms.hpp>
-#include <engine/systems/character.hpp>
+#include <components/camera.hpp>
+#include <components/character.hpp>
+#include <components/entity_tags.hpp>
+#include <components/transforms.hpp>
+#include <systems/character.hpp>
 
-void engine::systems::cameraFollowCharacter(entt::registry& registry, entt::entity& character, entt::entity& camera, glm::vec2 mousePosition, float deltaTime) {
+void systems::cameraFollowCharacter(entt::registry& registry, entt::entity& character, entt::entity& camera, glm::vec2 mousePosition, float deltaTime) {
     if (!registry.all_of<components::Position, components::Character, components::ActiveCharacterTag>(character) ||
         !registry.all_of<components::Position, components::Camera, components::ActiveCameraTag>(camera)) {
         return;

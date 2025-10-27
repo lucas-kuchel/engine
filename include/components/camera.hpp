@@ -4,7 +4,7 @@
 
 #include <glm/glm.hpp>
 
-namespace engine::components {
+namespace components {
     enum class CameraMode {
         FOLLOW,
         LOCKED,
@@ -12,6 +12,10 @@ namespace engine::components {
 
     struct CameraBuffer {
         renderer::Buffer buffer;
+    };
+
+    struct Bounds {
+        glm::vec2 scale;
     };
 
     struct Camera {

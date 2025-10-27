@@ -1,14 +1,13 @@
-#include <engine/components/camera.hpp>
-#include <engine/components/entity_tags.hpp>
-#include <engine/components/transforms.hpp>
-#include <engine/systems/camera.hpp>
+#include <components/camera.hpp>
+#include <components/entity_tags.hpp>
+#include <components/transforms.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/quaternion.hpp>
+#include <systems/camera.hpp>
 
 #include <cstring>
 
-#include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtc/quaternion.hpp>
-
-void engine::systems::updateCameraScales(entt::registry& registry, glm::vec2 scale) {
+void systems::updateCameraScales(entt::registry& registry, glm::vec2 scale) {
     for (auto& entity : registry.view<components::Camera, components::Scale>()) {
         auto& cameraScale = registry.get<components::Scale>(entity);
 
@@ -16,7 +15,7 @@ void engine::systems::updateCameraScales(entt::registry& registry, glm::vec2 sca
     }
 }
 
-void engine::systems::animateCameras(entt::registry& registry, float deltaTime) {
+void systems::animateCameras(entt::registry& registry, float deltaTime) {
     std::vector<entt::entity> scaleAnimationsFinished;
     std::vector<entt::entity> positionAnimationsFinished;
 
@@ -65,7 +64,7 @@ void engine::systems::animateCameras(entt::registry& registry, float deltaTime) 
     }
 }
 
-void engine::systems::createCameras(entt::registry& registry, renderer::Device& device) {
+void systems::createCameras(entt::registry& registry, renderer::Device& device) {
     for (auto& entity : registry.view<components::CameraBuffer>()) {
         auto& buffer = registry.get<components::CameraBuffer>(entity);
 
@@ -84,7 +83,7 @@ void engine::systems::createCameras(entt::registry& registry, renderer::Device& 
     }
 }
 
-void engine::systems::updateCameras(entt::registry& registry, renderer::Buffer& stagingBuffer, renderer::CommandBuffer& commandBuffer, std::uint64_t& stagingBufferOffset) {
+void systems::updateCameras(entt::registry& registry, renderer::Buffer& stagingBuffer, renderer::CommandBuffer& commandBuffer, std::uint64_t& stagingBufferOffset) {
     if (!stagingBuffer) {
         return;
     }
@@ -92,10 +91,11 @@ void engine::systems::updateCameras(entt::registry& registry, renderer::Buffer& 
     for (auto& entity : registry.view<components::CameraBuffer>()) {
         components::CameraUploadData uploadData = {};
 
-        if (registry.all_of<components::Camera, components::Position, components::Scale>(entity)) {
+        if (registry.all_of<components::Camera, components::Position, components::Scale, components::Bounds>(entity)) {
             auto& camera = registry.get<components::Camera>(entity);
             auto& scale = registry.get<components::Scale>(entity);
             auto& position = registry.get<components::Position>(entity);
+            auto& bounds = registry.get<components::Bounds>(entity);
 
             uploadData.projection = {1.0f};
             uploadData.view = {1.0f};
@@ -114,6 +114,9 @@ void engine::systems::updateCameras(entt::registry& registry, renderer::Buffer& 
             float right = halfWidth;
             float bottom = -halfHeight;
             float top = halfHeight;
+
+            bounds.scale.x = halfWidth * 2.0f;
+            bounds.scale.y = halfHeight * 2.0f;
 
             uploadData.projection = glm::orthoRH_ZO(left, right, bottom, top, camera.near, camera.far);
             uploadData.projection[1][1] *= -1.0f;
@@ -146,7 +149,7 @@ void engine::systems::updateCameras(entt::registry& registry, renderer::Buffer& 
     }
 }
 
-void engine::systems::destroyCameras(entt::registry& registry) {
+void systems::destroyCameras(entt::registry& registry) {
     for (auto& entity : registry.view<components::CameraBuffer>()) {
 
         auto& buffer = registry.get<components::CameraBuffer>(entity);

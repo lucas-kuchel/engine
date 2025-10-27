@@ -1,11 +1,11 @@
 #pragma once
 
-#include <engine/components/tile.hpp>
-#include <engine/components/world.hpp>
+#include <components/tile.hpp>
+#include <components/world.hpp>
 
 #include <entt/entt.hpp>
 
-namespace engine::systems {
+namespace systems {
     void integrateMovements(entt::registry& registry, float deltaTime);
     void integrateFriction(entt::registry& registry, components::World& world, float deltaTime);
     void transformInstances(entt::registry& registry, std::span<components::TileInstance> instances);

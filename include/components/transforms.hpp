@@ -3,7 +3,7 @@
 #include <entt/entt.hpp>
 #include <glm/glm.hpp>
 
-namespace engine::components {
+namespace components {
     struct Position {
         glm::vec2 position = {0.0f, 0.0f};
     };

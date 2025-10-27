@@ -1,13 +1,12 @@
 #pragma once
 
+#include <entt/entt.hpp>
+
 #include <optional>
 #include <string>
 #include <vector>
 
-#include <entt/entt.hpp>
-#include <glm/glm.hpp>
-
-namespace engine::components {
+namespace components {
     struct Trigger {
         struct Event {
             entt::entity action = entt::null;

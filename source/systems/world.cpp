@@ -1,20 +1,20 @@
-#include <engine/components/action.hpp>
-#include <engine/components/camera.hpp>
-#include <engine/components/entity_tags.hpp>
-#include <engine/components/proxy.hpp>
-#include <engine/components/space.hpp>
-#include <engine/components/tile.hpp>
-#include <engine/components/trigger.hpp>
-#include <engine/components/world.hpp>
+#include <components/action.hpp>
+#include <components/camera.hpp>
+#include <components/entity_tags.hpp>
+#include <components/proxy.hpp>
+#include <components/space.hpp>
+#include <components/tile.hpp>
+#include <components/trigger.hpp>
+#include <components/world.hpp>
 #include <engine/engine.hpp>
-#include <engine/systems/world.hpp>
+#include <systems/world.hpp>
 
 #include <filesystem>
 #include <fstream>
 
 #include <nlohmann/json.hpp>
 
-void engine::systems::loadWorlds(entt::registry& registry, Engine& engine) {
+void systems::loadWorlds(entt::registry& registry, engine::Engine& engine) {
     for (auto& entity : registry.view<components::World>()) {
         auto& world = registry.get<components::World>(entity);
 
@@ -87,7 +87,7 @@ void engine::systems::loadWorlds(entt::registry& registry, Engine& engine) {
         auto& defaultsCameraScaleJson = defaultsCameraJson.at("scale");
         auto& defaultsPhysicsJson = defaultsJson.at("physics");
 
-        auto& player = engine.getPlayer();
+        auto& player = engine.getCurrentCharacter();
         auto& playerProxy = registry.get<components::Proxy<components::TileInstance>>(player);
 
         for (auto& groupJson : defaultsPlayerJson.at("groups")) {
@@ -335,7 +335,7 @@ void engine::systems::loadWorlds(entt::registry& registry, Engine& engine) {
     }
 }
 
-void engine::systems::testCollisions(entt::registry& registry) {
+void systems::testCollisions(entt::registry& registry) {
     for (auto& colliderEntity : registry.view<components::ColliderTag, components::Scale, components::Position>()) {
         auto& colliderPosition = registry.get<components::Position>(colliderEntity);
         auto& colliderScale = registry.get<components::Scale>(colliderEntity);
@@ -379,7 +379,7 @@ void engine::systems::testCollisions(entt::registry& registry) {
     }
 }
 
-void engine::systems::checkTriggers(entt::registry& registry) {
+void systems::checkTriggers(entt::registry& registry) {
     for (auto& triggerEntity : registry.view<components::Trigger, components::TriggerTag, components::Scale, components::Position>()) {
         auto& trigger = registry.get<components::Trigger>(triggerEntity);
         auto& triggerPosition = registry.get<components::Position>(triggerEntity);
@@ -409,12 +409,12 @@ void engine::systems::checkTriggers(entt::registry& registry) {
     }
 }
 
-void engine::systems::performTriggers(entt::registry& registry, Engine& engine, EngineAPI& api, float deltaTime) {
+void systems::performTriggers(entt::registry& registry, engine::Engine& engine, float deltaTime) {
     auto runActions = [&](bool& condition, auto& container) {
         for (auto& actionEntity : container) {
             auto& action = registry.get<components::Action>(actionEntity.action);
             if (condition || (action.duration > 0.0f && action.elapsed > 0.0f)) {
-                api.bindAction(action);
+                engine.getAPI().bindAction(action);
 
                 if (action.duration > 0.0f) {
                     action.elapsed += deltaTime;

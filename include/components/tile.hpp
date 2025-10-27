@@ -1,12 +1,10 @@
 #pragma once
 
+#include <components/transforms.hpp>
+#include <glm/glm.hpp>
 #include <renderer/buffer.hpp>
 
-#include <engine/components/transforms.hpp>
-
-#include <glm/glm.hpp>
-
-namespace engine::components {
+namespace components {
     struct alignas(16) TileInstance {
         struct Transform {
             glm::vec3 position;

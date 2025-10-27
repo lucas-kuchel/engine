@@ -6,7 +6,7 @@
 
 #include <entt/entt.hpp>
 
-namespace engine::systems {
+namespace systems {
     void updateCameraScales(entt::registry& registry, glm::vec2 scale);
     void animateCameras(entt::registry& registry, float deltaTime);
     void createCameras(entt::registry& registry, renderer::Device& device);

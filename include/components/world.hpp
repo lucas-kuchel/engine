@@ -1,10 +1,9 @@
 #pragma once
 
-#include <engine/components/tile.hpp>
-
+#include <components/tile.hpp>
 #include <entt/entt.hpp>
 
-namespace engine::components {
+namespace components {
     enum class CameraMode : int;
 
     struct WorldConfig {

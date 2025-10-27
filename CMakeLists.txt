@@ -10,6 +10,7 @@ find_package(Stb REQUIRED)
 find_package(Lua REQUIRED)
 find_package(Vulkan REQUIRED)
 find_package(VulkanMemoryAllocator CONFIG REQUIRED)
+find_package(magic_enum CONFIG REQUIRED)
 
 set(CMAKE_BUILD_PARALLEL_LEVEL ${CMAKE_HOST_SYSTEM_PROCESSOR_COUNT})
 
@@ -29,6 +30,7 @@ target_link_libraries(engine PRIVATE
     nlohmann_json::nlohmann_json
     Vulkan::Vulkan
     GPUOpen::VulkanMemoryAllocator
+    magic_enum::magic_enum
     ${LUA_LIBRARIES}
 )
 

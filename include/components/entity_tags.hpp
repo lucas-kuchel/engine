@@ -1,6 +1,6 @@
 #pragma once
 
-namespace engine::components {
+namespace components {
     struct ActiveCharacterTag {
     };
 

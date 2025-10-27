@@ -1,11 +1,11 @@
-#include <engine/components/tile.hpp>
-#include <engine/components/world.hpp>
+#include <components/tile.hpp>
+#include <components/world.hpp>
 #include <engine/engine.hpp>
-#include <engine/systems/tile.hpp>
+#include <systems/tile.hpp>
 
 #include <cstring>
 
-void engine::systems::createTileMeshes(entt::registry& registry, Engine& engine, renderer::Device& device, renderer::CommandBuffer& commandBuffer, renderer::Buffer& stagingBuffer, std::uint64_t& stagingBufferOffset) {
+void systems::createTileMeshes(entt::registry& registry, engine::Engine& engine, renderer::Device& device, renderer::CommandBuffer& commandBuffer, renderer::Buffer& stagingBuffer, std::uint64_t& stagingBufferOffset) {
     if (!stagingBuffer) {
         return;
     }
@@ -71,7 +71,7 @@ void engine::systems::createTileMeshes(entt::registry& registry, Engine& engine,
     }
 }
 
-void engine::systems::updateTileMeshes(entt::registry& registry, Engine& engine, renderer::CommandBuffer& commandBuffer, renderer::Buffer& stagingBuffer, std::uint64_t& stagingBufferOffset) {
+void systems::updateTileMeshes(entt::registry& registry, engine::Engine& engine, renderer::CommandBuffer& commandBuffer, renderer::Buffer& stagingBuffer, std::uint64_t& stagingBufferOffset) {
     if (!stagingBuffer) {
         return;
     }
@@ -103,7 +103,7 @@ void engine::systems::updateTileMeshes(entt::registry& registry, Engine& engine,
     }
 }
 
-void engine::systems::destroyTileMeshes(entt::registry& registry) {
+void systems::destroyTileMeshes(entt::registry& registry) {
     for (auto& entity : registry.view<components::TileMesh>()) {
         auto& tileMesh = registry.get<components::TileMesh>(entity);
 

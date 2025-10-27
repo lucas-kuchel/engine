@@ -4,7 +4,7 @@
 
 #include <entt/entt.hpp>
 
-namespace engine::systems {
+namespace systems {
     void updatePositionControllers(entt::registry& registry, std::span<bool> keymap);
     void clampSpeeds(entt::registry& registry);
 }

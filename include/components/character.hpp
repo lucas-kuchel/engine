@@ -2,7 +2,7 @@
 
 #include <entt/entt.hpp>
 
-namespace engine::components {
+namespace components {
     struct Character {
     };
 }
