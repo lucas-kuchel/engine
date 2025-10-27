@@ -5,6 +5,9 @@
 
 #include <engine/components/proxy.hpp>
 
+#include <engine/components/buttons.hpp>
+#include <engine/systems/buttons.hpp>
+
 #include <engine/components/character.hpp>
 #include <engine/systems/character.hpp>
 
@@ -673,6 +676,14 @@ void engine::Engine::start() {
 
     currentWorld_ = registry_.create();
 
+    pauseButton_ = registry_.create();
+
+    registry_.emplace<components::Position>(pauseButton_, glm::vec2{0.0f, 0.0f});
+    registry_.emplace<components::Scale>(pauseButton_, glm::vec2{1.0f, 1.0f});
+    registry_.emplace<components::ButtonTag>(pauseButton_);
+
+    // systems::createButtons(registry_);
+
     auto& worldComponent = registry_.emplace<components::World>(currentWorld_);
 
     registry_.emplace<components::TileMesh>(currentWorld_);
@@ -871,6 +882,10 @@ void engine::Engine::runPreTransferSystems() {
     // === MOVEMENT CONTROLS ===
     systems::updatePositionControllers(registry_, keysHeld_);
     systems::clampSpeeds(registry_);
+
+    // // === UI ===
+    // systems::testButtons(registry_, mousePosition_, lastMousePosition_);
+    // systems::animateButtons(registry_, deltaTime_);
 
     // === PHYSICS INTEGRATION ===
     systems::integrateFriction(registry_, registry_.get<components::World>(currentWorld_), deltaTime_);

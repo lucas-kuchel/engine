@@ -4,5 +4,7 @@
 #include <glm/glm.hpp>
 
 namespace engine::systems {
-    void updateButtons(entt::registry& registry, glm::vec2 mousePosition, float deltaTime);
+    void createButtons(entt::registry& registry);
+    void testButtons(entt::registry& registry, glm::vec2 mousePosition, glm::vec2 lastMousePosition);
+    void animateButtons(entt::registry& registry, float deltaTime);
 }

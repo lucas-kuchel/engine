@@ -3,11 +3,11 @@
         "transform": {
             "position": {
                 "x": 0.0,
-                "y": -10.0
+                "y": -10.9
             },
             "scale": {
                 "width": 10.0,
-                "height": 10.0
+                "height": 11.0
             }
         },
         "on_collide": [
@@ -34,7 +34,7 @@
             },
             "scale": {
                 "width": 1.0,
-                "height": 3.0
+                "height": 2.0
             }
         },
         "on_collide": [

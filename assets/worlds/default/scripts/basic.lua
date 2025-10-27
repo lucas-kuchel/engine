@@ -24,26 +24,40 @@ end
 
 function openDoor()
     local doorProxies = engine:getTileGroupProxies(3)
+    local doorTopProxies = engine:getTileGroupProxies(6)
     local tiles = engine:getTileInstances()
 
     for i = 1, #doorProxies do
         local proxy = doorProxies[i]
         local tile = tiles[proxy.index]
 
-        tile.transform.scale.x = 0.25
-        tile.appearance.texture.repeats.x = 0.25
+        tile.appearance.texture.sample.position.x = 0.2
+    end
+
+    for i = 1, #doorTopProxies do
+        local proxy = doorTopProxies[i]
+        local tile = tiles[proxy.index]
+
+        tile.appearance.texture.sample.position.y = 0.2
     end
 end
 
 function closeDoor()
     local doorProxies = engine:getTileGroupProxies(3)
+    local doorTopProxies = engine:getTileGroupProxies(6)
     local tiles = engine:getTileInstances()
 
     for i = 1, #doorProxies do
         local proxy = doorProxies[i]
         local tile = tiles[proxy.index]
 
-        tile.transform.scale.x = 1.0
-        tile.appearance.texture.repeats.x = 1.0
+        tile.appearance.texture.sample.position.x = 0.0
+    end
+
+    for i = 1, #doorTopProxies do
+        local proxy = doorTopProxies[i]
+        local tile = tiles[proxy.index]
+
+        tile.appearance.texture.sample.position.y = 0.4
     end
 end

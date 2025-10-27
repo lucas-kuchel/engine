@@ -28,4 +28,9 @@ namespace engine::components {
     struct Last {
         T value;
     };
+
+    template <typename T>
+    struct Original {
+        T value;
+    };
 }

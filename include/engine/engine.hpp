@@ -7,6 +7,7 @@
 
 #include <engine/components/action.hpp>
 #include <engine/components/camera.hpp>
+#include <engine/components/entity_tags.hpp>
 #include <engine/components/proxy.hpp>
 #include <engine/components/tile.hpp>
 #include <engine/components/transforms.hpp>
@@ -21,6 +22,7 @@ namespace engine {
 
     using TileInstance = components::TileInstance;
     using TileProxy = components::Proxy<components::TileInstance>;
+    using ColliderProxy = components::Proxy<components::ColliderTag>;
 
     struct CameraInfo {
         components::Camera state;
@@ -62,7 +64,9 @@ namespace engine {
         void resetSpace();
 
         SpanProxy<TileProxy> getTileGroupProxies(std::uint32_t group);
+        SpanProxy<ColliderProxy> getColliderGroupProxies(std::uint32_t group);
         SpanProxy<TileInstance> getTileInstances();
+        SpanProxy<C> getColliderInstances();
 
     private:
         Engine& engine_;
@@ -85,6 +89,10 @@ namespace engine {
 
         auto& getSparseTileGroups() {
             return sparseTileGroups_;
+        }
+
+        auto& getSparseColliderGroups() {
+            return sparseColliderGroups_;
         }
 
         auto& getPlayer() {
@@ -116,12 +124,14 @@ namespace engine {
         entt::entity currentWorld_;
         entt::entity currentCharacter_;
         entt::entity currentCamera_;
+        entt::entity pauseButton_;
 
         app::Context context_;
         app::Window window_;
 
         std::vector<TileInstance> tiles_;
         std::vector<std::vector<TileProxy>> sparseTileGroups_;
+        std::vector<std::vector<ColliderProxy>> sparseColliderGroups_;
 
         std::size_t worldTileCount_ = 0;
         std::size_t worldTileFirst_ = 0;
@@ -160,6 +170,7 @@ namespace engine {
         entt::dispatcher dispatcher_;
 
         glm::vec2 mousePosition_;
+        glm::vec2 lastMousePosition_;
 
         sol::state luaState_;
 

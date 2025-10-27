@@ -90,12 +90,12 @@
         "transform": {
             "position": {
                 "x": 0.0,
-                "y": -10.0,
+                "y": -11.0,
                 "z": -0.625
             },
             "scale": {
                 "width": 10.0,
-                "height": 10.0
+                "height": 11.0
             }
         },
         "appearance": {
@@ -427,7 +427,7 @@
         "transform": {
             "position": {
                 "x": 4.5,
-                "y": -10.5,
+                "y": -11.0,
                 "z": -0.25
             },
             "scale": {
@@ -450,6 +450,49 @@
                     "position": {
                         "x": 0.0,
                         "y": 0.2
+                    }
+                },
+                "offset": {
+                    "x": 0.0,
+                    "y": 0.0
+                },
+                "repeat": {
+                    "x": 1.0,
+                    "y": 1.0
+                }
+            }
+        }
+    },
+    {
+        "groups": [
+            6
+        ],
+        "transform": {
+            "position": {
+                "x": 4.5,
+                "y": -9.0,
+                "z": -0.25
+            },
+            "scale": {
+                "width": 1.0,
+                "height": 1.0
+            }
+        },
+        "appearance": {
+            "colour_factor": {
+                "r": 0.2,
+                "g": 0.2,
+                "b": 0.2
+            },
+            "texture": {
+                "sample": {
+                    "extent": {
+                        "width": 0.2,
+                        "height": 0.2
+                    },
+                    "position": {
+                        "x": 0.4,
+                        "y": 0.4
                     }
                 },
                 "offset": {
