@@ -10,6 +10,7 @@
 #include <components/tile.hpp>
 #include <components/transforms.hpp>
 #include <engine/input_manager.hpp>
+#include <engine/tile_pool.hpp>
 #include <entt/entt.hpp>
 #include <magic_enum/magic_enum.hpp>
 #include <renderer/renderer.hpp>
@@ -78,16 +79,16 @@ namespace engine {
         void addScript(const std::string& filepath);
         void runFunction(const std::string& function, std::vector<std::optional<std::string>>& parameters);
 
-        auto& getTiles() {
-            return tiles_;
+        auto& getWorldTilePool() {
+            return worldTilePool_;
         }
 
-        auto& getSparseTileGroups() {
-            return sparseTileGroups_;
+        auto& getCharacterTilePool() {
+            return characterTilePool_;
         }
 
-        auto& getSparseColliderGroups() {
-            return sparseColliderGroups_;
+        auto& getUiTilePool() {
+            return uiTilePool_;
         }
 
         auto& getCurrentCharacter() {
@@ -114,10 +115,6 @@ namespace engine {
             return deltaTime_;
         }
 
-        auto& getButtonsTileCount() {
-            return buttonsTileCount_;
-        }
-
     private:
         app::WindowCreateInfo createWindow();
 
@@ -141,9 +138,10 @@ namespace engine {
         EngineAPI api_;
         InputManager inputManager_;
 
-        entt::entity currentWorld_;
-        entt::entity currentCharacter_;
-        entt::entity currentCamera_;
+        TilePool worldTilePool_;
+        TilePool uiTilePool_;
+        TilePool characterTilePool_;
+
         entt::registry registry_;
         entt::dispatcher dispatcher_;
 
@@ -151,16 +149,6 @@ namespace engine {
 
         app::Context context_;
         app::Window window_;
-
-        std::vector<::components::TileInstance> tiles_;
-
-        std::vector<std::vector<::components::Proxy<::components::TileInstance>>> sparseTileGroups_;
-        std::vector<std::vector<::components::Proxy<::components::ColliderTag>>> sparseColliderGroups_;
-
-        std::size_t worldTileCount_ = 0;
-        std::size_t worldTileFirst_ = 0;
-        std::size_t buttonsTileCount_ = 0;
-        std::size_t buttonsTileFirst_ = 0;
 
         renderer::Renderer renderer_;
         renderer::CommandPool transferCommandPool_;

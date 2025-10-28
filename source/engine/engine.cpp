@@ -144,7 +144,7 @@ engine::Engine::~Engine() {
 }
 
 void engine::EngineAPI::addToGroup(const ::components::Proxy<::components::TileInstance>& proxy, std::uint32_t group) {
-    auto& list = engine_.getSparseTileGroups()[static_cast<std::size_t>(group)];
+    auto& list = engine_.getWorldTilePool().getProxyGroup(group);
 
     for (const auto& entry : list) {
         if (entry.index == proxy.index) {
@@ -187,7 +187,7 @@ void engine::EngineAPI::setCameraInfo(CameraInfo& cameraInfo) {
 }
 
 void engine::EngineAPI::removeFromGroup(const ::components::Proxy<::components::TileInstance>& proxy, std::uint32_t group) {
-    auto& list = engine_.getSparseTileGroups()[static_cast<std::size_t>(group)];
+    auto& list = engine_.getWorldTilePool().getProxyGroup(group);
 
     for (std::size_t i = 0; i < list.size(); i++) {
         if (list[i].index == proxy.index) {
@@ -310,13 +310,13 @@ void engine::EngineAPI::resetSpace() {
 engine::SpanProxy<::components::TileInstance> engine::EngineAPI::getTileInstances() {
     using namespace ::components;
 
-    return SpanProxy<TileInstance>{std::span(engine_.getTiles())};
+    return SpanProxy<TileInstance>{engine_.getWorldTilePool().data()};
 }
 
 engine::SpanProxy<::components::Proxy<::components::TileInstance>> engine::EngineAPI::getTileGroupProxies(std::uint32_t group) {
     using namespace ::components;
 
-    return SpanProxy<Proxy<TileInstance>>{std::span(engine_.getSparseTileGroups()[group])};
+    return SpanProxy<Proxy<TileInstance>>{std::span(engine_.getWorldTilePool().getProxyGroup(group))};
 }
 
 void engine::Engine::addScript(const std::string& filepath) {
@@ -699,8 +699,6 @@ void engine::Engine::start() {
     scale.scale = {1.0f, 1.0f};
     position.position = {-13.8, 6.5};
 
-    buttonsTileFirst_ = 0;
-
     systems::createButtons(registry_, *this);
 
     currentWorld_ = registry_.create();
@@ -713,17 +711,12 @@ void engine::Engine::start() {
 
     currentCharacter_ = registry_.create();
 
-    auto& characterInstance = tiles_.emplace_back();
-    auto& characterPosition = registry_.emplace<Position>(currentCharacter_);
-    auto& characterScale = registry_.emplace<Scale>(currentCharacter_);
-
-    characterPosition.position = {5.0f, -12.0f};
-    characterScale.scale = {0.75f, 1.0f};
+    TileInstance characterInstance;
 
     characterInstance = {
         .transform = {
-            .position = {characterPosition.position, -0.5f},
-            .scale = characterScale.scale,
+            .position = {5, -12, -0.5f},
+            .scale = {0.75, 1.0},
         },
         .appearance = {
             .texture = {
@@ -738,25 +731,9 @@ void engine::Engine::start() {
         },
     };
 
-    registry_.emplace<Speed>(currentCharacter_, 5.0f);
-    registry_.emplace<Velocity>(currentCharacter_);
-    registry_.emplace<Acceleration>(currentCharacter_);
-    registry_.emplace<PositionController>(currentCharacter_, app::Key::W, app::Key::S, app::Key::A, app::Key::D);
-    registry_.emplace<Proxy<TileInstance>>(currentCharacter_, tiles_.size() - 1);
-    registry_.emplace<CanTriggerTag>(currentCharacter_);
-    registry_.emplace<CanCollideTag>(currentCharacter_);
-    registry_.emplace<ActiveCharacterTag>(currentCharacter_);
-    registry_.emplace<Character>(currentCharacter_);
-    registry_.emplace<ApplyFrictionTag>(currentCharacter_);
-    registry_.emplace<Last<Position>>(currentCharacter_);
-    registry_.emplace<Last<Velocity>>(currentCharacter_);
-
-    worldTileFirst_ = tiles_.size() - 1;
+    characterTilePool_.insert(characterInstance);
 
     ::systems::loadWorlds(registry_, *this);
-
-    worldTileCount_ = worldComponent.tiles.size() + 1;
-
     ::systems::createTileMeshes(registry_, *this, device, transferCommandBuffer, stagingBuffer, stagingBufferOffset);
 
     cameraComponent.mode = worldComponent.defaultState.camera.mode;
