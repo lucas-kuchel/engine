@@ -3,17 +3,23 @@
 #include <app/configuration.hpp>
 #include <app/context.hpp>
 #include <app/window.hpp>
+
 #include <components/action.hpp>
 #include <components/camera.hpp>
 #include <components/entity_tags.hpp>
 #include <components/proxy.hpp>
 #include <components/tile.hpp>
 #include <components/transforms.hpp>
+
 #include <engine/input_manager.hpp>
+#include <engine/staging_manager.hpp>
+#include <engine/tile_mesh.hpp>
 #include <engine/tile_pool.hpp>
+
+#include <renderer/renderer.hpp>
+
 #include <entt/entt.hpp>
 #include <magic_enum/magic_enum.hpp>
-#include <renderer/renderer.hpp>
 #include <sol/sol.hpp>
 
 #include <chrono>
@@ -83,28 +89,36 @@ namespace engine {
             return worldTilePool_;
         }
 
-        auto& getCharacterTilePool() {
-            return characterTilePool_;
+        auto& getEntityTilePool() {
+            return entityTilePool_;
         }
 
         auto& getUiTilePool() {
             return uiTilePool_;
         }
 
-        auto& getCurrentCharacter() {
-            return currentCharacter_;
-        }
-
-        auto& getCurrentCamera() {
-            return currentCamera_;
-        }
-
-        auto& getCurrentWorld() {
-            return currentWorld_;
+        auto& getInputManager() {
+            return inputManager_;
         }
 
         auto& getRegistry() {
             return registry_;
+        }
+
+        auto& getRenderer() {
+            return renderer_;
+        }
+
+        auto& getStagingManager() {
+            return stagingManager_;
+        }
+
+        auto& getTransferBuffer() {
+            return transferCommandBuffers_[renderer_.getFrameCounter().index];
+        }
+
+        auto& getCameraBuffer() {
+            return cameraBuffer_;
         }
 
         auto& getAPI() {
@@ -113,6 +127,18 @@ namespace engine {
 
         auto getDeltaTime() const {
             return deltaTime_;
+        }
+
+        auto getCurrentCamera() const {
+            return currentCamera_;
+        }
+
+        auto getCurrentEntity() const {
+            return currentEntity_;
+        }
+
+        auto getCurrentWorld() const {
+            return currentWorld_;
         }
 
     private:
@@ -137,10 +163,15 @@ namespace engine {
 
         EngineAPI api_;
         InputManager inputManager_;
+        StagingManager stagingManager_;
 
         TilePool worldTilePool_;
         TilePool uiTilePool_;
-        TilePool characterTilePool_;
+        TilePool entityTilePool_;
+
+        entt::entity currentCamera_;
+        entt::entity currentEntity_;
+        entt::entity currentWorld_;
 
         entt::registry registry_;
         entt::dispatcher dispatcher_;
@@ -151,24 +182,35 @@ namespace engine {
         app::Window window_;
 
         renderer::Renderer renderer_;
+
+        TileMesh worldTileMesh_;
+        TileMesh uiTileMesh_;
+        TileMesh entityTileMesh_;
+
         renderer::CommandPool transferCommandPool_;
+
         renderer::DescriptorSet tilemapDescriptorSet_;
         renderer::DescriptorSet buttonsDescriptorSet_;
+
         renderer::DescriptorSetLayout descriptorSetLayout_;
+
         renderer::DescriptorPool descriptorPool_;
+
         renderer::Pipeline worldPipeline_;
         renderer::Pipeline uiPipeline_;
+
         renderer::PipelineLayout basicPipelineLayout_;
 
         renderer::Image tilemapImage_;
         renderer::Image buttonsImage_;
+
         renderer::ImageView tilemapImageView_;
         renderer::ImageView buttonsImageView_;
+
         renderer::Sampler sampler_;
 
-        std::vector<renderer::Buffer> stagingBuffers_;
-        std::vector<renderer::Fence> stagingBufferFences_;
-        std::vector<renderer::Semaphore> stagingBufferSemaphores_;
+        renderer::Buffer cameraBuffer_;
+
         std::vector<renderer::Pipeline> pipelines_;
         std::vector<renderer::DescriptorSet> descriptorSets_;
         std::vector<renderer::CommandBuffer> transferCommandBuffers_;

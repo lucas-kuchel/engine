@@ -21,7 +21,7 @@ namespace components {
 
             std::optional<glm::vec2> position;
 
-            float scale;
+            float size;
 
         } camera;
 

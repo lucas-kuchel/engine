@@ -48,8 +48,8 @@ std::span<const components::TileInstance> engine::TilePool::data() const {
 }
 
 std::vector<engine::TileProxy>& engine::TilePool::getProxyGroup(std::size_t index) {
-    if (proxyTable_.size() <= index) {
-        proxyTable_.resize(index + 1);
+    if (groupTable_.size() <= index) {
+        groupTable_.resize(index + 1);
     }
 
     return groupTable_[index];

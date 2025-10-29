@@ -1,16 +1,10 @@
 #pragma once
 
 namespace components {
-    struct CurrentCharacterTag {
+    struct EntityTag {
     };
 
-    struct CanBeCurrentCharacterTag {
-    };
-
-    struct CurrentCameraTag {
-    };
-
-    struct CanBeCurrentCameraTag {
+    struct CurrentEntityTag {
     };
 
     struct TriggerTag {

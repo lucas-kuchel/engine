@@ -15,7 +15,7 @@ namespace components {
 
             std::optional<glm::vec2> position;
 
-            float scale;
+            float size;
 
         } camera;
 
@@ -31,6 +31,8 @@ namespace components {
         std::vector<entt::entity> colliders;
         std::vector<entt::entity> triggers;
         std::vector<entt::entity> tiles;
+
+        std::vector<std::vector<TileProxy>> tileGroups;
 
         WorldConfig defaultState;
         WorldConfig currentState;

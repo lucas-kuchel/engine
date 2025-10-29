@@ -87,18 +87,17 @@ void systems::loadWorlds(entt::registry& registry, engine::Engine& engine) {
         auto& defaultsCameraScaleJson = defaultsCameraJson.at("scale");
         auto& defaultsPhysicsJson = defaultsJson.at("physics");
 
-        auto& player = engine.getCurrentCharacter();
-        auto& playerProxy = registry.get<components::Proxy<components::TileInstance>>(player);
+        auto& worldTilePool = engine.getWorldTilePool();
+
+        auto player = engine.getCurrentEntity();
+        auto& playerProxy = registry.get<components::TileProxy>(player);
 
         for (auto& groupJson : defaultsPlayerJson.at("groups")) {
             auto group = groupJson.get<std::uint32_t>();
-            auto& sparseTileGroups = engine.getSparseTileGroups();
 
-            if (sparseTileGroups.size() <= group) {
-                sparseTileGroups.resize(group + 1);
-            }
+            auto& groupList = worldTilePool.getProxyGroup(group);
 
-            sparseTileGroups[group].emplace_back(playerProxy.index + 1);
+            groupList.push_back(playerProxy);
         }
 
         std::string defaultsCameraMode = defaultsCameraModeJson.get<std::string>();
@@ -123,7 +122,7 @@ void systems::loadWorlds(entt::registry& registry, engine::Engine& engine) {
         world.defaultState.physics.kineticFriction = defaultsPhysicsJson.at("kinetic_friction").get<float>();
         world.defaultState.physics.staticFriction = defaultsPhysicsJson.at("static_friction").get<float>();
         world.defaultState.name = defaultsJson.at("name").get<std::string>();
-        world.defaultState.camera.scale = defaultsCameraScaleJson.get<float>();
+        world.defaultState.camera.size = defaultsCameraScaleJson.get<float>();
 
         world.currentState = world.defaultState;
 
@@ -193,7 +192,7 @@ void systems::loadWorlds(entt::registry& registry, engine::Engine& engine) {
                 throw std::runtime_error("Map loading failed: space camera mode unrecognised");
             }
 
-            space.camera.scale = cameraJson.at("scale").get<float>();
+            space.camera.size = cameraJson.at("scale").get<float>();
         }
 
         for (auto& tileJson : tilesJson) {
@@ -213,23 +212,15 @@ void systems::loadWorlds(entt::registry& registry, engine::Engine& engine) {
             auto& offsetJson = textureJson.at("offset");
             auto& repeatJson = textureJson.at("repeat");
 
-            auto& tile = world.tiles.emplace_back(registry.create());
-            auto& tileInstance = engine.getTiles().emplace_back();
-
-            auto tileIndex = engine.getTiles().size() - 1;
-
-            registry.emplace<components::Proxy<components::TileInstance>>(tile, tileIndex);
-            registry.emplace<components::TileTag>(tile);
+            auto proxy = worldTilePool.insert({});
+            auto& tileInstance = worldTilePool.get(proxy);
 
             for (auto& groupJson : groupsJson) {
                 std::uint32_t group = groupJson.get<std::uint32_t>();
-                auto& sparseTileGroups = engine.getSparseTileGroups();
 
-                if (sparseTileGroups.size() <= group) {
-                    sparseTileGroups.resize(group + 1);
-                }
+                auto& groupList = worldTilePool.getProxyGroup(group);
 
-                sparseTileGroups[group].emplace_back(tileIndex + 1);
+                groupList.push_back(proxy);
             }
 
             tileInstance.appearance.colourFactor = {

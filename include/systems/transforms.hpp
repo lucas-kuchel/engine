@@ -7,7 +7,6 @@
 
 namespace systems {
     void integrateMovements(entt::registry& registry, float deltaTime);
-    void integrateFriction(entt::registry& registry, components::World& world, float deltaTime);
     void transformInstances(entt::registry& registry, std::span<components::TileInstance> instances);
 
     template <typename T>
