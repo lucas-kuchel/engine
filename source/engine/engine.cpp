@@ -2,7 +2,6 @@
 #include <components/camera.hpp>
 #include <components/controllers.hpp>
 #include <components/entity_tags.hpp>
-#include <components/proxy.hpp>
 #include <components/space.hpp>
 #include <components/tile.hpp>
 #include <components/transforms.hpp>
@@ -49,9 +48,9 @@ engine::Engine::Engine()
 
     luaState_["engine"] = &api_;
 
-    luaState_.new_usertype<Proxy<TileInstance>>(
+    luaState_.new_usertype<TileProxy>(
         "TileProxy",
-        "index", &Proxy<TileInstance>::index);
+        "index", &TileProxy::index);
 
     luaState_.new_usertype<TileInstance::Appearance::Texture::Sample>(
         "TileInstanceAppearanceTextureSample",
@@ -104,12 +103,12 @@ engine::Engine::Engine()
         "__len", &SpanProxy<TileInstance>::size,
         "get", &SpanProxy<TileInstance>::get);
 
-    luaState_.new_usertype<SpanProxy<Proxy<TileInstance>>>(
+    luaState_.new_usertype<SpanProxy<TileProxy>>(
         "TileProxySpan",
-        sol::meta_function::length, &SpanProxy<Proxy<TileInstance>>::size,
-        sol::meta_function::index, &SpanProxy<Proxy<TileInstance>>::get,
-        "__len", &SpanProxy<Proxy<TileInstance>>::size,
-        "get", &SpanProxy<Proxy<TileInstance>>::get);
+        sol::meta_function::length, &SpanProxy<TileProxy>::size,
+        sol::meta_function::index, &SpanProxy<TileProxy>::get,
+        "__len", &SpanProxy<TileProxy>::size,
+        "get", &SpanProxy<TileProxy>::get);
 
     luaState_.new_usertype<glm::vec2>(
         "vec2",
@@ -140,7 +139,7 @@ engine::Engine::Engine()
 engine::Engine::~Engine() {
 }
 
-void engine::EngineAPI::addToGroup(const ::components::Proxy<::components::TileInstance>& proxy, std::uint32_t group) {
+void engine::EngineAPI::addToGroup(const TileProxy& proxy, std::uint32_t group) {
     auto& list = engine_.getWorldTilePool().getProxyGroup(group);
 
     for (const auto& entry : list) {
@@ -183,7 +182,7 @@ void engine::EngineAPI::setCameraInfo(CameraInfo& cameraInfo) {
     position = cameraInfo.position;
 }
 
-void engine::EngineAPI::removeFromGroup(const ::components::Proxy<::components::TileInstance>& proxy, std::uint32_t group) {
+void engine::EngineAPI::removeFromGroup(const TileProxy& proxy, std::uint32_t group) {
     auto& list = engine_.getWorldTilePool().getProxyGroup(group);
 
     for (std::size_t i = 0; i < list.size(); i++) {
@@ -310,10 +309,10 @@ engine::SpanProxy<::components::TileInstance> engine::EngineAPI::getTileInstance
     return SpanProxy<TileInstance>{engine_.getWorldTilePool().data()};
 }
 
-engine::SpanProxy<::components::Proxy<::components::TileInstance>> engine::EngineAPI::getTileGroupProxies(std::uint32_t group) {
+engine::SpanProxy<engine::TileProxy> engine::EngineAPI::getTileGroupProxies(std::uint32_t group) {
     using namespace ::components;
 
-    return SpanProxy<Proxy<TileInstance>>{std::span(engine_.getWorldTilePool().getProxyGroup(group))};
+    return SpanProxy<TileProxy>{std::span(engine_.getWorldTilePool().getProxyGroup(group))};
 }
 
 void engine::Engine::addScript(const std::string& filepath) {
@@ -695,10 +694,15 @@ void engine::Engine::start() {
 
     registry_.emplace<TileProxy>(currentEntity_, proxy);
     registry_.emplace<Position>(currentEntity_, glm::vec3{0.0, 0.0, 0.0});
+    registry_.emplace<Acceleration>(currentEntity_);
+    registry_.emplace<Velocity>(currentEntity_);
     registry_.emplace<Scale>(currentEntity_, glm::vec2{1.0, 1.0});
     registry_.emplace<TileTag>(currentEntity_);
     registry_.emplace<EntityTag>(currentEntity_);
+    registry_.emplace<Speed>(currentEntity_, 5.0);
     registry_.emplace<CurrentEntityTag>(currentEntity_);
+    registry_.emplace<CanCollideTag>(currentEntity_);
+    registry_.emplace<CanTriggerTag>(currentEntity_);
 
     ::systems::loadWorlds(registry_, *this);
     ::systems::entities::createEntities(*this);
@@ -859,7 +863,7 @@ void engine::Engine::runPreTransferSystems() {
 
     ::systems::entities::updateControllers(*this);
 
-    ::systems::integrateMovements(registry_, deltaTime_);
+    ::systems::integrateMovements(*this);
 
     ::systems::testCollisions(registry_);
     ::systems::checkTriggers(registry_);
@@ -870,7 +874,7 @@ void engine::Engine::runPreTransferSystems() {
     ::systems::cameras::makeCamerasFollowTarget(*this);
     ::systems::cameras::calculateCameraData(*this);
 
-    ::systems::transformInstances(registry_, entityTilePool_.data());
+    ::systems::transformInstances(*this, entityTilePool_);
 }
 
 void engine::Engine::runMidTransferSystems() {

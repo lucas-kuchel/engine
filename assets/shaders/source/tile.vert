@@ -8,7 +8,7 @@ camera;
 
 layout(location = 0) in vec2 vertexPosition;
 
-layout(location = 1) in vec4 instancePosition;
+layout(location = 1) in vec3 instancePosition;
 layout(location = 2) in vec2 instanceScale;
 
 layout(location = 3) in vec2 instanceTexturePosition;
@@ -24,7 +24,7 @@ layout(location = 3) out vec3 outColourFactor;
 
 void main() {
     vec3 scaledPosition = vec3(vertexPosition * instanceScale, 0.0);
-    vec4 translatedPosition = vec4(scaledPosition, 0.0) + instancePosition;
+    vec4 translatedPosition = vec4(scaledPosition + instancePosition, 1.0);
     vec2 textureSamplePosition = vec2(vertexPosition.x, -vertexPosition.y);
 
     gl_Position = camera.projection * camera.view * translatedPosition;

@@ -1,6 +1,5 @@
 #pragma once
 
-#include <components/proxy.hpp>
 #include <components/transforms.hpp>
 #include <glm/glm.hpp>
 #include <renderer/buffer.hpp>
@@ -26,8 +25,6 @@ namespace components {
             glm::vec3 colourFactor;
         } appearance;
     };
-
-    using TileProxy = Proxy<TileInstance>;
 
     struct TileMesh {
         renderer::Buffer vertexBuffer;

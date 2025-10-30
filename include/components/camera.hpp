@@ -10,8 +10,8 @@ namespace components {
     };
 
     struct CameraData {
-        glm::mat4 view = {1.0f};
         glm::mat4 projection = {1.0f};
+        glm::mat4 view = {1.0f};
     };
 
     struct Camera {

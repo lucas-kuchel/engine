@@ -1,6 +1,7 @@
 #pragma once
 
 #include <components/tile.hpp>
+#include <engine/tile_pool.hpp>
 #include <entt/entt.hpp>
 
 namespace components {
@@ -32,7 +33,7 @@ namespace components {
         std::vector<entt::entity> triggers;
         std::vector<entt::entity> tiles;
 
-        std::vector<std::vector<TileProxy>> tileGroups;
+        std::vector<std::vector<engine::TileProxy>> tileGroups;
 
         WorldConfig defaultState;
         WorldConfig currentState;

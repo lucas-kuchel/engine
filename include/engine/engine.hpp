@@ -7,7 +7,6 @@
 #include <components/action.hpp>
 #include <components/camera.hpp>
 #include <components/entity_tags.hpp>
-#include <components/proxy.hpp>
 #include <components/tile.hpp>
 #include <components/transforms.hpp>
 
@@ -61,13 +60,12 @@ namespace engine {
         void setCameraInfo(CameraInfo& cameraInfo);
 
         void bindAction(components::Action& action);
-        void addToGroup(const ::components::Proxy<::components::TileInstance>& proxy, std::uint32_t group);
-        void removeFromGroup(const ::components::Proxy<::components::TileInstance>& proxy, std::uint32_t group);
+        void addToGroup(const TileProxy& proxy, std::uint32_t group);
+        void removeFromGroup(const TileProxy& proxy, std::uint32_t group);
         void setSpace(const std::string& space);
         void resetSpace();
 
-        SpanProxy<::components::Proxy<::components::TileInstance>> getTileGroupProxies(std::uint32_t group);
-        SpanProxy<::components::Proxy<::components::ColliderTag>> getColliderGroupProxies(std::uint32_t group);
+        SpanProxy<TileProxy> getTileGroupProxies(std::uint32_t group);
         SpanProxy<::components::TileInstance> getTileInstances();
 
     private:

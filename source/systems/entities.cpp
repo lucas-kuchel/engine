@@ -11,7 +11,7 @@ void systems::entities::createEntities(engine::Engine& engine) {
 
     auto& registry = engine.getRegistry();
     auto& tilePool = engine.getEntityTilePool();
-    auto view = registry.view<TileProxy, EntityTag>();
+    auto view = registry.view<engine::TileProxy, EntityTag>();
 
     for (auto [entity, proxy] : view.each()) {
         auto& position = registry.emplace_or_replace<Position>(entity);
@@ -31,34 +31,24 @@ void systems::entities::updateControllers(engine::Engine& engine) {
     auto view = registry.view<Acceleration, PositionController, Speed, EntityTag, CurrentEntityTag>();
 
     for (auto [entity, acceleration, controller, speed] : view.each()) {
-        float finalAngle = 0.0f;
-        float finalSpeed = 0.0f;
+        glm::vec2 direction = {0.0f, 0.0f};
 
         if (inputManager.held(controller.forwardBinding)) {
-            finalSpeed = speed.speed;
-            finalAngle = (finalAngle + glm::radians(0.0f)) * 0.5f;
+            direction.y += 1.0f;
         }
-
         if (inputManager.held(controller.backwardBinding)) {
-            finalSpeed = speed.speed;
-            finalAngle = (finalAngle + glm::radians(90.0f)) * 0.5f;
+            direction.y -= 1.0f;
         }
-
         if (inputManager.held(controller.leftBinding)) {
-            finalSpeed = speed.speed;
-            finalAngle = (finalAngle + glm::radians(180.0f)) * 0.5f;
+            direction.x -= 1.0f;
         }
-
         if (inputManager.held(controller.rightBinding)) {
-            finalSpeed = speed.speed;
-            finalAngle = (finalAngle + glm::radians(270.0f)) * 0.5f;
+            direction.x += 1.0f;
         }
 
-        glm::mat2 rotation = {
-            glm::vec2{std::cos(finalAngle), -std::sin(finalAngle)},
-            glm::vec2{std::sin(finalAngle), std::cos(finalAngle)},
-        };
-
-        acceleration.acceleration += rotation * glm::vec2{0.0f, finalSpeed};
+        if (glm::length(direction) > 0.0f) {
+            direction = glm::normalize(direction);
+            acceleration.acceleration += direction * speed.speed;
+        }
     }
 }

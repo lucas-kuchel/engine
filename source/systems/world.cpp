@@ -1,7 +1,6 @@
 #include <components/action.hpp>
 #include <components/camera.hpp>
 #include <components/entity_tags.hpp>
-#include <components/proxy.hpp>
 #include <components/space.hpp>
 #include <components/tile.hpp>
 #include <components/trigger.hpp>
@@ -255,7 +254,7 @@ void systems::loadWorlds(entt::registry& registry, engine::Engine& engine) {
             registry.emplace<components::Position>(tile, tileInstance.transform.position);
             registry.emplace<components::Scale>(tile, tileInstance.transform.scale);
             registry.emplace<components::TileTag>(tile);
-            registry.emplace<components::TileProxy>(tile, proxy);
+            registry.emplace<engine::TileProxy>(tile, proxy);
         }
 
         for (auto& triggerJson : triggersJson) {

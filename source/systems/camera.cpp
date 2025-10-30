@@ -110,7 +110,7 @@ void systems::cameras::makeCamerasFollowTarget(engine::Engine& engine) {
         auto& targetPosition = registry.get<Position>(target.target);
         auto direction = targetPosition.position - position.position;
 
-        if (glm::length(direction) < 0.01f) {
+        if (glm::length(direction) < 0.0001f) {
             position.position = targetPosition.position;
         }
         else {

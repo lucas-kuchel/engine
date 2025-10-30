@@ -5,9 +5,14 @@
 
 #include <entt/entt.hpp>
 
+namespace engine {
+    class Engine;
+    class TilePool;
+}
+
 namespace systems {
-    void integrateMovements(entt::registry& registry, float deltaTime);
-    void transformInstances(entt::registry& registry, std::span<components::TileInstance> instances);
+    void integrateMovements(engine::Engine& engine);
+    void transformInstances(engine::Engine& engine, engine::TilePool& tilePool);
 
     template <typename T>
     void cacheLasts(entt::registry& registry) {

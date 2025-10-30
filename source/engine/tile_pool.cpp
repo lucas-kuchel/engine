@@ -1,11 +1,18 @@
 #include <engine/tile_pool.hpp>
 
+std::uint32_t engine::TilePool::maxIdentifier_ = 0;
+
+engine::TilePool::TilePool()
+    : identifier_(maxIdentifier_) {
+    maxIdentifier_++;
+}
+
 engine::TileProxy engine::TilePool::insert(const components::TileInstance& base) {
     auto index = instances_.size();
     proxyTable_.emplace_back(index);
     instances_.emplace_back(base);
 
-    return {index};
+    return {index, identifier_};
 }
 
 components::TileInstance& engine::TilePool::get(TileProxy proxy) {
@@ -19,6 +26,10 @@ void engine::TilePool::remove(TileProxy proxy) {
     std::swap(instances_[index], instances_.back());
 
     instances_.pop_back();
+}
+
+bool engine::TilePool::contains(TileProxy proxy) const {
+    return proxy.uniqueIdentifier == identifier_ && proxy.index < proxyTable_.size();
 }
 
 void engine::TilePool::clear() {

@@ -1,15 +1,17 @@
 #include <components/camera.hpp>
 #include <components/entity_tags.hpp>
-#include <components/proxy.hpp>
 #include <components/tile.hpp>
 #include <components/transforms.hpp>
+#include <engine/engine.hpp>
 #include <systems/transforms.hpp>
 
-void systems::integrateMovements(entt::registry& registry, float deltaTime) {
-    for (auto& entity : registry.view<components::Velocity, components::Acceleration, components::Position>()) {
-        auto& velocity = registry.get<components::Velocity>(entity);
-        auto& acceleration = registry.get<components::Acceleration>(entity);
-        auto& position = registry.get<components::Position>(entity);
+void systems::integrateMovements(engine::Engine& engine) {
+    auto& registry = engine.getRegistry();
+
+    auto deltaTime = engine.getDeltaTime();
+    auto view = registry.view<components::Velocity, components::Acceleration, components::Position>();
+
+    for (auto [entity, velocity, acceleration, position] : view.each()) {
 
         velocity.velocity += acceleration.acceleration * deltaTime;
         acceleration.acceleration = {0.0f, 0.0f};
@@ -17,12 +19,19 @@ void systems::integrateMovements(entt::registry& registry, float deltaTime) {
     }
 }
 
-void systems::transformInstances(entt::registry& registry, std::span<components::TileInstance> instances) {
-    for (auto& entity : registry.view<components::Proxy<components::TileInstance>, components::Position, components::Scale>()) {
-        auto& proxy = registry.get<components::Proxy<components::TileInstance>>(entity);
+void systems::transformInstances(engine::Engine& engine, engine::TilePool& tilePool) {
+    auto& registry = engine.getRegistry();
+
+    for (auto& entity : registry.view<engine::TileProxy, components::Position, components::Scale>()) {
+        auto& proxy = registry.get<engine::TileProxy>(entity);
         auto& position = registry.get<components::Position>(entity);
         auto& scale = registry.get<components::Scale>(entity);
-        auto& tileInstance = instances[proxy.index];
+
+        if (!tilePool.contains(proxy)) {
+            continue;
+        }
+
+        auto& tileInstance = tilePool.get(proxy);
 
         tileInstance.transform.position = {
             position.position.x,
