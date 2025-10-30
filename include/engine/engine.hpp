@@ -189,22 +189,22 @@ namespace engine {
         renderer::CommandPool transferCommandPool_;
 
         renderer::DescriptorSet tilemapDescriptorSet_;
-        renderer::DescriptorSet buttonsDescriptorSet_;
 
         renderer::DescriptorSetLayout descriptorSetLayout_;
 
         renderer::DescriptorPool descriptorPool_;
 
         renderer::Pipeline worldPipeline_;
-        renderer::Pipeline uiPipeline_;
 
         renderer::PipelineLayout basicPipelineLayout_;
 
-        renderer::Image tilemapImage_;
-        renderer::Image buttonsImage_;
+        renderer::Image tilemapAlbedoImage_;
+        renderer::Image tilemapNormalImage_;
+        renderer::Image tilemapSpecularImage_;
 
-        renderer::ImageView tilemapImageView_;
-        renderer::ImageView buttonsImageView_;
+        renderer::ImageView tilemapAlbedoImageView_;
+        renderer::ImageView tilemapNormalImageView_;
+        renderer::ImageView tilemapSpecularImageView_;
 
         renderer::Sampler sampler_;
 
