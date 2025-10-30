@@ -163,7 +163,6 @@ namespace engine {
 
         EngineAPI api_;
         InputManager inputManager_;
-        StagingManager stagingManager_;
 
         TilePool worldTilePool_;
         TilePool uiTilePool_;
@@ -182,6 +181,8 @@ namespace engine {
         app::Window window_;
 
         renderer::Renderer renderer_;
+
+        StagingManager stagingManager_;
 
         TileMesh worldTileMesh_;
         TileMesh uiTileMesh_;

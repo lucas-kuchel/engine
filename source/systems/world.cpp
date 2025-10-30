@@ -82,23 +82,11 @@ void systems::loadWorlds(entt::registry& registry, engine::Engine& engine) {
         }
 
         auto& defaultsCameraJson = defaultsJson.at("camera");
-        auto& defaultsPlayerJson = defaultsJson.at("player");
         auto& defaultsCameraModeJson = defaultsCameraJson.at("mode");
         auto& defaultsCameraScaleJson = defaultsCameraJson.at("scale");
         auto& defaultsPhysicsJson = defaultsJson.at("physics");
 
         auto& worldTilePool = engine.getWorldTilePool();
-
-        auto player = engine.getCurrentEntity();
-        auto& playerProxy = registry.get<components::TileProxy>(player);
-
-        for (auto& groupJson : defaultsPlayerJson.at("groups")) {
-            auto group = groupJson.get<std::uint32_t>();
-
-            auto& groupList = worldTilePool.getProxyGroup(group);
-
-            groupList.push_back(playerProxy);
-        }
 
         std::string defaultsCameraMode = defaultsCameraModeJson.get<std::string>();
 
@@ -259,6 +247,15 @@ void systems::loadWorlds(entt::registry& registry, engine::Engine& engine) {
                 repeatJson.at("x").get<float>(),
                 repeatJson.at("y").get<float>(),
             };
+
+            auto& tile = world.tiles.emplace_back();
+
+            tile = registry.create();
+
+            registry.emplace<components::Position>(tile, tileInstance.transform.position);
+            registry.emplace<components::Scale>(tile, tileInstance.transform.scale);
+            registry.emplace<components::TileTag>(tile);
+            registry.emplace<components::TileProxy>(tile, proxy);
         }
 
         for (auto& triggerJson : triggersJson) {

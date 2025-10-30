@@ -21,7 +21,7 @@
 #include <stb_image.h>
 
 engine::Engine::Engine()
-    : api_(*this), stagingManager_(*this), window_(createWindow()), renderer_(window_), worldTileMesh_(*this), uiTileMesh_(*this), entityTileMesh_(*this) {
+    : api_(*this), window_(createWindow()), renderer_(window_), stagingManager_(*this), worldTileMesh_(*this), uiTileMesh_(*this), entityTileMesh_(*this) {
     using namespace ::components;
 
     luaState_.open_libraries(
@@ -385,16 +385,6 @@ void engine::Engine::run() {
 
     start();
 
-    std::array<glm::vec2, 4> baseMesh = {
-        glm::vec2{1.0, 1.0},
-        glm::vec2{0.0, 1.0},
-        glm::vec2{1.0, 0.0},
-        glm::vec2{0.0, 0.0},
-    };
-
-    worldTileMesh_.setBaseMesh(baseMesh);
-    entityTileMesh_.setBaseMesh(baseMesh);
-
     while (running_) {
         inputManager_.update();
 
@@ -557,7 +547,7 @@ void engine::Engine::start() {
     tilemapDescriptorSet_ = descriptorSets_[0];
     buttonsDescriptorSet_ = descriptorSets_[1];
 
-    auto& transferCommandBuffer = transferCommandBuffers_[renderer_.getFrameCounter().index];
+    auto& transferCommandBuffer = getTransferBuffer();
     auto& stagingBuffer = stagingManager_.getCurrentBuffer();
 
     renderer::Fence temporaryFence = renderer::Fence::create({device, 0});
@@ -713,8 +703,15 @@ void engine::Engine::start() {
     ::systems::loadWorlds(registry_, *this);
     ::systems::entities::createEntities(*this);
 
-    entityTileMesh_.createInstanceBuffer(1);
-    worldTileMesh_.createInstanceBuffer(worldComponent.tiles.size());
+    std::array<glm::vec2, 4> baseMesh = {
+        glm::vec2{1.0, 1.0},
+        glm::vec2{0.0, 1.0},
+        glm::vec2{1.0, 0.0},
+        glm::vec2{0.0, 0.0},
+    };
+
+    worldTileMesh_.setBaseMesh(baseMesh);
+    entityTileMesh_.setBaseMesh(baseMesh);
 
     currentCamera_ = registry_.create();
 
@@ -722,9 +719,16 @@ void engine::Engine::start() {
     auto& cameraPosition = registry_.emplace<Position>(currentCamera_);
     auto& cameraScale = registry_.emplace<Scale>(currentCamera_);
 
+    registry_.emplace<CameraTarget>(currentCamera_, currentEntity_);
+    registry_.emplace<CameraData>(currentCamera_);
+    registry_.emplace<CurrentCameraTag>(currentCamera_);
+
     cameraComponent.near = -1.0f;
     cameraComponent.far = 1.0f;
     cameraScale.scale = window_.extent();
+
+    entityTileMesh_.createInstanceBuffer(1);
+    worldTileMesh_.createInstanceBuffer(worldComponent.tiles.size());
 
     cameraComponent.mode = worldComponent.defaultState.camera.mode;
     cameraComponent.size = worldComponent.defaultState.camera.size;
@@ -1008,6 +1012,8 @@ void engine::Engine::close() {
     renderer::Image::destroy(buttonsImage_);
 
     renderer::Sampler::destroy(sampler_);
+
+    renderer::Buffer::destroy(cameraBuffer_);
 }
 
 void engine::Engine::createBasicPipelineResources() {
