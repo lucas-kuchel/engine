@@ -11,7 +11,7 @@ layout(location = 3) in vec3 inColourFactor;
 
 layout(location = 0) out vec4 outColour;
 
-vec3 lightDir = normalize(vec3(1.0, 0.5, 0.0));
+vec3 lightDir = normalize(vec3(1.0, 0.5, 0.25));
 
 void main() {
     vec2 fractionalLocalPosition = fract(inLocalPosition * 0.125);

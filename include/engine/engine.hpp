@@ -1,15 +1,14 @@
 #pragma once
 
+#include <optional>
+#include <string>
+#include <vector>
+
 #include <app/configuration.hpp>
 #include <app/context.hpp>
 #include <app/window.hpp>
 
-#include <components/action.hpp>
-#include <components/camera.hpp>
-#include <components/entity_tags.hpp>
-#include <components/tile.hpp>
-#include <components/transforms.hpp>
-
+#include <engine/engine_api.hpp>
 #include <engine/input_manager.hpp>
 #include <engine/staging_manager.hpp>
 #include <engine/tile_mesh.hpp>
@@ -18,65 +17,12 @@
 #include <renderer/renderer.hpp>
 
 #include <entt/entt.hpp>
-#include <magic_enum/magic_enum.hpp>
 #include <sol/sol.hpp>
 
-#include <chrono>
-
 namespace engine {
-    class Engine;
-
-    struct CameraInfo {
-        ::components::Camera state;
-        float rotation;
-        glm::vec2 scale;
-        glm::vec2 position;
-    };
-
-    template <typename T>
-    struct SpanProxy {
-        std::span<T> span;
-
-        std::size_t size() const {
-            return span.size();
-        }
-
-        T& get(std::size_t index) {
-            return span[index - 1];
-        }
-    };
-
-    class EngineAPI {
-    public:
-        EngineAPI(Engine& engine)
-            : engine_(engine) {
-        }
-
-        float getActionDuration();
-        float getActionTimeElapsed();
-        float getDeltaTime();
-
-        CameraInfo getCameraInfo();
-        void setCameraInfo(CameraInfo& cameraInfo);
-
-        void bindAction(components::Action& action);
-        void addToGroup(const TileProxy& proxy, std::uint32_t group);
-        void removeFromGroup(const TileProxy& proxy, std::uint32_t group);
-        void setSpace(const std::string& space);
-        void resetSpace();
-
-        SpanProxy<TileProxy> getTileGroupProxies(std::uint32_t group);
-        SpanProxy<::components::TileInstance> getTileInstances();
-
-    private:
-        Engine& engine_;
-        components::Action* action_ = nullptr;
-    };
-
     class Engine {
     public:
         Engine();
-        ~Engine();
 
         void run();
 
