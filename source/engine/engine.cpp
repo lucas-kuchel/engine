@@ -1,160 +1,22 @@
-#include <components/buttons.hpp>
-#include <components/camera.hpp>
-#include <components/controllers.hpp>
-#include <components/entity_tags.hpp>
-#include <components/space.hpp>
-#include <components/tile.hpp>
-#include <components/transforms.hpp>
-#include <components/world.hpp>
 #include <engine/engine.hpp>
-#include <glm/gtc/matrix_transform.hpp>
-#include <systems/buttons.hpp>
-#include <systems/camera.hpp>
-#include <systems/entities.hpp>
-#include <systems/transforms.hpp>
-#include <systems/world.hpp>
 
+#include <components/camera.hpp>
+#include <components/entity.hpp>
+#include <components/tags.hpp>
+#include <components/transforms.hpp>
+
+#include <systems/camera.hpp>
+#include <systems/entity.hpp>
+#include <systems/transforms.hpp>
+
+#include <cstring>
 #include <fstream>
 
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 
 engine::Engine::Engine()
-    : api_(*this), window_(createWindow()), renderer_(window_), stagingManager_(*this), worldTileMesh_(*this), uiTileMesh_(*this), entityTileMesh_(*this) {
-    using namespace ::components;
-
-    luaState_.open_libraries(
-        sol::lib::base,
-        sol::lib::package,
-        sol::lib::table,
-        sol::lib::string,
-        sol::lib::math,
-        sol::lib::os,
-        sol::lib::debug);
-
-    luaState_.new_usertype<EngineAPI>(
-        "EngineAPI",
-        "resetSpace", &EngineAPI::resetSpace,
-        "setSpace", &EngineAPI::setSpace,
-        "getTileGroupProxies", &EngineAPI::getTileGroupProxies,
-        "getDeltaTime", &EngineAPI::getDeltaTime,
-        "getActionTimeElapsed", &EngineAPI::getActionTimeElapsed,
-        "getActionDuration", &EngineAPI::getActionDuration,
-        "addToGroup", &EngineAPI::addToGroup,
-        "removeFromGroup", &EngineAPI::removeFromGroup,
-        "getCameraInfo", &EngineAPI::getCameraInfo,
-        "setCameraInfo", &EngineAPI::setCameraInfo,
-        "getTileInstances", &EngineAPI::getTileInstances);
-
-    luaState_["engine"] = &api_;
-
-    luaState_.new_usertype<TileProxy>(
-        "TileProxy",
-        "index", &TileProxy::index);
-
-    luaState_.new_usertype<TileInstance::Appearance::Texture::Sample>(
-        "TileInstanceAppearanceTextureSample",
-        "position", &TileInstance::Appearance::Texture::Sample::position,
-        "extent", &TileInstance::Appearance::Texture::Sample::extent);
-
-    luaState_.new_usertype<TileInstance::Appearance::Texture>(
-        "TileInstanceAppearanceTexture",
-        "sample", &TileInstance::Appearance::Texture::sample,
-        "offset", &TileInstance::Appearance::Texture::offset,
-        "repeats", &TileInstance::Appearance::Texture::repeat);
-
-    luaState_.new_usertype<TileInstance::Appearance>(
-        "TileInstanceAppearance",
-        "texture", &TileInstance::Appearance::texture,
-        "colourFactor", &TileInstance::Appearance::colourFactor);
-
-    luaState_.new_usertype<TileInstance::Transform>(
-        "TileInstanceTransform",
-        "position", &TileInstance::Transform::position,
-        "scale", &TileInstance::Transform::scale);
-
-    luaState_.new_usertype<TileInstance>(
-        "TileInstance",
-        "transform", &TileInstance::transform,
-        "appearance", &TileInstance::appearance);
-
-    luaState_.new_usertype<CameraInfo>(
-        "CameraInfo",
-        "state", &CameraInfo::state,
-        "position", &CameraInfo::position,
-        "rotation", &CameraInfo::rotation,
-        "scale", &CameraInfo::scale);
-
-    luaState_.new_usertype<Camera>(
-        "CameraState",
-        "near", &Camera::near,
-        "far", &Camera::far,
-        "size", &Camera::size,
-        "mode", &Camera::mode);
-
-    luaState_.new_enum("CameraMode",
-                       "FOLLOW", CameraMode::FOLLOW,
-                       "LOCKED", CameraMode::LOCKED);
-
-    luaState_.new_usertype<SpanProxy<TileInstance>>(
-        "TileInstanceSpan",
-        sol::meta_function::length, &SpanProxy<TileInstance>::size,
-        sol::meta_function::index, &SpanProxy<TileInstance>::get,
-        "__len", &SpanProxy<TileInstance>::size,
-        "get", &SpanProxy<TileInstance>::get);
-
-    luaState_.new_usertype<SpanProxy<TileProxy>>(
-        "TileProxySpan",
-        sol::meta_function::length, &SpanProxy<TileProxy>::size,
-        sol::meta_function::index, &SpanProxy<TileProxy>::get,
-        "__len", &SpanProxy<TileProxy>::size,
-        "get", &SpanProxy<TileProxy>::get);
-
-    luaState_.new_usertype<glm::vec2>(
-        "vec2",
-        "x", &glm::vec2::x,
-        "y", &glm::vec2::y);
-
-    luaState_.new_usertype<glm::vec3>(
-        "vec3",
-        "x", &glm::vec3::x,
-        "y", &glm::vec3::y,
-        "z", &glm::vec3::z,
-        "r", &glm::vec3::r,
-        "g", &glm::vec3::g,
-        "b", &glm::vec3::b);
-
-    luaState_.new_usertype<glm::vec4>(
-        "vec4",
-        "x", &glm::vec4::x,
-        "y", &glm::vec4::y,
-        "z", &glm::vec4::z,
-        "w", &glm::vec4::w,
-        "r", &glm::vec4::r,
-        "g", &glm::vec4::g,
-        "b", &glm::vec4::b,
-        "a", &glm::vec4::a);
-}
-
-void engine::Engine::addScript(const std::string& filepath) {
-    luaState_.script_file(filepath);
-}
-
-void engine::Engine::runFunction(const std::string& function, std::vector<std::optional<std::string>>& parameters) {
-    std::vector<sol::object> objectParameters;
-
-    objectParameters.reserve(parameters.size());
-
-    for (const auto& parameter : parameters) {
-        if (parameter.has_value()) {
-            objectParameters.push_back(sol::make_object(luaState_, *parameter));
-        }
-        else {
-            objectParameters.push_back(sol::lua_nil);
-        }
-    }
-
-    luaState_[function](sol::as_args(objectParameters));
+    : window_(createWindow()), renderer_(window_), stagingManager_(*this), worldTileMesh_(*this), entityTileMesh_(*this) {
 }
 
 app::WindowCreateInfo engine::Engine::createWindow() {
@@ -236,11 +98,8 @@ void engine::Engine::start() {
     std::int32_t tilemapWidth = 0;
     std::int32_t tilemapHeight = 0;
     std::int32_t tilemapChannels = 0;
-    std::int32_t dummyChannels = 0;
 
     std::uint8_t* albedoImageData = stbi_load("assets/images/tilemap_albedo.png", &tilemapWidth, &tilemapHeight, &tilemapChannels, 4);
-    std::uint8_t* normalImageData = stbi_load("assets/images/tilemap_normal.png", &tilemapWidth, &tilemapHeight, &dummyChannels, 4);
-    std::uint8_t* specularImageData = stbi_load("assets/images/tilemap_specular.png", &tilemapWidth, &tilemapHeight, &dummyChannels, 1);
 
     for (int i = 0; i < tilemapWidth * tilemapHeight; i++) {
         std::swap(albedoImageData[i * tilemapChannels + 0], albedoImageData[i * tilemapChannels + 2]);
@@ -280,33 +139,7 @@ void engine::Engine::start() {
         .arrayLayers = 1,
     };
 
-    renderer::ImageCreateInfo normalImageCreateInfo = {
-        .device = device,
-        .type = renderer::ImageType::IMAGE_2D,
-        .format = renderer::ImageFormat::R8G8B8A8_UNORM,
-        .memoryType = renderer::MemoryType::DEVICE_LOCAL,
-        .usageFlags = renderer::ImageUsageFlags::SAMPLED | renderer::ImageUsageFlags::TRANSFER_DESTINATION,
-        .extent = {static_cast<std::uint32_t>(tilemapWidth), static_cast<std::uint32_t>(tilemapHeight), 1},
-        .sampleCount = 1,
-        .mipLevels = 1,
-        .arrayLayers = 1,
-    };
-
-    renderer::ImageCreateInfo specularImageCreateInfo = {
-        .device = device,
-        .type = renderer::ImageType::IMAGE_2D,
-        .format = renderer::ImageFormat::R8_UNORM,
-        .memoryType = renderer::MemoryType::DEVICE_LOCAL,
-        .usageFlags = renderer::ImageUsageFlags::SAMPLED | renderer::ImageUsageFlags::TRANSFER_DESTINATION,
-        .extent = {static_cast<std::uint32_t>(tilemapWidth), static_cast<std::uint32_t>(tilemapHeight), 1},
-        .sampleCount = 1,
-        .mipLevels = 1,
-        .arrayLayers = 1,
-    };
-
     tilemapAlbedoImage_ = renderer::Image::create(albedoImageCreateInfo);
-    tilemapNormalImage_ = renderer::Image::create(normalImageCreateInfo);
-    tilemapSpecularImage_ = renderer::Image::create(specularImageCreateInfo);
 
     renderer::CommandPoolCreateInfo commandPoolCreateInfo = {
         .device = device,
@@ -330,23 +163,9 @@ void engine::Engine::start() {
         .binding = 1,
     };
 
-    renderer::DescriptorSetInputInfo sampler2InputInfo = {
-        .type = renderer::DescriptorInputType::IMAGE_SAMPLER,
-        .stageFlags = renderer::DescriptorShaderStageFlags::FRAGMENT,
-        .count = 1,
-        .binding = 2,
-    };
-
-    renderer::DescriptorSetInputInfo sampler3InputInfo = {
-        .type = renderer::DescriptorInputType::IMAGE_SAMPLER,
-        .stageFlags = renderer::DescriptorShaderStageFlags::FRAGMENT,
-        .count = 1,
-        .binding = 3,
-    };
-
     renderer::DescriptorSetLayoutCreateInfo layoutCreateInfo = {
         .device = device,
-        .inputs = {bufferInputInfo, sampler1InputInfo, sampler2InputInfo, sampler3InputInfo},
+        .inputs = {bufferInputInfo, sampler1InputInfo},
     };
 
     descriptorSetLayout_ = renderer::DescriptorSetLayout::create(layoutCreateInfo);
@@ -358,7 +177,7 @@ void engine::Engine::start() {
 
     renderer::DescriptorPoolSize imageSize = {
         .type = renderer::DescriptorInputType::IMAGE_SAMPLER,
-        .count = 3,
+        .count = 1,
     };
 
     renderer::DescriptorPoolCreateInfo poolCreateInfo = {
@@ -407,45 +226,13 @@ void engine::Engine::start() {
         .destinationAccessFlags = renderer::AccessFlags::TRANSFER_WRITE,
     };
 
-    renderer::ImageMemoryBarrier specularMemoryBarrier0 = {
-        .image = tilemapSpecularImage_,
-        .sourceQueue = {},
-        .destinationQueue = {},
-        .oldLayout = renderer::ImageLayout::UNDEFINED,
-        .newLayout = renderer::ImageLayout::TRANSFER_DESTINATION_OPTIMAL,
-        .baseMipLevel = 0,
-        .mipLevelCount = 1,
-        .baseArrayLayer = 0,
-        .arrayLayerCount = 1,
-        .aspectMask = renderer::ImageAspectFlags::COLOUR,
-        .sourceAccessFlags = renderer::AccessFlags::NONE,
-        .destinationAccessFlags = renderer::AccessFlags::TRANSFER_WRITE,
-    };
+    renderer::CommandBuffer::pipelineBarrier(transferCommandBuffer, renderer::PipelineStageFlags::TOP_OF_PIPE, renderer::PipelineStageFlags::TRANSFER, {albedoMemoryBarrier0});
 
-    renderer::ImageMemoryBarrier normalMemoryBarrier0 = {
-        .image = tilemapNormalImage_,
-        .sourceQueue = {},
-        .destinationQueue = {},
-        .oldLayout = renderer::ImageLayout::UNDEFINED,
-        .newLayout = renderer::ImageLayout::TRANSFER_DESTINATION_OPTIMAL,
-        .baseMipLevel = 0,
-        .mipLevelCount = 1,
-        .baseArrayLayer = 0,
-        .arrayLayerCount = 1,
-        .aspectMask = renderer::ImageAspectFlags::COLOUR,
-        .sourceAccessFlags = renderer::AccessFlags::NONE,
-        .destinationAccessFlags = renderer::AccessFlags::TRANSFER_WRITE,
-    };
-
-    renderer::CommandBuffer::pipelineBarrier(transferCommandBuffer, renderer::PipelineStageFlags::TOP_OF_PIPE, renderer::PipelineStageFlags::TRANSFER, {albedoMemoryBarrier0, specularMemoryBarrier0, normalMemoryBarrier0});
-
-    std::size_t totalSize = renderer::Image::getSize(tilemapAlbedoImage_) + renderer::Image::getSize(tilemapNormalImage_) + renderer::Image::getSize(tilemapSpecularImage_);
+    std::size_t totalSize = renderer::Image::getSize(tilemapAlbedoImage_);
 
     auto mapping = renderer::Buffer::map(stagingBuffer, totalSize, stagingManager_.getOffset());
 
     std::memcpy(mapping.data.data(), albedoImageData, renderer::Image::getSize(tilemapAlbedoImage_));
-    std::memcpy(mapping.data.data() + renderer::Image::getSize(tilemapAlbedoImage_), normalImageData, renderer::Image::getSize(tilemapNormalImage_));
-    std::memcpy(mapping.data.data() + renderer::Image::getSize(tilemapAlbedoImage_) + renderer::Image::getSize(tilemapNormalImage_), specularImageData, renderer::Image::getSize(tilemapSpecularImage_));
 
     renderer::Buffer::unmap(stagingBuffer, mapping);
 
@@ -463,37 +250,7 @@ void engine::Engine::start() {
 
     stagingManager_.getOffset() += renderer::Image::getSize(tilemapAlbedoImage_);
 
-    renderer::BufferImageCopyRegion normalCopyRegion = {
-        .bufferOffset = stagingManager_.getOffset(),
-        .bufferRowLength = 0,
-        .bufferImageHeight = 0,
-        .mipLevel = 0,
-        .baseArrayLayer = 0,
-        .arrayLayerCount = 1,
-        .imageAspectMask = renderer::ImageAspectFlags::COLOUR,
-        .imageOffset = {0, 0, 0},
-        .imageExtent = {static_cast<std::uint32_t>(tilemapWidth), static_cast<std::uint32_t>(tilemapHeight), 1},
-    };
-
-    stagingManager_.getOffset() += renderer::Image::getSize(tilemapNormalImage_);
-
-    renderer::BufferImageCopyRegion specularCopyRegion = {
-        .bufferOffset = stagingManager_.getOffset(),
-        .bufferRowLength = 0,
-        .bufferImageHeight = 0,
-        .mipLevel = 0,
-        .baseArrayLayer = 0,
-        .arrayLayerCount = 1,
-        .imageAspectMask = renderer::ImageAspectFlags::COLOUR,
-        .imageOffset = {0, 0, 0},
-        .imageExtent = {static_cast<std::uint32_t>(tilemapWidth), static_cast<std::uint32_t>(tilemapHeight), 1},
-    };
-
-    stagingManager_.getOffset() += renderer::Image::getSize(tilemapSpecularImage_);
-
     renderer::CommandBuffer::copyBufferToImage(transferCommandBuffer, stagingBuffer, tilemapAlbedoImage_, renderer::ImageLayout::TRANSFER_DESTINATION_OPTIMAL, {tilemapCopyRegion});
-    renderer::CommandBuffer::copyBufferToImage(transferCommandBuffer, stagingBuffer, tilemapNormalImage_, renderer::ImageLayout::TRANSFER_DESTINATION_OPTIMAL, {normalCopyRegion});
-    renderer::CommandBuffer::copyBufferToImage(transferCommandBuffer, stagingBuffer, tilemapSpecularImage_, renderer::ImageLayout::TRANSFER_DESTINATION_OPTIMAL, {specularCopyRegion});
 
     renderer::ImageMemoryBarrier albedoMemoryBarrier1 = {
         .image = tilemapAlbedoImage_,
@@ -510,45 +267,9 @@ void engine::Engine::start() {
         .destinationAccessFlags = renderer::AccessFlags::SHADER_READ,
     };
 
-    renderer::ImageMemoryBarrier specularMemoryBarrier1 = {
-        .image = tilemapSpecularImage_,
-        .sourceQueue = {},
-        .destinationQueue = {},
-        .oldLayout = renderer::ImageLayout::TRANSFER_DESTINATION_OPTIMAL,
-        .newLayout = renderer::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
-        .baseMipLevel = 0,
-        .mipLevelCount = 1,
-        .baseArrayLayer = 0,
-        .arrayLayerCount = 1,
-        .aspectMask = renderer::ImageAspectFlags::COLOUR,
-        .sourceAccessFlags = renderer::AccessFlags::TRANSFER_WRITE,
-        .destinationAccessFlags = renderer::AccessFlags::SHADER_READ,
-    };
-
-    renderer::ImageMemoryBarrier normalMemoryBarrier1 = {
-        .image = tilemapNormalImage_,
-        .sourceQueue = {},
-        .destinationQueue = {},
-        .oldLayout = renderer::ImageLayout::TRANSFER_DESTINATION_OPTIMAL,
-        .newLayout = renderer::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
-        .baseMipLevel = 0,
-        .mipLevelCount = 1,
-        .baseArrayLayer = 0,
-        .arrayLayerCount = 1,
-        .aspectMask = renderer::ImageAspectFlags::COLOUR,
-        .sourceAccessFlags = renderer::AccessFlags::TRANSFER_WRITE,
-        .destinationAccessFlags = renderer::AccessFlags::SHADER_READ,
-    };
-
-    renderer::CommandBuffer::pipelineBarrier(transferCommandBuffer, renderer::PipelineStageFlags::TRANSFER, renderer::PipelineStageFlags::FRAGMENT_SHADER, {albedoMemoryBarrier1, specularMemoryBarrier1, normalMemoryBarrier1});
+    renderer::CommandBuffer::pipelineBarrier(transferCommandBuffer, renderer::PipelineStageFlags::TRANSFER, renderer::PipelineStageFlags::FRAGMENT_SHADER, {albedoMemoryBarrier1});
 
     using namespace ::components;
-
-    currentWorld_ = registry_.create();
-
-    auto& worldComponent = registry_.emplace<World>(currentWorld_);
-
-    worldComponent.defaultState.path = "assets/worlds/default";
 
     currentEntity_ = registry_.create();
 
@@ -559,24 +280,26 @@ void engine::Engine::start() {
     controller.leftBinding = app::Key::A;
     controller.rightBinding = app::Key::D;
 
-    auto proxy = entityTilePool_.insert({
-        .transform = {
-            .position = {0.0, 0.0, -0.5},
-            .scale = {1.0, 1.0},
-        },
-        .appearance = {
-            .texture = {
-                .sample = {
-                    .position = {0.0, 0.0},
-                    .extent = {0.2, 0.2},
-                },
-                .offset = {0.0, 0.0},
-                .repeat = {1.0, 1.0},
+    auto proxy = entityTilePool_.insert(
+        {
+            .transform = {
+                .position = {0.0, 0.0},
+                .scale = {1.0, 1.0},
             },
-            .colourFactor = {1.0, 1.0, 1.0},
+            .appearance = {
+                .texture = {
+                    .sample = {
+                        .position = {0.0, 0.0},
+                        .extent = {0.2, 0.2},
+                    },
+                    .offset = {0.0, 0.0},
+                    .repeat = {1.0, 1.0},
+                },
+                .colourFactor = {1.0, 1.0, 1.0, 1.0},
 
+            },
         },
-    });
+        0);
 
     registry_.emplace<TileProxy>(currentEntity_, proxy);
     registry_.emplace<Position>(currentEntity_, glm::vec3{0.0, 0.0, 0.0});
@@ -586,11 +309,7 @@ void engine::Engine::start() {
     registry_.emplace<TileTag>(currentEntity_);
     registry_.emplace<EntityTag>(currentEntity_);
     registry_.emplace<Speed>(currentEntity_, 5.0);
-    registry_.emplace<CurrentEntityTag>(currentEntity_);
-    registry_.emplace<CanCollideTag>(currentEntity_);
-    registry_.emplace<CanTriggerTag>(currentEntity_);
 
-    ::systems::loadWorlds(registry_, *this);
     ::systems::entities::createEntities(*this);
 
     std::array<glm::vec2, 4> baseMesh = {
@@ -618,17 +337,8 @@ void engine::Engine::start() {
     cameraScale.scale = window_.extent();
 
     entityTileMesh_.createInstanceBuffer(1);
-    worldTileMesh_.createInstanceBuffer(worldComponent.tiles.size());
 
-    cameraComponent.mode = worldComponent.defaultState.camera.mode;
-    cameraComponent.size = worldComponent.defaultState.camera.size;
-
-    if (worldComponent.defaultState.camera.position.has_value()) {
-        cameraPosition.position = worldComponent.defaultState.camera.position.value();
-    }
-    else {
-        cameraPosition.position = {0.0f, 0.0f};
-    }
+    cameraPosition.position = {0.0f, 0.0f};
 
     renderer::CommandBuffer::endCapture(transferCommandBuffer);
 
@@ -673,50 +383,14 @@ void engine::Engine::start() {
         .layerCount = 1,
     };
 
-    renderer::ImageViewCreateInfo normalImageViewCreateInfo = {
-        .image = tilemapNormalImage_,
-        .type = renderer::ImageViewType::IMAGE_2D,
-        .aspectFlags = renderer::ImageAspectFlags::COLOUR,
-        .baseMipLevel = 0,
-        .levelCount = 1,
-        .baseArrayLayer = 0,
-        .layerCount = 1,
-    };
-
-    renderer::ImageViewCreateInfo specularImageViewCreateInfo = {
-        .image = tilemapSpecularImage_,
-        .type = renderer::ImageViewType::IMAGE_2D,
-        .aspectFlags = renderer::ImageAspectFlags::COLOUR,
-        .baseMipLevel = 0,
-        .levelCount = 1,
-        .baseArrayLayer = 0,
-        .layerCount = 1,
-    };
-
     tilemapAlbedoImageView_ = renderer::ImageView::create(albedoImageViewCreateInfo);
-    tilemapNormalImageView_ = renderer::ImageView::create(normalImageViewCreateInfo);
-    tilemapSpecularImageView_ = renderer::ImageView::create(specularImageViewCreateInfo);
 
     lastFrameTime_ = std::chrono::high_resolution_clock::now();
 
     stbi_image_free(albedoImageData);
-    stbi_image_free(normalImageData);
-    stbi_image_free(specularImageData);
 
     renderer::DescriptorSetImageBinding albedoSamplerBinding = {
         .image = tilemapAlbedoImageView_,
-        .sampler = sampler_,
-        .layout = renderer::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
-    };
-
-    renderer::DescriptorSetImageBinding normalSamplerBinding = {
-        .image = tilemapNormalImageView_,
-        .sampler = sampler_,
-        .layout = renderer::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
-    };
-
-    renderer::DescriptorSetImageBinding specularSamplerBinding = {
-        .image = tilemapSpecularImageView_,
         .sampler = sampler_,
         .layout = renderer::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
     };
@@ -730,25 +404,7 @@ void engine::Engine::start() {
         .images = {albedoSamplerBinding},
     };
 
-    renderer::DescriptorSetUpdateInfo normalSamplerUpdateInfo = {
-        .set = tilemapDescriptorSet_,
-        .inputType = renderer::DescriptorInputType::IMAGE_SAMPLER,
-        .binding = 2,
-        .arrayElement = 0,
-        .buffers = {},
-        .images = {normalSamplerBinding},
-    };
-
-    renderer::DescriptorSetUpdateInfo specularSamplerUpdateInfo = {
-        .set = tilemapDescriptorSet_,
-        .inputType = renderer::DescriptorInputType::IMAGE_SAMPLER,
-        .binding = 3,
-        .arrayElement = 0,
-        .buffers = {},
-        .images = {specularSamplerBinding},
-    };
-
-    renderer::DescriptorPool::updateDescriptorSets(descriptorPool_, {albedoSamplerUpdateInfo, normalSamplerUpdateInfo, specularSamplerUpdateInfo});
+    renderer::DescriptorPool::updateDescriptorSets(descriptorPool_, {albedoSamplerUpdateInfo});
 }
 
 void engine::Engine::calculateDeltaTime() {
@@ -767,10 +423,6 @@ void engine::Engine::runPreTransferSystems() {
 
     ::systems::integrateMovements(*this);
 
-    ::systems::testCollisions(registry_);
-    ::systems::checkTriggers(registry_);
-    ::systems::performTriggers(registry_, *this, deltaTime_);
-
     ::systems::cameras::animateCameraPositions(*this);
     ::systems::cameras::animateCameraSizes(*this);
     ::systems::cameras::makeCamerasFollowTarget(*this);
@@ -780,8 +432,7 @@ void engine::Engine::runPreTransferSystems() {
 }
 
 void engine::Engine::runMidTransferSystems() {
-    entityTileMesh_.setInstances(entityTilePool_.data());
-    worldTileMesh_.setInstances(worldTilePool_.data());
+    entityTileMesh_.setInstances(entityTilePool_.instances());
 
     ::systems::cameras::uploadCameraData(*this);
 }
@@ -874,10 +525,10 @@ void engine::Engine::render() {
     renderer::CommandBuffer::setPipelineViewports(commandBuffer, {viewport}, 0);
     renderer::CommandBuffer::setPipelineScissors(commandBuffer, {scissor}, 0);
 
-    renderer::CommandBuffer::bindVertexBuffers(commandBuffer, {worldTileMesh_.getMeshBuffer(), worldTileMesh_.getInstanceBuffer()}, {0, 0}, 0);
+    // renderer::CommandBuffer::bindVertexBuffers(commandBuffer, {worldTileMesh_.getMeshBuffer(), worldTileMesh_.getInstanceBuffer()}, {0, 0}, 0);
+    // renderer::CommandBuffer::draw(commandBuffer, 4, static_cast<std::uint32_t>(worldTilePool_.data().size()), 0, 0);
 
-    renderer::CommandBuffer::bindDescriptorSets(commandBuffer, renderer::DeviceOperation::GRAPHICS, basicPipelineLayout_, 0, {tilemapDescriptorSet_});
-    renderer::CommandBuffer::draw(commandBuffer, 4, static_cast<std::uint32_t>(worldTilePool_.data().size()), 0, 0);
+    renderer::CommandBuffer::bindDescriptorSets(commandBuffer, renderer::DeviceOperation::GRAPHICS, pipelineLayout_, 0, {tilemapDescriptorSet_});
     renderer::CommandBuffer::bindVertexBuffers(commandBuffer, {entityTileMesh_.getMeshBuffer(), entityTileMesh_.getInstanceBuffer()}, {0, 0}, 0);
     renderer::CommandBuffer::draw(commandBuffer, 4, static_cast<std::uint32_t>(entityTilePool_.data().size()), 0, 0);
 
@@ -907,16 +558,10 @@ void engine::Engine::close() {
     renderer::DescriptorPool::destroy(descriptorPool_);
     renderer::DescriptorSetLayout::destroy(descriptorSetLayout_);
     renderer::Pipeline::destroy(worldPipeline_);
-    renderer::PipelineLayout::destroy(basicPipelineLayout_);
+    renderer::PipelineLayout::destroy(pipelineLayout_);
 
     renderer::ImageView::destroy(tilemapAlbedoImageView_);
-    renderer::ImageView::destroy(tilemapSpecularImageView_);
-    renderer::ImageView::destroy(tilemapNormalImageView_);
-
     renderer::Image::destroy(tilemapAlbedoImage_);
-    renderer::Image::destroy(tilemapSpecularImage_);
-    renderer::Image::destroy(tilemapNormalImage_);
-
     renderer::Sampler::destroy(sampler_);
 
     renderer::Buffer::destroy(cameraBuffer_);
@@ -926,8 +571,8 @@ void engine::Engine::createBasicPipelineResources() {
     auto& device = renderer_.getDevice();
     auto renderPass = renderer_.getRenderPass();
 
-    std::ifstream tileVertShader("assets/shaders/tile.vert.spv", std::ios::binary | std::ios::ate);
-    std::ifstream tileFragShader("assets/shaders/tile.frag.spv", std::ios::binary | std::ios::ate);
+    std::ifstream tileVertShader("assets/shaders/bin/tile.vert.spv", std::ios::binary | std::ios::ate);
+    std::ifstream tileFragShader("assets/shaders/bin/tile.frag.spv", std::ios::binary | std::ios::ate);
 
     std::uint64_t tileVertShaderSize = static_cast<std::uint64_t>(tileVertShader.tellg());
     std::uint64_t tileFragShaderSize = static_cast<std::uint64_t>(tileFragShader.tellg());
@@ -960,11 +605,11 @@ void engine::Engine::createBasicPipelineResources() {
         .pushConstants = {},
     };
 
-    basicPipelineLayout_ = renderer::PipelineLayout::create(pipelineLayoutCreateInfo);
+    pipelineLayout_ = renderer::PipelineLayout::create(pipelineLayoutCreateInfo);
 
     renderer::PipelineCreateInfo worldPipelineCreateInfo = {
         .renderPass = renderPass,
-        .layout = basicPipelineLayout_,
+        .layout = pipelineLayout_,
         .subpassIndex = 0,
         .shaderStages = {
             {
@@ -988,7 +633,7 @@ void engine::Engine::createBasicPipelineResources() {
                 renderer::VertexInputBindingDescription{
                     .inputRate = renderer::VertexInputRate::PER_INSTANCE,
                     .binding = 1,
-                    .strideBytes = sizeof(::components::TileInstance),
+                    .strideBytes = sizeof(TileInstance),
                 },
             },
             .attributes = {
@@ -1000,7 +645,7 @@ void engine::Engine::createBasicPipelineResources() {
                 },
                 // === POSITION ===
                 renderer::VertexAttributeDescription{
-                    .format = renderer::VertexAttributeFormat::R32G32B32_FLOAT,
+                    .format = renderer::VertexAttributeFormat::R32G32_FLOAT,
                     .binding = 1,
                     .location = 1,
                 },
@@ -1036,7 +681,7 @@ void engine::Engine::createBasicPipelineResources() {
                 },
                 // === COLOUR FACTOR ===
                 renderer::VertexAttributeDescription{
-                    .format = renderer::VertexAttributeFormat::R32G32B32_FLOAT,
+                    .format = renderer::VertexAttributeFormat::R32G32B32A32_FLOAT,
                     .binding = 1,
                     .location = 7,
                 },
@@ -1070,8 +715,8 @@ void engine::Engine::createBasicPipelineResources() {
                 .stencilWriteMask = 0xFF,
             },
             .depthClampEnable = false,
-            .depthTestEnable = true,
-            .depthWriteEnable = true,
+            .depthTestEnable = false,
+            .depthWriteEnable = false,
             .depthBoundsTestEnable = false,
             .stencilTestEnable = false,
         },

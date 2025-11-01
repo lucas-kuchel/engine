@@ -84,14 +84,6 @@ namespace renderer {
             return presentSemaphores_[imageCounter_.index];
         }
 
-        auto& getCurrentDepthImage() {
-            return depthImages_[imageCounter_.index];
-        }
-
-        auto& getCurrentDepthImageView() {
-            return depthImageViews_[imageCounter_.index];
-        }
-
         auto& getCurrentSwapchainImage() {
             return Swapchain::getImages(swapchain_)[imageCounter_.index];
         }
@@ -142,8 +134,6 @@ namespace renderer {
         std::vector<renderer::Semaphore> presentSemaphores_;
         std::vector<renderer::Framebuffer> framebuffers_;
         std::vector<renderer::CommandBuffer> commandBuffers_;
-        std::vector<renderer::Image> depthImages_;
-        std::vector<renderer::ImageView> depthImageViews_;
 
         Counter imageCounter_;
         Counter frameCounter_;

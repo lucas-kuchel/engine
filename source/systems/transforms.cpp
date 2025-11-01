@@ -1,8 +1,9 @@
 #include <components/camera.hpp>
-#include <components/entity_tags.hpp>
-#include <components/tile.hpp>
+#include <components/tags.hpp>
 #include <components/transforms.hpp>
+
 #include <engine/engine.hpp>
+
 #include <systems/transforms.hpp>
 
 void systems::integrateMovements(engine::Engine& engine) {
@@ -22,8 +23,8 @@ void systems::integrateMovements(engine::Engine& engine) {
 void systems::transformInstances(engine::Engine& engine, engine::TilePool& tilePool) {
     auto& registry = engine.getRegistry();
 
-    for (auto& entity : registry.view<engine::TileProxy, components::Position, components::Scale>()) {
-        auto& proxy = registry.get<engine::TileProxy>(entity);
+    for (auto& entity : registry.view<components::TileProxy, components::Position, components::Scale>()) {
+        auto& proxy = registry.get<components::TileProxy>(entity);
         auto& position = registry.get<components::Position>(entity);
         auto& scale = registry.get<components::Scale>(entity);
 
@@ -31,12 +32,11 @@ void systems::transformInstances(engine::Engine& engine, engine::TilePool& tileP
             continue;
         }
 
-        auto& tileInstance = tilePool.get(proxy);
+        auto& tileInstance = tilePool.getInstance(proxy);
 
         tileInstance.transform.position = {
             position.position.x,
             position.position.y,
-            tileInstance.transform.position.z,
         };
 
         tileInstance.transform.scale = scale.scale;

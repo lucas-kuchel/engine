@@ -1,5 +1,5 @@
 #include <components/camera.hpp>
-#include <components/entity_tags.hpp>
+#include <components/tags.hpp>
 #include <components/transforms.hpp>
 
 #include <engine/engine.hpp>

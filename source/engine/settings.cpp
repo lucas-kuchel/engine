@@ -6,62 +6,56 @@
 
 #include <nlohmann/json.hpp>
 
-namespace engine {
-    void loadSettings(Settings& settings) {
-        std::ifstream file("config/settings.json");
+engine::Settings engine::Settings::load() {
+    Settings settings;
 
-        if (!file) {
-            throw std::runtime_error("Call failed: engine::loadSettings(): Failed to open file: config/settings.json");
-        }
+    std::ifstream file("config/settings.json");
 
-        std::string contents(std::istreambuf_iterator<char>(file), {});
-        nlohmann::json json = nlohmann::json::parse(contents);
-
-        settings.display.size.x = json["display"]["width"].get<std::uint32_t>();
-        settings.display.size.y = json["display"]["height"].get<std::uint32_t>();
-        settings.display.resizable = json["display"]["resizable"].get<bool>();
-
-        settings.graphics.imageCount = json["graphics"]["imageCount"].get<std::uint32_t>();
-        settings.graphics.renderAheadLimit = json["graphics"]["renderAheadLimit"].get<std::uint32_t>();
-        settings.graphics.vsync = json["graphics"]["vsync"].get<bool>();
-
-        settings.camera.scale = json["camera"]["scale"].get<float>();
-        settings.camera.ease = json["camera"]["ease"].get<float>();
-
-        std::string displayMode = json["display"]["mode"].get<std::string>();
-
-        if (displayMode == "windowed") {
-            settings.display.mode = app::WindowVisibility::WINDOWED;
-        }
-        else if (displayMode == "fullscreen") {
-            settings.display.mode = app::WindowVisibility::FULLSCREEN;
-        }
-        else {
-            throw std::runtime_error("Call failed: engine::loadSettings(): Bad value for setting \"display.mode\": config/settings.json");
-        }
+    if (!file) {
+        save(settings);
     }
 
-    void saveSettings(const Settings& settings) {
-        nlohmann::json json;
+    std::string contents(std::istreambuf_iterator<char>(file), {});
+    nlohmann::json json = nlohmann::json::parse(contents);
 
-        json["display"]["width"] = settings.display.size.x;
-        json["display"]["height"] = settings.display.size.y;
-        json["display"]["resizable"] = settings.display.resizable;
-        json["display"]["mode"] = (settings.display.mode == app::WindowVisibility::FULLSCREEN) ? "fullscreen" : "windowed";
+    settings.display.size.x = json["display"]["width"].get<std::uint32_t>();
+    settings.display.size.y = json["display"]["height"].get<std::uint32_t>();
 
-        json["graphics"]["imageCount"] = settings.graphics.imageCount;
-        json["graphics"]["renderAheadLimit"] = settings.graphics.renderAheadLimit;
-        json["graphics"]["vsync"] = settings.graphics.vsync;
+    settings.graphics.imageCount = json["graphics"]["imageCount"].get<std::uint32_t>();
+    settings.graphics.renderAheadLimit = json["graphics"]["renderAheadLimit"].get<std::uint32_t>();
+    settings.graphics.vsync = json["graphics"]["vsync"].get<bool>();
 
-        json["camera"]["scale"] = settings.camera.scale;
-        json["camera"]["ease"] = settings.camera.ease;
+    std::string displayMode = json["display"]["mode"].get<std::string>();
 
-        std::ofstream file("config/settings.json", std::ios::trunc);
-
-        if (!file) {
-            throw std::runtime_error("Call failed: engine::saveSettings(): File could not be opened for writing: config/settings.json");
-        }
-
-        file << json.dump(4);
+    if (displayMode == "windowed") {
+        settings.display.mode = app::WindowVisibility::WINDOWED;
     }
+    else if (displayMode == "fullscreen") {
+        settings.display.mode = app::WindowVisibility::FULLSCREEN;
+    }
+    else {
+        throw std::runtime_error("Call failed: engine::Settings::load(): Bad value for setting \"display.mode\"");
+    }
+
+    return settings;
+}
+
+void engine::Settings::save(const Settings& settings) {
+    nlohmann::json json;
+
+    json["display"]["width"] = settings.display.size.x;
+    json["display"]["height"] = settings.display.size.y;
+    json["display"]["mode"] = (settings.display.mode == app::WindowVisibility::FULLSCREEN) ? "fullscreen" : "windowed";
+
+    json["graphics"]["imageCount"] = settings.graphics.imageCount;
+    json["graphics"]["renderAheadLimit"] = settings.graphics.renderAheadLimit;
+    json["graphics"]["vsync"] = settings.graphics.vsync;
+
+    std::ofstream file("config/settings.json", std::ios::trunc);
+
+    if (!file) {
+        throw std::runtime_error("Call failed: engine::saveSettings(): File could not be opened for writing: config/settings.json");
+    }
+
+    file << json.dump(4);
 }

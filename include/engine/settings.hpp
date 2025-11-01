@@ -6,13 +6,12 @@
 
 namespace engine {
     struct Settings {
+        std::string filepath;
+
         struct Display {
             glm::uvec2 size;
 
             app::WindowVisibility mode;
-
-            bool resizable;
-
         } display;
 
         struct Graphics {
@@ -22,12 +21,7 @@ namespace engine {
             std::uint32_t renderAheadLimit;
         } graphics;
 
-        struct Camera {
-            float scale;
-            float ease;
-        } camera;
+        static Settings load();
+        static void save(const Settings& settings);
     };
-
-    void loadSettings(Settings& settings);
-    void saveSettings(const Settings& settings);
 }

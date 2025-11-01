@@ -1,7 +1,6 @@
 #pragma once
 
-#include <components/tile.hpp>
-#include <components/world.hpp>
+#include <components/transforms.hpp>
 
 #include <entt/entt.hpp>
 

@@ -9,7 +9,7 @@
         {
             "label": "build",
             "type": "shell",
-            "command": "cmake --build build",
+            "command": "cmake --build build --preset debug",
             "dependsOn": "configure",
         }
     ]

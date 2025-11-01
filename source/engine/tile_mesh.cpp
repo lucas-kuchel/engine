@@ -1,6 +1,8 @@
 #include <engine/engine.hpp>
 #include <engine/tile_mesh.hpp>
 
+#include <cstring>
+
 engine::TileMesh::TileMesh(Engine& engine)
     : engine_(engine) {
     auto& renderer = engine.getRenderer();
@@ -61,31 +63,31 @@ void engine::TileMesh::createInstanceBuffer(std::size_t instanceCount) {
         .device = device,
         .memoryType = renderer::MemoryType::DEVICE_LOCAL,
         .usageFlags = renderer::BufferUsageFlags::VERTEX | renderer::BufferUsageFlags::TRANSFER_DESTINATION,
-        .sizeBytes = instanceCount * sizeof(components::TileInstance),
+        .sizeBytes = instanceCount * sizeof(TileInstance),
     };
 
     instanceBuffer_ = renderer::Buffer::create(createInfo);
 }
 
-void engine::TileMesh::setInstances(std::span<components::TileInstance> instances) {
+void engine::TileMesh::setInstances(std::span<TileInstance> instances) {
     auto& stagingManager = engine_.getStagingManager();
     auto& transferBuffer = engine_.getTransferBuffer();
     auto& stagingBuffer = stagingManager.getCurrentBuffer();
     auto& stagingOffset = stagingManager.getOffset();
 
-    auto mapping = renderer::Buffer::map(stagingBuffer, sizeof(components::TileInstance) * instances.size(), stagingOffset);
+    auto mapping = renderer::Buffer::map(stagingBuffer, sizeof(TileInstance) * instances.size(), stagingOffset);
 
-    std::memcpy(mapping.data.data(), instances.data(), sizeof(components::TileInstance) * instances.size());
+    std::memcpy(mapping.data.data(), instances.data(), sizeof(TileInstance) * instances.size());
 
     renderer::Buffer::unmap(stagingBuffer, mapping);
 
     renderer::BufferCopyRegion copyRegion = {
         .sourceOffsetBytes = stagingOffset,
         .destinationOffsetBytes = 0,
-        .sizeBytes = sizeof(components::TileInstance) * instances.size(),
+        .sizeBytes = sizeof(TileInstance) * instances.size(),
     };
 
     renderer::CommandBuffer::copyBuffer(transferBuffer, stagingBuffer, instanceBuffer_, {copyRegion});
 
-    stagingOffset += sizeof(components::TileInstance) * instances.size();
+    stagingOffset += sizeof(TileInstance) * instances.size();
 }

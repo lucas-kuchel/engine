@@ -2,7 +2,7 @@
 
 #include <renderer/buffer.hpp>
 
-#include <components/tile.hpp>
+#include <engine/tile_pool.hpp>
 
 #include <array>
 
@@ -17,10 +17,8 @@ namespace engine {
         ~TileMesh();
 
         void setBaseMesh(const std::array<glm::vec2, 4>& vertices);
-
         void createInstanceBuffer(std::size_t instanceCount);
-
-        void setInstances(std::span<components::TileInstance> instances);
+        void setInstances(std::span<TileInstance> instances);
 
         auto getMeshBuffer() const {
             return meshBuffer_;

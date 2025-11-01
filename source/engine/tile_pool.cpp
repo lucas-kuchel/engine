@@ -1,5 +1,8 @@
 #include <engine/tile_pool.hpp>
 
+#include <algorithm>
+#include <ranges>
+
 std::uint32_t engine::TilePool::maxIdentifier_ = 0;
 
 engine::TilePool::TilePool()
@@ -7,58 +10,64 @@ engine::TilePool::TilePool()
     maxIdentifier_++;
 }
 
-engine::TileProxy engine::TilePool::insert(const components::TileInstance& base) {
+components::TileProxy engine::TilePool::insert(const TileInstance& base, std::size_t order) {
     auto index = instances_.size();
-    proxyTable_.emplace_back(index);
+
+    table_.emplace_back(index);
     instances_.emplace_back(base);
+    data_.emplace_back(order);
 
-    return {index, identifier_};
+    return {
+        .index = index,
+        .uniqueIdentifier = identifier_,
+    };
 }
 
-components::TileInstance& engine::TilePool::get(TileProxy proxy) {
-    return instances_[proxyTable_[proxy.index]];
+engine::TileInstance& engine::TilePool::getInstance(components::TileProxy proxy) {
+    return instances_[table_[proxy.index]];
 }
 
-void engine::TilePool::remove(TileProxy proxy) {
-    auto index = proxyTable_[proxy.index];
-    proxyTable_[proxy.index] = DeadIndex;
-
-    std::swap(instances_[index], instances_.back());
-
-    instances_.pop_back();
+engine::TileData& engine::TilePool::getData(components::TileProxy proxy) {
+    return data_[table_[proxy.index]];
 }
 
-bool engine::TilePool::contains(TileProxy proxy) const {
-    return proxy.uniqueIdentifier == identifier_ && proxy.index < proxyTable_.size();
+void engine::TilePool::remove(components::TileProxy proxy) {
+    auto remove = [&](auto& data) {
+        std::swap(data[table_[proxy.index]], data.back());
+
+        data.pop_back();
+
+        table_[proxy.index] = DeadIndex;
+    };
+
+    remove(instances_);
+    remove(data_);
+}
+
+bool engine::TilePool::contains(components::TileProxy proxy) const {
+    return proxy.uniqueIdentifier == identifier_ && proxy.index < table_.size();
 }
 
 void engine::TilePool::clear() {
-    proxyTable_.clear();
+    table_.clear();
     instances_.clear();
+    data_.clear();
 }
 
 void engine::TilePool::sortByDepth() {
-    auto sortProxies = [this](const std::size_t& a, const std::size_t& b) {
-        return instances_[a].transform.position.z < instances_[b].transform.position.z;
+    auto condition = [](auto const& lhs, auto const& rhs) {
+        auto& [tableL, dataL, instanceL] = lhs;
+        auto& [tableR, dataR, instanceR] = rhs;
+
+        return dataL.order < dataR.order;
     };
 
-    auto sortInstances = [](const components::TileInstance& a, const components::TileInstance& b) {
-        return a.transform.position.z < b.transform.position.z;
-    };
+    auto zipped = std::views::zip(table_, data_, instances_);
 
-    std::sort(proxyTable_.begin(), proxyTable_.end(), sortProxies);
-    std::sort(instances_.begin(), instances_.end(), sortInstances);
+    std::ranges::sort(zipped, condition, {});
 }
 
-std::span<components::TileInstance> engine::TilePool::data() {
-    return instances_;
-}
-
-std::span<const components::TileInstance> engine::TilePool::data() const {
-    return instances_;
-}
-
-std::vector<engine::TileProxy>& engine::TilePool::getProxyGroup(std::size_t index) {
+std::vector<std::size_t>& engine::TilePool::getProxyGroup(std::size_t index) {
     if (groupTable_.size() <= index) {
         groupTable_.resize(index + 1);
     }

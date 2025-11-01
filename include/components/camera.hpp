@@ -29,9 +29,6 @@ namespace components {
     struct CurrentCameraTag {
     };
 
-    struct CameraFollowMouseTag {
-    };
-
     struct CameraSizeAnimator {
         float timeElapsed = 0.0f;
         float duration = 1.0f;

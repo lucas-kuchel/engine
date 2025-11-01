@@ -80,21 +80,7 @@ renderer::Renderer::Renderer(app::Window& window) {
 
     renderer::RenderPassCreateInfo renderPassCreateInfo = {
         .device = device_,
-        .depthStencilAttachments = {
-            renderer::DepthStencilInfo{
-                .format = renderer::ImageFormat::DEPTH_ONLY,
-                .initialLayout = renderer::ImageLayout::UNDEFINED,
-                .finalLayout = renderer::ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-                .depthOperations = {
-                    .load = renderer::LoadOperation::CLEAR,
-                    .store = renderer::StoreOperation::STORE,
-                },
-                .stencilOperations = {
-                    .load = renderer::LoadOperation::DONT_CARE,
-                    .store = renderer::StoreOperation::DONT_CARE,
-                },
-            },
-        },
+        .depthStencilAttachments = {},
         .colourAttachments = {
             renderer::ColourAttachmentInfo{
                 .format = renderer::Swapchain::getFormat(swapchain_),
@@ -112,7 +98,7 @@ renderer::Renderer::Renderer(app::Window& window) {
                 .colourAttachmentOutputIndices = {
                     0,
                 },
-                .depthStencilIndex = 0,
+                .depthStencilIndex = {},
             },
         },
         .subpassDependencies = {},
@@ -134,52 +120,15 @@ renderer::Renderer::Renderer(app::Window& window) {
     };
 
     auto swapchainImageViews = renderer::Swapchain::getImageViews(swapchain_);
-    auto swapchainExtent = renderer::Swapchain::getExtent(swapchain_);
 
     presentSemaphores_.reserve(imageCounter_.count);
-    depthImages_.reserve(imageCounter_.count);
-    depthImageViews_.reserve(imageCounter_.count);
     framebuffers_.reserve(imageCounter_.count);
 
-    renderer::ImageCreateInfo depthBufferImageCreateInfo = {
-        .device = device_,
-        .type = renderer::ImageType::IMAGE_2D,
-        .format = renderer::ImageFormat::DEPTH_ONLY,
-        .memoryType = renderer::MemoryType::DEVICE_LOCAL,
-        .usageFlags = renderer::ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT,
-        .extent = {swapchainExtent, 1},
-        .sampleCount = 1,
-        .mipLevels = 1,
-        .arrayLayers = 1,
-    };
-
     for (std::uint64_t i = 0; i < imageCounter_.count; i++) {
-        depthImages_.push_back(renderer::Image());
-
-        auto& image = depthImages_.back();
-
-        image = renderer::Image::create(depthBufferImageCreateInfo);
-
-        renderer::ImageViewCreateInfo depthBufferImageViewCreateInfo = {
-            .image = depthImages_[i],
-            .type = renderer::ImageViewType::IMAGE_2D,
-            .aspectFlags = renderer::ImageAspectFlags::DEPTH,
-            .baseMipLevel = 0,
-            .levelCount = 1,
-            .baseArrayLayer = 0,
-            .layerCount = 1,
-        };
-
-        depthImageViews_.push_back(renderer::ImageView());
-
-        auto& imageView = depthImageViews_.back();
-
-        imageView = renderer::ImageView::create(depthBufferImageViewCreateInfo);
-
         renderer::FramebufferCreateInfo framebufferCreateInfo = {
             .device = device_,
             .renderPass = renderPass_,
-            .imageViews = {swapchainImageViews[i], depthImageViews_[i]},
+            .imageViews = {swapchainImageViews[i]},
         };
 
         framebuffers_.push_back(renderer::Framebuffer());
@@ -211,8 +160,6 @@ renderer::Renderer::Renderer(app::Window& window) {
 
 renderer::Renderer::~Renderer() {
     for (std::uint64_t i = 0; i < imageCounter_.count; i++) {
-        renderer::Image::destroy(depthImages_[i]);
-        renderer::ImageView::destroy(depthImageViews_[i]);
         renderer::Framebuffer::destroy(framebuffers_[i]);
         renderer::Semaphore::destroy(presentSemaphores_[i]);
     }
@@ -226,8 +173,6 @@ renderer::Renderer::~Renderer() {
     inFlightFences_.clear();
     framebuffers_.clear();
     presentSemaphores_.clear();
-    depthImages_.clear();
-    depthImageViews_.clear();
 
     renderer::CommandPool::destroy(commandPool_);
     renderer::RenderPass::destroy(renderPass_);
@@ -301,77 +246,39 @@ void renderer::Renderer::acquireImage(const std::vector<Fence>& fences) {
         frameCounter_.count = std::min(imageCounter_.count, 3u);
         frameCounter_.index = std::min(frameCounter_.index, frameCounter_.count - 1);
 
-        for (auto& semaphore : presentSemaphores_) {
-            renderer::Semaphore::destroy(semaphore);
+        for (std::uint64_t i = 0; i < imageCounter_.count; i++) {
+            renderer::Framebuffer::destroy(framebuffers_[i]);
+            renderer::Semaphore::destroy(presentSemaphores_[i]);
         }
 
-        for (auto& image : depthImages_) {
-            renderer::Image::destroy(image);
-        }
-
-        for (auto& imageView : depthImageViews_) {
-            renderer::ImageView::destroy(imageView);
-        }
-
-        for (auto& framebuffer : framebuffers_) {
-            renderer::Framebuffer::destroy(framebuffer);
+        for (std::uint64_t i = 0; i < frameCounter_.count; i++) {
+            renderer::Semaphore::destroy(acquireSemaphores_[i]);
+            renderer::Fence::destroy(inFlightFences_[i]);
         }
 
         framebuffers_.clear();
         presentSemaphores_.clear();
-        depthImages_.clear();
-        depthImageViews_.clear();
+        acquireSemaphores_.clear();
+        inFlightFences_.clear();
 
         renderer::CommandPool::destroyCommandBuffers(commandPool_, commandBuffers_);
         commandBuffers_ = renderer::CommandPool::allocateCommandBuffers(commandPool_, frameCounter_.count);
 
         auto swapchainImageViews = renderer::Swapchain::getImageViews(swapchain_);
-        auto swapchainExtent = renderer::Swapchain::getExtent(swapchain_);
 
         presentSemaphores_.reserve(imageCounter_.count);
-        depthImages_.reserve(imageCounter_.count);
-        depthImageViews_.reserve(imageCounter_.count);
         framebuffers_.reserve(imageCounter_.count);
 
-        renderer::ImageCreateInfo depthBufferImageCreateInfo = {
+        renderer::FenceCreateInfo fenceCreateInfo = {
             .device = device_,
-            .type = renderer::ImageType::IMAGE_2D,
-            .format = renderer::ImageFormat::DEPTH_ONLY,
-            .memoryType = renderer::MemoryType::DEVICE_LOCAL,
-            .usageFlags = renderer::ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT,
-            .extent = {swapchainExtent, 1},
-            .sampleCount = 1,
-            .mipLevels = 1,
-            .arrayLayers = 1,
+            .createFlags = 0,
         };
 
         for (std::uint64_t i = 0; i < imageCounter_.count; i++) {
-            depthImages_.push_back(renderer::Image());
-
-            auto& image = depthImages_.back();
-
-            image = renderer::Image::create(depthBufferImageCreateInfo);
-
-            renderer::ImageViewCreateInfo depthBufferImageViewCreateInfo = {
-                .image = depthImages_[i],
-                .type = renderer::ImageViewType::IMAGE_2D,
-                .aspectFlags = renderer::ImageAspectFlags::DEPTH,
-                .baseMipLevel = 0,
-                .levelCount = 1,
-                .baseArrayLayer = 0,
-                .layerCount = 1,
-            };
-
-            depthImageViews_.push_back(renderer::ImageView());
-
-            auto& imageView = depthImageViews_.back();
-
-            imageView = renderer::ImageView::create(depthBufferImageViewCreateInfo);
-
             renderer::FramebufferCreateInfo framebufferCreateInfo = {
                 .device = device_,
                 .renderPass = renderPass_,
-                .imageViews = {swapchainImageViews[i], depthImageViews_[i]},
+                .imageViews = {swapchainImageViews[i]},
             };
 
             framebuffers_.push_back(renderer::Framebuffer());
@@ -382,6 +289,20 @@ void renderer::Renderer::acquireImage(const std::vector<Fence>& fences) {
 
             framebuffer = renderer::Framebuffer::create(framebufferCreateInfo);
             semaphore = renderer::Semaphore::create(device_);
+        }
+
+        acquireSemaphores_.reserve(frameCounter_.count);
+        inFlightFences_.reserve(frameCounter_.count);
+
+        for (std::uint64_t i = 0; i < frameCounter_.count; i++) {
+            acquireSemaphores_.push_back(renderer::Semaphore());
+            inFlightFences_.push_back(renderer::Fence());
+
+            auto& semaphore = acquireSemaphores_.back();
+            auto& fence = inFlightFences_.back();
+
+            semaphore = renderer::Semaphore::create(device_);
+            fence = renderer::Fence::create(fenceCreateInfo);
         }
     }
 }
