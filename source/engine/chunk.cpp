@@ -3,6 +3,10 @@
 
 #include <engine/chunk.hpp>
 
+#include <glm/gtc/noise.hpp>
+
+#include <print>
+
 glm::vec2 engine::worldToScreenSpace(glm::vec3 position) {
     constexpr float radX = 0.463647609001f;
     constexpr float radZ = M_PIf - radX;
@@ -58,6 +62,22 @@ void engine::generateChunk(engine::Chunk& chunk, engine::Engine& engine) {
 
                 glm::ivec3 worldPosition = chunk.position + glm::ivec3{x, y, z};
 
+                float noise = glm::simplex(glm::vec2(worldPosition.x, worldPosition.z) * 0.1f);
+
+                noise = (noise + 1.0f) * 0.5f;
+
+                float value;
+
+                if (noise < 0.33f) {
+                    value = 0.0f;
+                }
+                else if (noise < 0.66f) {
+                    value = 0.4f;
+                }
+                else {
+                    value = 0.5f;
+                }
+
                 data.order = (chunkExtent.y - worldPosition.y) * (chunkExtent.x + chunkExtent.z - 1) + worldPosition.x + worldPosition.z;
 
                 instance.transform.scale = {1.0f, 1.0f};
@@ -66,7 +86,7 @@ void engine::generateChunk(engine::Chunk& chunk, engine::Engine& engine) {
                 instance.appearance.texture.offset = {0.0, 0.0};
                 instance.appearance.texture.repeat = {1.0, 1.0};
                 instance.appearance.texture.sample.extent = {0.1, 0.1};
-                instance.appearance.texture.sample.position = {0.3, 0.0};
+                instance.appearance.texture.sample.position = {value, 0.0};
                 instance.appearance.colourFactor = {1.0, 1.0, 1.0, 1.0};
 
                 chunk.tiles.push_back(entity);

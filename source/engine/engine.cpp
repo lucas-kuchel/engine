@@ -400,13 +400,13 @@ void engine::Engine::start() {
 
     cameraComponent.near = -1.0f;
     cameraComponent.far = 1.0f;
-    cameraComponent.size = 6.0f;
+    cameraComponent.size = 3.0f;
     cameraScale.scale = window_.extent();
 
     ::systems::cameras::calculateCameraData(*this);
 
     worldGenerator_.setWorldSize({16, 1, 16});
-    worldGenerator_.setChunkSize({2, 2, 2});
+    worldGenerator_.setChunkSize({8, 1, 8});
     worldGenerator_.generate();
 
     entityTilePool_.sortByDepth();

@@ -27,7 +27,7 @@ void engine::WorldGenerator::generate() {
 
     loadedChunks_.reserve(static_cast<std::size_t>(worldSize_.x * worldSize_.y * worldSize_.z));
 
-    for (int y = -worldSize_.y; y < worldSize_.y; ++y) {
+    for (int y = 0; y < worldSize_.y; ++y) {
         for (int x = -worldSize_.x; x < worldSize_.x; ++x) {
             for (int z = -worldSize_.z; z < worldSize_.z; ++z) {
                 glm::ivec3 chunkPosWorld = chunkSize_ * glm::ivec3{x, y, z};
