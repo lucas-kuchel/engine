@@ -98,8 +98,10 @@ void engine::Engine::start() {
     std::int32_t tilemapWidth = 0;
     std::int32_t tilemapHeight = 0;
     std::int32_t tilemapChannels = 0;
+    std::int32_t dummy = 0;
 
     std::uint8_t* albedoImageData = stbi_load("assets/images/tilemap_albedo.png", &tilemapWidth, &tilemapHeight, &tilemapChannels, 4);
+    std::uint8_t* normalImageData = stbi_load("assets/images/tilemap_normal.png", &dummy, &dummy, &dummy, 4);
 
     for (int i = 0; i < tilemapWidth * tilemapHeight; i++) {
         std::swap(albedoImageData[i * tilemapChannels + 0], albedoImageData[i * tilemapChannels + 2]);
@@ -139,7 +141,20 @@ void engine::Engine::start() {
         .arrayLayers = 1,
     };
 
+    renderer::ImageCreateInfo normalImageCreateInfo = {
+        .device = device,
+        .type = renderer::ImageType::IMAGE_2D,
+        .format = renderer::ImageFormat::R8G8B8A8_UNORM,
+        .memoryType = renderer::MemoryType::DEVICE_LOCAL,
+        .usageFlags = renderer::ImageUsageFlags::SAMPLED | renderer::ImageUsageFlags::TRANSFER_DESTINATION,
+        .extent = {static_cast<std::uint32_t>(tilemapWidth), static_cast<std::uint32_t>(tilemapHeight), 1},
+        .sampleCount = 1,
+        .mipLevels = 1,
+        .arrayLayers = 1,
+    };
+
     tilemapAlbedoImage_ = renderer::Image::create(albedoImageCreateInfo);
+    tilemapNormalImage_ = renderer::Image::create(normalImageCreateInfo);
 
     renderer::CommandPoolCreateInfo commandPoolCreateInfo = {
         .device = device,
@@ -163,9 +178,16 @@ void engine::Engine::start() {
         .binding = 1,
     };
 
+    renderer::DescriptorSetInputInfo sampler2InputInfo = {
+        .type = renderer::DescriptorInputType::IMAGE_SAMPLER,
+        .stageFlags = renderer::DescriptorShaderStageFlags::FRAGMENT,
+        .count = 1,
+        .binding = 2,
+    };
+
     renderer::DescriptorSetLayoutCreateInfo layoutCreateInfo = {
         .device = device,
-        .inputs = {bufferInputInfo, sampler1InputInfo},
+        .inputs = {bufferInputInfo, sampler1InputInfo, sampler2InputInfo},
     };
 
     descriptorSetLayout_ = renderer::DescriptorSetLayout::create(layoutCreateInfo);
@@ -177,7 +199,7 @@ void engine::Engine::start() {
 
     renderer::DescriptorPoolSize imageSize = {
         .type = renderer::DescriptorInputType::IMAGE_SAMPLER,
-        .count = 1,
+        .count = 2,
     };
 
     renderer::DescriptorPoolCreateInfo poolCreateInfo = {
@@ -226,17 +248,33 @@ void engine::Engine::start() {
         .destinationAccessFlags = renderer::AccessFlags::TRANSFER_WRITE,
     };
 
-    renderer::CommandBuffer::pipelineBarrier(transferCommandBuffer, renderer::PipelineStageFlags::TOP_OF_PIPE, renderer::PipelineStageFlags::TRANSFER, {albedoMemoryBarrier0});
+    renderer::ImageMemoryBarrier normalMemoryBarrier0 = {
+        .image = tilemapNormalImage_,
+        .sourceQueue = {},
+        .destinationQueue = {},
+        .oldLayout = renderer::ImageLayout::UNDEFINED,
+        .newLayout = renderer::ImageLayout::TRANSFER_DESTINATION_OPTIMAL,
+        .baseMipLevel = 0,
+        .mipLevelCount = 1,
+        .baseArrayLayer = 0,
+        .arrayLayerCount = 1,
+        .aspectMask = renderer::ImageAspectFlags::COLOUR,
+        .sourceAccessFlags = renderer::AccessFlags::NONE,
+        .destinationAccessFlags = renderer::AccessFlags::TRANSFER_WRITE,
+    };
 
-    std::size_t totalSize = static_cast<std::size_t>(tilemapWidth * tilemapHeight * tilemapChannels);
+    renderer::CommandBuffer::pipelineBarrier(transferCommandBuffer, renderer::PipelineStageFlags::TOP_OF_PIPE, renderer::PipelineStageFlags::TRANSFER, {albedoMemoryBarrier0, normalMemoryBarrier0});
+
+    std::size_t totalSize = static_cast<std::size_t>(tilemapWidth * tilemapHeight * tilemapChannels) * 2;
 
     auto mapping = renderer::Buffer::map(stagingBuffer, totalSize, stagingManager_.getOffset());
 
-    std::memcpy(mapping.data.data(), albedoImageData, static_cast<std::size_t>(tilemapWidth * tilemapHeight * tilemapChannels));
+    std::memcpy(mapping.data.data(), albedoImageData, totalSize / 2);
+    std::memcpy(mapping.data.data() + totalSize / 2, normalImageData, totalSize / 2);
 
     renderer::Buffer::unmap(stagingBuffer, mapping);
 
-    renderer::BufferImageCopyRegion tilemapCopyRegion = {
+    renderer::BufferImageCopyRegion albedoCopyRegion = {
         .bufferOffset = stagingManager_.getOffset(),
         .bufferRowLength = 0,
         .bufferImageHeight = 0,
@@ -248,9 +286,22 @@ void engine::Engine::start() {
         .imageExtent = {static_cast<std::uint32_t>(tilemapWidth), static_cast<std::uint32_t>(tilemapHeight), 1},
     };
 
-    stagingManager_.getOffset() += static_cast<std::size_t>(tilemapWidth * tilemapHeight * tilemapChannels);
+    renderer::BufferImageCopyRegion normalCopyRegion = {
+        .bufferOffset = stagingManager_.getOffset() + totalSize / 2,
+        .bufferRowLength = 0,
+        .bufferImageHeight = 0,
+        .mipLevel = 0,
+        .baseArrayLayer = 0,
+        .arrayLayerCount = 1,
+        .imageAspectMask = renderer::ImageAspectFlags::COLOUR,
+        .imageOffset = {0, 0, 0},
+        .imageExtent = {static_cast<std::uint32_t>(tilemapWidth), static_cast<std::uint32_t>(tilemapHeight), 1},
+    };
 
-    renderer::CommandBuffer::copyBufferToImage(transferCommandBuffer, stagingBuffer, tilemapAlbedoImage_, renderer::ImageLayout::TRANSFER_DESTINATION_OPTIMAL, {tilemapCopyRegion});
+    stagingManager_.getOffset() += totalSize / 2;
+
+    renderer::CommandBuffer::copyBufferToImage(transferCommandBuffer, stagingBuffer, tilemapAlbedoImage_, renderer::ImageLayout::TRANSFER_DESTINATION_OPTIMAL, {albedoCopyRegion});
+    renderer::CommandBuffer::copyBufferToImage(transferCommandBuffer, stagingBuffer, tilemapNormalImage_, renderer::ImageLayout::TRANSFER_DESTINATION_OPTIMAL, {normalCopyRegion});
 
     renderer::ImageMemoryBarrier albedoMemoryBarrier1 = {
         .image = tilemapAlbedoImage_,
@@ -267,7 +318,22 @@ void engine::Engine::start() {
         .destinationAccessFlags = renderer::AccessFlags::SHADER_READ,
     };
 
-    renderer::CommandBuffer::pipelineBarrier(transferCommandBuffer, renderer::PipelineStageFlags::TRANSFER, renderer::PipelineStageFlags::FRAGMENT_SHADER, {albedoMemoryBarrier1});
+    renderer::ImageMemoryBarrier normalMemoryBarrier1 = {
+        .image = tilemapNormalImage_,
+        .sourceQueue = {},
+        .destinationQueue = {},
+        .oldLayout = renderer::ImageLayout::TRANSFER_DESTINATION_OPTIMAL,
+        .newLayout = renderer::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
+        .baseMipLevel = 0,
+        .mipLevelCount = 1,
+        .baseArrayLayer = 0,
+        .arrayLayerCount = 1,
+        .aspectMask = renderer::ImageAspectFlags::COLOUR,
+        .sourceAccessFlags = renderer::AccessFlags::TRANSFER_WRITE,
+        .destinationAccessFlags = renderer::AccessFlags::SHADER_READ,
+    };
+
+    renderer::CommandBuffer::pipelineBarrier(transferCommandBuffer, renderer::PipelineStageFlags::TRANSFER, renderer::PipelineStageFlags::FRAGMENT_SHADER, {albedoMemoryBarrier1, normalMemoryBarrier1});
 
     using namespace ::components;
 
@@ -289,7 +355,7 @@ void engine::Engine::start() {
             .appearance = {
                 .texture = {
                     .sample = {
-                        .position = {0.0, 0.0},
+                        .position = {0.1, 0.0},
                         .extent = {0.1, 0.1},
                     },
                     .offset = {0.0, 0.0},
@@ -334,15 +400,17 @@ void engine::Engine::start() {
 
     cameraComponent.near = -1.0f;
     cameraComponent.far = 1.0f;
-    cameraComponent.size = 3.0f;
+    cameraComponent.size = 6.0f;
     cameraScale.scale = window_.extent();
 
-    worldGenerator_.setWorldSize({4, 1, 4});
-    worldGenerator_.setChunkSize({8, 2, 8});
+    ::systems::cameras::calculateCameraData(*this);
+
+    worldGenerator_.setWorldSize({16, 1, 16});
+    worldGenerator_.setChunkSize({2, 2, 2});
     worldGenerator_.generate();
 
     entityTilePool_.sortByDepth();
-    entityTileMesh_.createInstanceBuffer(entityTilePool_.data().size());
+    entityTileMesh_.createInstanceBuffer(32 * 1024 * 1024);
 
     cameraPosition.position = {0.0f, 0.0f, 0.0f};
 
@@ -389,7 +457,18 @@ void engine::Engine::start() {
         .layerCount = 1,
     };
 
+    renderer::ImageViewCreateInfo normalImageViewCreateInfo = {
+        .image = tilemapNormalImage_,
+        .type = renderer::ImageViewType::IMAGE_2D,
+        .aspectFlags = renderer::ImageAspectFlags::COLOUR,
+        .baseMipLevel = 0,
+        .levelCount = 1,
+        .baseArrayLayer = 0,
+        .layerCount = 1,
+    };
+
     tilemapAlbedoImageView_ = renderer::ImageView::create(albedoImageViewCreateInfo);
+    tilemapNormalImageView_ = renderer::ImageView::create(normalImageViewCreateInfo);
 
     lastFrameTime_ = std::chrono::high_resolution_clock::now();
 
@@ -410,7 +489,22 @@ void engine::Engine::start() {
         .images = {albedoSamplerBinding},
     };
 
-    renderer::DescriptorPool::updateDescriptorSets(descriptorPool_, {albedoSamplerUpdateInfo});
+    renderer::DescriptorSetImageBinding normalSamplerBinding = {
+        .image = tilemapNormalImageView_,
+        .sampler = sampler_,
+        .layout = renderer::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
+    };
+
+    renderer::DescriptorSetUpdateInfo normalSamplerUpdateInfo = {
+        .set = tilemapDescriptorSet_,
+        .inputType = renderer::DescriptorInputType::IMAGE_SAMPLER,
+        .binding = 2,
+        .arrayElement = 0,
+        .buffers = {},
+        .images = {normalSamplerBinding},
+    };
+
+    renderer::DescriptorPool::updateDescriptorSets(descriptorPool_, {albedoSamplerUpdateInfo, normalSamplerUpdateInfo});
 }
 
 void engine::Engine::calculateDeltaTime() {
@@ -421,9 +515,6 @@ void engine::Engine::calculateDeltaTime() {
 
 void engine::Engine::runPreTransferSystems() {
     using namespace ::components;
-
-    auto& cameraScale = registry_.get<Scale>(currentCamera_);
-    cameraScale.scale = window_.extent();
 
     ::systems::entities::updateControllers(*this);
 
@@ -570,7 +661,9 @@ void engine::Engine::close() {
     renderer::PipelineLayout::destroy(pipelineLayout_);
 
     renderer::ImageView::destroy(tilemapAlbedoImageView_);
+    renderer::ImageView::destroy(tilemapNormalImageView_);
     renderer::Image::destroy(tilemapAlbedoImage_);
+    renderer::Image::destroy(tilemapNormalImage_);
     renderer::Sampler::destroy(sampler_);
 
     renderer::Buffer::destroy(cameraBuffer_);

@@ -6,8 +6,6 @@
 
 #include <engine/engine.hpp>
 
-#include <iostream>
-
 void systems::entities::createEntities(engine::Engine& engine) {
     using namespace components;
 
@@ -38,8 +36,6 @@ void systems::entities::sortEntities(engine::Engine& engine) {
         auto& data = tilePool.getData(proxy);
 
         data.order = static_cast<std::int64_t>((static_cast<float>(worldSize.y) - position.position.y) * static_cast<float>(worldSize.x + worldSize.z - 1) + position.position.x + position.position.z);
-
-        std::cout << "New entity order: " << data.order << "\n";
     }
 }
 

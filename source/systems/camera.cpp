@@ -15,14 +15,16 @@ void systems::cameras::calculateCameraData(engine::Engine& engine) {
     using namespace components;
 
     auto& registry = engine.getRegistry();
+    auto& window = engine.getWindow();
 
+    auto windowExtent = window.extent();
     auto view = registry.view<Camera, Scale, Position, CameraData>();
 
     for (auto [entity, camera, scale, position, data] : view.each()) {
         data.projection = {1.0f};
         data.view = {1.0f};
 
-        float aspect = scale.scale.x / scale.scale.y;
+        float aspect = static_cast<float>(windowExtent.x) / static_cast<float>(windowExtent.y);
         float halfHeight = camera.size;
         float halfWidth = camera.size * aspect;
 
@@ -30,6 +32,9 @@ void systems::cameras::calculateCameraData(engine::Engine& engine) {
         float right = halfWidth;
         float bottom = -halfHeight;
         float top = halfHeight;
+
+        scale.scale.x = halfWidth * 2.0f;
+        scale.scale.y = halfHeight * 2.0f;
 
         auto ndcPosition = engine::worldToScreenSpace(position.position);
 

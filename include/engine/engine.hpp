@@ -1,7 +1,5 @@
 #pragma once
 
-#include <optional>
-#include <string>
 #include <vector>
 
 #include <app/configuration.hpp>
@@ -65,6 +63,10 @@ namespace engine {
             return worldGenerator_;
         }
 
+        auto& getWindow() {
+            return window_;
+        }
+
         auto getDeltaTime() const {
             return deltaTime_;
         }
@@ -119,9 +121,15 @@ namespace engine {
         renderer::DescriptorPool descriptorPool_;
         renderer::Pipeline worldPipeline_;
         renderer::PipelineLayout pipelineLayout_;
+
         renderer::Image tilemapAlbedoImage_;
+        renderer::Image tilemapNormalImage_;
+
         renderer::ImageView tilemapAlbedoImageView_;
+        renderer::ImageView tilemapNormalImageView_;
+
         renderer::Sampler sampler_;
+
         renderer::Buffer cameraBuffer_;
 
         std::vector<renderer::Pipeline> pipelines_;

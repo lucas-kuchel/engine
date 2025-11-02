@@ -66,7 +66,7 @@ void engine::generateChunk(engine::Chunk& chunk, engine::Engine& engine) {
                 instance.appearance.texture.offset = {0.0, 0.0};
                 instance.appearance.texture.repeat = {1.0, 1.0};
                 instance.appearance.texture.sample.extent = {0.1, 0.1};
-                instance.appearance.texture.sample.position = {0.0, 0.0};
+                instance.appearance.texture.sample.position = {0.3, 0.0};
                 instance.appearance.colourFactor = {1.0, 1.0, 1.0, 1.0};
 
                 chunk.tiles.push_back(entity);
