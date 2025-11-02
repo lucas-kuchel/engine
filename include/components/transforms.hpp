@@ -5,15 +5,15 @@
 
 namespace components {
     struct Position {
-        glm::vec2 position = {0.0f, 0.0f};
+        glm::vec3 position = {0.0f, 0.0f, 0.0f};
     };
 
     struct Velocity {
-        glm::vec2 velocity = {0.0f, 0.0f};
+        glm::vec3 velocity = {0.0f, 0.0f, 0.0f};
     };
 
     struct Acceleration {
-        glm::vec2 acceleration = {0.0f, 0.0f};
+        glm::vec3 acceleration = {0.0f, 0.0f, 0.0f};
     };
 
     struct Rotation {

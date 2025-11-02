@@ -15,7 +15,7 @@ void systems::integrateMovements(engine::Engine& engine) {
     for (auto [entity, velocity, acceleration, position] : view.each()) {
 
         velocity.velocity += acceleration.acceleration * deltaTime;
-        acceleration.acceleration = {0.0f, 0.0f};
+        acceleration.acceleration = {0.0f, 0.0f, 0.0f};
         position.position += velocity.velocity * deltaTime;
     }
 }
@@ -34,10 +34,7 @@ void systems::transformInstances(engine::Engine& engine, engine::TilePool& tileP
 
         auto& tileInstance = tilePool.getInstance(proxy);
 
-        tileInstance.transform.position = {
-            position.position.x,
-            position.position.y,
-        };
+        tileInstance.transform.position = engine::worldToScreenSpace(position.position);
 
         tileInstance.transform.scale = scale.scale;
     }

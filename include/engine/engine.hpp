@@ -12,6 +12,7 @@
 #include <engine/staging_manager.hpp>
 #include <engine/tile_mesh.hpp>
 #include <engine/tile_pool.hpp>
+#include <engine/world_generator.hpp>
 
 #include <renderer/renderer.hpp>
 
@@ -60,6 +61,10 @@ namespace engine {
             return cameraBuffer_;
         }
 
+        auto& getWorldGenerator() {
+            return worldGenerator_;
+        }
+
         auto getDeltaTime() const {
             return deltaTime_;
         }
@@ -93,6 +98,7 @@ namespace engine {
         void runPostTransferSystems();
 
         InputManager inputManager_;
+        WorldGenerator worldGenerator_;
 
         TilePool worldTilePool_;
         TilePool entityTilePool_;

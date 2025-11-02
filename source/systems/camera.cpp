@@ -31,8 +31,10 @@ void systems::cameras::calculateCameraData(engine::Engine& engine) {
         float bottom = -halfHeight;
         float top = halfHeight;
 
+        auto ndcPosition = engine::worldToScreenSpace(position.position);
+
         data.projection = glm::orthoRH_ZO(left, right, bottom, top, camera.near, camera.far);
-        data.view = glm::translate(data.view, glm::vec3{-position.position, 0.0f});
+        data.view = glm::translate(data.view, glm::vec3{-ndcPosition, 0.0});
 
         data.projection[1][1] *= -1.0f;
     }
@@ -103,19 +105,13 @@ void systems::cameras::makeCamerasFollowTarget(engine::Engine& engine) {
 
     auto& registry = engine.getRegistry();
 
-    auto deltaTime = engine.getDeltaTime();
     auto view = registry.view<Camera, Position, CameraTarget>();
 
     for (auto [entity, camera, position, target] : view.each()) {
         auto& targetPosition = registry.get<Position>(target.target);
-        auto direction = targetPosition.position - position.position;
+        auto& targetScale = registry.get<Scale>(target.target);
 
-        if (glm::length(direction) < 0.0001f) {
-            position.position = targetPosition.position;
-        }
-        else {
-            position.position += direction * deltaTime;
-        }
+        position.position = targetPosition.position + glm::vec3{targetScale.scale, 0.0f} * 0.5f;
     }
 }
 

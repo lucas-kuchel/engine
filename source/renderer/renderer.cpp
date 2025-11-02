@@ -242,37 +242,18 @@ void renderer::Renderer::acquireImage(const std::vector<Fence>& fences) {
     if (resized_) {
         imageCounter_.count = renderer::Swapchain::getImageCount(swapchain_);
 
-        // TODO: make configurable again
-        frameCounter_.count = std::min(imageCounter_.count, 3u);
-        frameCounter_.index = std::min(frameCounter_.index, frameCounter_.count - 1);
-
         for (std::uint64_t i = 0; i < imageCounter_.count; i++) {
             renderer::Framebuffer::destroy(framebuffers_[i]);
             renderer::Semaphore::destroy(presentSemaphores_[i]);
         }
 
-        for (std::uint64_t i = 0; i < frameCounter_.count; i++) {
-            renderer::Semaphore::destroy(acquireSemaphores_[i]);
-            renderer::Fence::destroy(inFlightFences_[i]);
-        }
-
         framebuffers_.clear();
         presentSemaphores_.clear();
-        acquireSemaphores_.clear();
-        inFlightFences_.clear();
-
-        renderer::CommandPool::destroyCommandBuffers(commandPool_, commandBuffers_);
-        commandBuffers_ = renderer::CommandPool::allocateCommandBuffers(commandPool_, frameCounter_.count);
 
         auto swapchainImageViews = renderer::Swapchain::getImageViews(swapchain_);
 
         presentSemaphores_.reserve(imageCounter_.count);
         framebuffers_.reserve(imageCounter_.count);
-
-        renderer::FenceCreateInfo fenceCreateInfo = {
-            .device = device_,
-            .createFlags = 0,
-        };
 
         for (std::uint64_t i = 0; i < imageCounter_.count; i++) {
             renderer::FramebufferCreateInfo framebufferCreateInfo = {
@@ -289,20 +270,6 @@ void renderer::Renderer::acquireImage(const std::vector<Fence>& fences) {
 
             framebuffer = renderer::Framebuffer::create(framebufferCreateInfo);
             semaphore = renderer::Semaphore::create(device_);
-        }
-
-        acquireSemaphores_.reserve(frameCounter_.count);
-        inFlightFences_.reserve(frameCounter_.count);
-
-        for (std::uint64_t i = 0; i < frameCounter_.count; i++) {
-            acquireSemaphores_.push_back(renderer::Semaphore());
-            inFlightFences_.push_back(renderer::Fence());
-
-            auto& semaphore = acquireSemaphores_.back();
-            auto& fence = inFlightFences_.back();
-
-            semaphore = renderer::Semaphore::create(device_);
-            fence = renderer::Fence::create(fenceCreateInfo);
         }
     }
 }

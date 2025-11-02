@@ -23,7 +23,7 @@ layout(location = 2) out vec2 outTextureExtent;
 layout(location = 3) out vec4 outColourFactor;
 
 void main() {
-    vec4 transformedPosition = vec4(vertexPosition + instancePosition * instanceScale, 0.0, 1.0);
+    vec4 transformedPosition = vec4(vertexPosition + instancePosition * instanceScale, -0.5, 1.0);
     vec2 textureSamplePosition = vec2(vertexPosition.x, -vertexPosition.y);
 
     gl_Position = camera.projection * camera.view * transformedPosition;

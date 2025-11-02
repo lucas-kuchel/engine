@@ -16,7 +16,7 @@
 #include <stb_image.h>
 
 engine::Engine::Engine()
-    : window_(createWindow()), renderer_(window_), stagingManager_(*this), worldTileMesh_(*this), entityTileMesh_(*this) {
+    : worldGenerator_(*this), window_(createWindow()), renderer_(window_), stagingManager_(*this), worldTileMesh_(*this), entityTileMesh_(*this) {
 }
 
 app::WindowCreateInfo engine::Engine::createWindow() {
@@ -228,11 +228,11 @@ void engine::Engine::start() {
 
     renderer::CommandBuffer::pipelineBarrier(transferCommandBuffer, renderer::PipelineStageFlags::TOP_OF_PIPE, renderer::PipelineStageFlags::TRANSFER, {albedoMemoryBarrier0});
 
-    std::size_t totalSize = renderer::Image::getSize(tilemapAlbedoImage_);
+    std::size_t totalSize = static_cast<std::size_t>(tilemapWidth * tilemapHeight * tilemapChannels);
 
     auto mapping = renderer::Buffer::map(stagingBuffer, totalSize, stagingManager_.getOffset());
 
-    std::memcpy(mapping.data.data(), albedoImageData, renderer::Image::getSize(tilemapAlbedoImage_));
+    std::memcpy(mapping.data.data(), albedoImageData, static_cast<std::size_t>(tilemapWidth * tilemapHeight * tilemapChannels));
 
     renderer::Buffer::unmap(stagingBuffer, mapping);
 
@@ -248,7 +248,7 @@ void engine::Engine::start() {
         .imageExtent = {static_cast<std::uint32_t>(tilemapWidth), static_cast<std::uint32_t>(tilemapHeight), 1},
     };
 
-    stagingManager_.getOffset() += renderer::Image::getSize(tilemapAlbedoImage_);
+    stagingManager_.getOffset() += static_cast<std::size_t>(tilemapWidth * tilemapHeight * tilemapChannels);
 
     renderer::CommandBuffer::copyBufferToImage(transferCommandBuffer, stagingBuffer, tilemapAlbedoImage_, renderer::ImageLayout::TRANSFER_DESTINATION_OPTIMAL, {tilemapCopyRegion});
 
@@ -290,7 +290,7 @@ void engine::Engine::start() {
                 .texture = {
                     .sample = {
                         .position = {0.0, 0.0},
-                        .extent = {0.2, 0.2},
+                        .extent = {0.1, 0.1},
                     },
                     .offset = {0.0, 0.0},
                     .repeat = {1.0, 1.0},
@@ -334,11 +334,17 @@ void engine::Engine::start() {
 
     cameraComponent.near = -1.0f;
     cameraComponent.far = 1.0f;
+    cameraComponent.size = 3.0f;
     cameraScale.scale = window_.extent();
 
-    entityTileMesh_.createInstanceBuffer(1);
+    worldGenerator_.setWorldSize({4, 1, 4});
+    worldGenerator_.setChunkSize({8, 2, 8});
+    worldGenerator_.generate();
 
-    cameraPosition.position = {0.0f, 0.0f};
+    entityTilePool_.sortByDepth();
+    entityTileMesh_.createInstanceBuffer(entityTilePool_.data().size());
+
+    cameraPosition.position = {0.0f, 0.0f, 0.0f};
 
     renderer::CommandBuffer::endCapture(transferCommandBuffer);
 
@@ -422,6 +428,9 @@ void engine::Engine::runPreTransferSystems() {
     ::systems::entities::updateControllers(*this);
 
     ::systems::integrateMovements(*this);
+    ::systems::entities::sortEntities(*this);
+
+    entityTilePool_.sortByDepth();
 
     ::systems::cameras::animateCameraPositions(*this);
     ::systems::cameras::animateCameraSizes(*this);

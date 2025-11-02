@@ -8,5 +8,6 @@ namespace engine {
 
 namespace systems::entities {
     void createEntities(engine::Engine& engine);
+    void sortEntities(engine::Engine& engine);
     void updateControllers(engine::Engine& engine);
 }

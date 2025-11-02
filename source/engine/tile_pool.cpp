@@ -1,7 +1,7 @@
 #include <engine/tile_pool.hpp>
 
 #include <algorithm>
-#include <ranges>
+#include <numeric>
 
 std::uint32_t engine::TilePool::maxIdentifier_ = 0;
 
@@ -28,7 +28,7 @@ engine::TileInstance& engine::TilePool::getInstance(components::TileProxy proxy)
 }
 
 engine::TileData& engine::TilePool::getData(components::TileProxy proxy) {
-    return data_[table_[proxy.index]];
+    return data_[proxy.index];
 }
 
 void engine::TilePool::remove(components::TileProxy proxy) {
@@ -55,16 +55,48 @@ void engine::TilePool::clear() {
 }
 
 void engine::TilePool::sortByDepth() {
-    auto condition = [](auto const& lhs, auto const& rhs) {
-        auto& [tableL, dataL, instanceL] = lhs;
-        auto& [tableR, dataR, instanceR] = rhs;
+    const std::size_t n = instances_.size();
+    if (n <= 1)
+        return;
 
-        return dataL.order < dataR.order;
+    // Build a vector of "current positions + data reference"
+    struct SortEntry {
+        std::size_t proxyIndex;    // index into table_/proxies
+        std::size_t instanceIndex; // current index in instances_
+        std::int64_t order;
     };
 
-    auto zipped = std::views::zip(table_, data_, instances_);
+    std::vector<SortEntry> entries;
+    entries.reserve(n);
 
-    std::ranges::sort(zipped, condition, {});
+    for (std::size_t proxyIndex = 0; proxyIndex < table_.size(); ++proxyIndex) {
+        std::size_t instIdx = table_[proxyIndex];
+        if (instIdx == DeadIndex)
+            continue;
+        entries.push_back({proxyIndex, instIdx, data_[proxyIndex].order});
+    }
+
+    // Sort by order (largest first)
+    std::ranges::sort(entries, [](const SortEntry& a, const SortEntry& b) {
+        return a.order > b.order;
+    });
+
+    // Build new instances_ array
+    std::vector<TileInstance> newInstances;
+    newInstances.reserve(n);
+
+    std::vector<std::size_t> newTable(table_.size(), DeadIndex);
+
+    for (std::size_t newPos = 0; newPos < entries.size(); ++newPos) {
+        auto& entry = entries[newPos];
+        newInstances.push_back(std::move(instances_[entry.instanceIndex]));
+
+        // update table_ so proxyIndex points to the new position
+        newTable[entry.proxyIndex] = newPos;
+    }
+
+    instances_ = std::move(newInstances);
+    table_ = std::move(newTable);
 }
 
 std::vector<std::size_t>& engine::TilePool::getProxyGroup(std::size_t index) {

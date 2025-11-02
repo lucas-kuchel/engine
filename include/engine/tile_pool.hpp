@@ -14,7 +14,7 @@ namespace components {
 
 namespace engine {
     struct TileData {
-        std::size_t order = 0;
+        std::int64_t order = 0;
     };
 
     struct alignas(16) TileInstance {
