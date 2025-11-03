@@ -35,7 +35,7 @@ void systems::entities::sortEntities(engine::Engine& engine) {
     for (auto [entity, proxy, position] : view.each()) {
         auto& data = tilePool.getData(proxy);
 
-        data.order = static_cast<std::int64_t>((static_cast<float>(worldSize.y) - position.position.y) * static_cast<float>(worldSize.x + worldSize.z - 1) + position.position.x + position.position.z);
+        data.order = static_cast<std::int64_t>((static_cast<float>(worldSize.y) - position.position.y) * static_cast<float>(worldSize.x + worldSize.z - 1) + position.position.x + position.position.z) - 100;
     }
 }
 

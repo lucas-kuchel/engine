@@ -1,6 +1,7 @@
 #include <engine/tile_pool.hpp>
 
 #include <algorithm>
+#include <numeric>
 
 std::uint32_t engine::TilePool::maxIdentifier_ = 0;
 
@@ -9,15 +10,31 @@ engine::TilePool::TilePool()
     maxIdentifier_++;
 }
 
-components::TileProxy engine::TilePool::insert(const TileInstance& base, std::size_t order) {
-    auto index = instances_.size();
+components::TileProxy engine::TilePool::insert(const TileInstance& base, std::int64_t order) {
+    std::size_t proxyIndex;
 
-    table_.emplace_back(index);
+    if (!freed_.empty()) {
+        proxyIndex = freed_.back();
+        freed_.pop_back();
+    }
+    else {
+        proxyIndex = table_.size();
+        table_.push_back(DeadIndex);
+    }
+
+    const std::size_t denseIndex = instances_.size();
+
     instances_.emplace_back(base);
     data_.emplace_back(order);
 
+    if (reverse_.size() <= denseIndex)
+        reverse_.resize(denseIndex + 1);
+
+    table_[proxyIndex] = denseIndex;
+    reverse_[denseIndex] = proxyIndex;
+
     return {
-        .index = index,
+        .index = proxyIndex,
         .uniqueIdentifier = identifier_,
     };
 }
@@ -27,24 +44,38 @@ engine::TileInstance& engine::TilePool::getInstance(components::TileProxy proxy)
 }
 
 engine::TileData& engine::TilePool::getData(components::TileProxy proxy) {
-    return data_[proxy.index];
+    return data_[table_[proxy.index]];
 }
 
 void engine::TilePool::remove(components::TileProxy proxy) {
-    auto remove = [&](auto& data) {
-        std::swap(data[table_[proxy.index]], data.back());
+    if (!contains(proxy)) {
+        return;
+    }
 
-        data.pop_back();
+    const std::size_t sparseIndex = proxy.index;
+    const std::size_t denseIndex = table_[sparseIndex];
+    const std::size_t lastIndex = instances_.size() - 1;
 
-        table_[proxy.index] = DeadIndex;
-    };
+    if (denseIndex != lastIndex) {
+        instances_[denseIndex] = std::move(instances_.back());
+        data_[denseIndex] = std::move(data_.back());
 
-    remove(instances_);
-    remove(data_);
+        const std::size_t movedProxy = reverse_[lastIndex];
+
+        table_[movedProxy] = denseIndex;
+        reverse_[denseIndex] = movedProxy;
+    }
+
+    instances_.pop_back();
+    data_.pop_back();
+    reverse_.pop_back();
+
+    table_[sparseIndex] = DeadIndex;
+    freed_.push_back(sparseIndex);
 }
 
 bool engine::TilePool::contains(components::TileProxy proxy) const {
-    return proxy.uniqueIdentifier == identifier_ && proxy.index < table_.size();
+    return proxy.uniqueIdentifier == identifier_ && proxy.index < table_.size() && table_[proxy.index] != DeadIndex;
 }
 
 void engine::TilePool::clear() {
@@ -60,44 +91,31 @@ void engine::TilePool::sortByDepth() {
         return;
     }
 
-    struct SortEntry {
-        std::size_t proxyIndex;
-        std::size_t instanceIndex;
-        std::int64_t order;
-    };
+    std::vector<std::size_t> order(n);
 
-    std::vector<SortEntry> entries;
-    entries.reserve(n);
+    std::iota(order.begin(), order.end(), 0);
 
-    for (std::size_t proxyIndex = 0; proxyIndex < table_.size(); ++proxyIndex) {
-        std::size_t instIdx = table_[proxyIndex];
-
-        if (instIdx == DeadIndex) {
-            continue;
-        }
-
-        entries.push_back({proxyIndex, instIdx, data_[proxyIndex].order});
-    }
-
-    std::ranges::sort(entries, [](const SortEntry& a, const SortEntry& b) {
-        return a.order > b.order;
+    std::ranges::sort(order, [&](std::size_t a, std::size_t b) {
+        return data_[a].order > data_[b].order;
     });
 
-    std::vector<TileInstance> newInstances;
+    std::vector<TileInstance> newInstances(n);
+    std::vector<TileData> newData(n);
+    std::vector<std::size_t> newReverse(n);
 
-    newInstances.reserve(n);
+    for (std::size_t i = 0; i < n; ++i) {
+        newInstances[i] = std::move(instances_[order[i]]);
+        newData[i] = std::move(data_[order[i]]);
 
-    std::vector<std::size_t> newTable(table_.size(), DeadIndex);
+        const std::size_t sparseIndex = reverse_[order[i]];
 
-    for (std::size_t newPos = 0; newPos < entries.size(); ++newPos) {
-        auto& entry = entries[newPos];
-
-        newInstances.push_back(std::move(instances_[entry.instanceIndex]));
-        newTable[entry.proxyIndex] = newPos;
+        newReverse[i] = sparseIndex;
+        table_[sparseIndex] = i;
     }
 
     instances_ = std::move(newInstances);
-    table_ = std::move(newTable);
+    data_ = std::move(newData);
+    reverse_ = std::move(newReverse);
 }
 
 std::vector<std::size_t>& engine::TilePool::getProxyGroup(std::size_t index) {

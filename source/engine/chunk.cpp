@@ -5,8 +5,6 @@
 
 #include <glm/gtc/noise.hpp>
 
-#include <print>
-
 glm::vec2 engine::worldToScreenSpace(glm::vec3 position) {
     constexpr float radX = 0.463647609001f;
     constexpr float radZ = M_PIf - radX;
@@ -62,16 +60,16 @@ void engine::generateChunk(engine::Chunk& chunk, engine::Engine& engine) {
 
                 glm::ivec3 worldPosition = chunk.position + glm::ivec3{x, y, z};
 
-                float noise = glm::simplex(glm::vec2(worldPosition.x, worldPosition.z) * 0.1f);
+                float noise = glm::simplex(glm::vec2(worldPosition.x, worldPosition.z) * 0.01f);
 
                 noise = (noise + 1.0f) * 0.5f;
 
                 float value;
 
-                if (noise < 0.33f) {
+                if (noise < 0.25f) {
                     value = 0.0f;
                 }
-                else if (noise < 0.66f) {
+                else if (noise < 0.45f) {
                     value = 0.4f;
                 }
                 else {
@@ -95,5 +93,15 @@ void engine::generateChunk(engine::Chunk& chunk, engine::Engine& engine) {
     }
 }
 
-void engine::sortChunk(engine::Chunk&, engine::Engine&) {
+void engine::unloadChunk(engine::Chunk& chunk, engine::Engine& engine) {
+    auto& registry = engine.getRegistry();
+    auto& tilePool = engine.getEntityTilePool();
+
+    for (auto& tile : chunk.tiles) {
+        auto& proxy = registry.get<components::TileProxy>(tile);
+
+        tilePool.remove(proxy);
+    }
+
+    chunk.tiles.clear();
 }

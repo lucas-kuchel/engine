@@ -67,6 +67,9 @@ namespace engine {
         glm::vec2 mousePosition() const;
         glm::vec2 mouseScroll() const;
 
+        glm::vec2 mousePositionDelta() const;
+        glm::vec2 mouseScrollDelta() const;
+
         glm::vec2 lastMousePosition() const;
         glm::vec2 lastMouseScroll() const;
 
@@ -100,6 +103,9 @@ namespace engine {
 
         glm::vec2 mousePosition_ = {0.0f, 0.0f};
         glm::vec2 mouseScroll_ = {0.0f, 0.0f};
+
+        glm::vec2 mousePositionDelta_ = {0.0f, 0.0f};
+        glm::vec2 mouseScrollDelta_ = {0.0f, 0.0f};
 
         glm::vec2 lastMousePosition_ = {0.0f, 0.0f};
         glm::vec2 lastMouseScroll_ = {0.0f, 0.0f};

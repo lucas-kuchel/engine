@@ -2,6 +2,9 @@
 #include <engine/input_manager.hpp>
 
 void engine::InputManager::update() {
+    lastMousePosition_ = mousePosition_;
+    lastMouseScroll_ = mouseScroll_;
+
     for (std::size_t i = 0; i < getKeyCount(); i++) {
         keysPressed_[i] = false;
         keysReleased_[i] = false;
@@ -124,12 +127,10 @@ void engine::InputManager::updateButtonMaps(const app::WindowMouseButtonReleased
 }
 
 void engine::InputManager::updateMousePosition(const app::WindowMouseMovedEventInfo& mouseMovedEvent) {
-    lastMousePosition_ = mousePosition_;
     mousePosition_ = mouseMovedEvent.position;
 }
 
 void engine::InputManager::updateMouseScroll(const app::WindowMouseScrolledEventInfo& mouseScrolledEvent) {
-    lastMouseScroll_ = mouseScroll_;
     mouseScroll_ += mouseScrolledEvent.offset;
 }
 
@@ -165,6 +166,14 @@ glm::vec2 engine::InputManager::mouseScroll() const {
     return mouseScroll_;
 }
 
+glm::vec2 engine::InputManager::mousePositionDelta() const {
+    return mousePosition_ - lastMousePosition_;
+}
+
+glm::vec2 engine::InputManager::mouseScrollDelta() const {
+    return mouseScroll_ - lastMouseScroll_;
+}
+
 glm::vec2 engine::InputManager::lastMousePosition() const {
     return lastMousePosition_;
 }
@@ -174,7 +183,6 @@ glm::vec2 engine::InputManager::lastMouseScroll() const {
 }
 
 std::span<bool> engine::InputManager::getKeysPressed() {
-
     return keysPressed_;
 }
 

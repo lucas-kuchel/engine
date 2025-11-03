@@ -17,5 +17,5 @@ namespace engine {
     glm::vec2 worldToScreenSpace(glm::vec3 position);
     glm::vec3 screenToWorldSpace(glm::vec2 screen, float y = 0.0f);
     void generateChunk(engine::Chunk& chunk, engine::Engine& engine);
-    void sortChunk(engine::Chunk& chunk, engine::Engine& engine);
+    void unloadChunk(engine::Chunk& chunk, engine::Engine& engine);
 }

@@ -42,7 +42,7 @@ namespace engine {
     public:
         TilePool();
 
-        components::TileProxy insert(const TileInstance& base, std::size_t order);
+        components::TileProxy insert(const TileInstance& base, std::int64_t order);
 
         TileInstance& getInstance(components::TileProxy proxy);
         TileData& getData(components::TileProxy proxy);
@@ -76,6 +76,8 @@ namespace engine {
     private:
         std::vector<std::vector<std::size_t>> groupTable_;
         std::vector<std::size_t> table_;
+        std::vector<std::size_t> reverse_;
+        std::vector<std::size_t> freed_;
         std::vector<TileInstance> instances_;
         std::vector<TileData> data_;
 

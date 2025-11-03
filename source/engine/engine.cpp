@@ -269,8 +269,8 @@ void engine::Engine::start() {
 
     auto mapping = renderer::Buffer::map(stagingBuffer, totalSize, stagingManager_.getOffset());
 
-    std::memcpy(mapping.data.data(), albedoImageData, totalSize / 2);
-    std::memcpy(mapping.data.data() + totalSize / 2, normalImageData, totalSize / 2);
+    std::memcpy(mapping.data.data(), albedoImageData, static_cast<std::size_t>(tilemapWidth * tilemapHeight * tilemapChannels));
+    std::memcpy(mapping.data.data() + static_cast<std::size_t>(tilemapWidth * tilemapHeight * tilemapChannels), normalImageData, static_cast<std::size_t>(tilemapWidth * tilemapHeight * tilemapChannels));
 
     renderer::Buffer::unmap(stagingBuffer, mapping);
 
@@ -287,7 +287,7 @@ void engine::Engine::start() {
     };
 
     renderer::BufferImageCopyRegion normalCopyRegion = {
-        .bufferOffset = stagingManager_.getOffset() + totalSize / 2,
+        .bufferOffset = stagingManager_.getOffset() + static_cast<std::size_t>(tilemapWidth * tilemapHeight * tilemapChannels),
         .bufferRowLength = 0,
         .bufferImageHeight = 0,
         .mipLevel = 0,
@@ -298,7 +298,7 @@ void engine::Engine::start() {
         .imageExtent = {static_cast<std::uint32_t>(tilemapWidth), static_cast<std::uint32_t>(tilemapHeight), 1},
     };
 
-    stagingManager_.getOffset() += totalSize / 2;
+    stagingManager_.getOffset() += totalSize;
 
     renderer::CommandBuffer::copyBufferToImage(transferCommandBuffer, stagingBuffer, tilemapAlbedoImage_, renderer::ImageLayout::TRANSFER_DESTINATION_OPTIMAL, {albedoCopyRegion});
     renderer::CommandBuffer::copyBufferToImage(transferCommandBuffer, stagingBuffer, tilemapNormalImage_, renderer::ImageLayout::TRANSFER_DESTINATION_OPTIMAL, {normalCopyRegion});
@@ -405,9 +405,8 @@ void engine::Engine::start() {
 
     ::systems::cameras::calculateCameraData(*this);
 
-    worldGenerator_.setWorldSize({16, 1, 16});
+    worldGenerator_.setWorldSize({64, 1, 64});
     worldGenerator_.setChunkSize({8, 1, 8});
-    worldGenerator_.generate();
 
     entityTilePool_.sortByDepth();
     entityTileMesh_.createInstanceBuffer(32 * 1024 * 1024);
@@ -516,11 +515,15 @@ void engine::Engine::calculateDeltaTime() {
 void engine::Engine::runPreTransferSystems() {
     using namespace ::components;
 
+    auto& cameraComponent = registry_.get<Camera>(currentCamera_);
+    cameraComponent.size += inputManager_.mouseScrollDelta().y;
+
     ::systems::entities::updateControllers(*this);
 
     ::systems::integrateMovements(*this);
     ::systems::entities::sortEntities(*this);
 
+    worldGenerator_.generate();
     entityTilePool_.sortByDepth();
 
     ::systems::cameras::animateCameraPositions(*this);

@@ -23,30 +23,38 @@ void engine::WorldGenerator::generate() {
     auto& cameraPosition = registry.get<components::Position>(camera);
 
     glm::vec2 cameraScreenPos = engine::worldToScreenSpace(cameraPosition.position);
+    glm::vec2 cameraChunkPos = glm::floor(cameraScreenPos * glm::vec2(1 / chunkSize_.x, 1 / chunkSize_.z));
     glm::vec2 halfScale = cameraScale.scale * 0.5f;
+    glm::vec2 minVisibleArea = cameraScreenPos - halfScale;
+    glm::vec2 maxVisibleArea = cameraScreenPos + halfScale;
 
     loadedChunks_.reserve(static_cast<std::size_t>(worldSize_.x * worldSize_.y * worldSize_.z));
 
     for (int y = 0; y < worldSize_.y; ++y) {
         for (int x = -worldSize_.x; x < worldSize_.x; ++x) {
             for (int z = -worldSize_.z; z < worldSize_.z; ++z) {
-                glm::ivec3 chunkPosWorld = chunkSize_ * glm::ivec3{x, y, z};
+                glm::ivec3 chunkPosWorld = glm::ivec3(cameraChunkPos.x, 0.0, cameraChunkPos.y) + (chunkSize_ * glm::ivec3{x, y, z});
                 glm::vec2 chunkScreenPos = engine::worldToScreenSpace(glm::vec3(chunkPosWorld));
-                glm::vec2 minVisible = cameraScreenPos - halfScale;
-                glm::vec2 maxVisible = cameraScreenPos + halfScale;
 
-                if (chunkScreenPos.x + static_cast<float>(chunkSize_.x) < minVisible.x ||
-                    chunkScreenPos.x - static_cast<float>(chunkSize_.x) > maxVisible.x ||
-                    chunkScreenPos.y + static_cast<float>(chunkSize_.z) < minVisible.y ||
-                    chunkScreenPos.y - static_cast<float>(chunkSize_.z) > maxVisible.y) {
-                    continue;
+                bool chunkExists = loadedChunks_.contains(chunkPosWorld);
+                bool isInvalidPosition = chunkScreenPos.x + static_cast<float>(chunkSize_.x) < minVisibleArea.x ||
+                                         chunkScreenPos.x - static_cast<float>(chunkSize_.x) > maxVisibleArea.x ||
+                                         chunkScreenPos.y + static_cast<float>(chunkSize_.z) < minVisibleArea.y ||
+                                         chunkScreenPos.y - static_cast<float>(chunkSize_.z) > maxVisibleArea.y;
+
+                if (isInvalidPosition && chunkExists) {
+                    auto& chunk = loadedChunks_[chunkPosWorld];
+
+                    unloadChunk(chunk, engine_);
+
+                    loadedChunks_.erase(chunkPosWorld);
                 }
+                else if (!isInvalidPosition && !chunkExists) {
+                    auto& chunk = loadedChunks_[chunkPosWorld];
+                    chunk.position = chunkPosWorld;
 
-                auto& chunk = loadedChunks_.emplace_back();
-                chunk.position = chunkPosWorld;
-
-                generateChunk(chunk, engine_);
-                sortChunk(chunk, engine_);
+                    generateChunk(chunk, engine_);
+                }
             }
         }
     }
