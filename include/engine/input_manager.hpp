@@ -1,6 +1,7 @@
 #pragma once
 
-#include <app/window.hpp>
+#include <vulkanite/window/configuration.hpp>
+#include <vulkanite/window/window.hpp>
 
 #include <array>
 
@@ -9,27 +10,27 @@
 
 namespace engine {
     struct KeyPressEvent {
-        app::Key key;
+        vulkanite::window::Key key;
     };
 
     struct KeyHoldEvent {
-        app::Key key;
+        vulkanite::window::Key key;
     };
 
     struct KeyReleaseEvent {
-        app::Key key;
+        vulkanite::window::Key key;
     };
 
     struct ButtonPressEvent {
-        app::MouseButton button;
+        vulkanite::window::MouseButton button;
     };
 
     struct ButtonHoldEvent {
-        app::MouseButton button;
+        vulkanite::window::MouseButton button;
     };
 
     struct ButtonReleaseEvent {
-        app::MouseButton button;
+        vulkanite::window::MouseButton button;
     };
 
     struct MouseMoveEvent {
@@ -49,20 +50,20 @@ namespace engine {
         void emitToDispatcherDeferred(entt::dispatcher& dispatcher);
         void emitToDispatcherImmediate(entt::dispatcher& dispatcher);
 
-        void updateKeymaps(const app::WindowKeyPressedEventInfo& keyPressEvent);
-        void updateKeymaps(const app::WindowKeyReleasedEventInfo& keyReleaseEvent);
-        void updateButtonMaps(const app::WindowMouseButtonPressedEventInfo& buttonPressEvent);
-        void updateButtonMaps(const app::WindowMouseButtonReleasedEventInfo& buttonReleaseEvent);
-        void updateMousePosition(const app::WindowMouseMovedEventInfo& mouseMovedEvent);
-        void updateMouseScroll(const app::WindowMouseScrolledEventInfo& mouseScrolledEvent);
+        void updateKeymaps(const vulkanite::window::KeyPressedEventInfo& keyPressEvent);
+        void updateKeymaps(const vulkanite::window::KeyReleasedEventInfo& keyReleaseEvent);
+        void updateButtonMaps(const vulkanite::window::MouseButtonPressedEventInfo& buttonPressEvent);
+        void updateButtonMaps(const vulkanite::window::MouseButtonReleasedEventInfo& buttonReleaseEvent);
+        void updateMousePosition(const vulkanite::window::MouseMovedEventInfo& mouseMovedEvent);
+        void updateMouseScroll(const vulkanite::window::MouseScrolledEventInfo& mouseScrolledEvent);
 
-        bool pressed(app::Key key) const;
-        bool held(app::Key key) const;
-        bool released(app::Key key) const;
+        bool pressed(vulkanite::window::Key key) const;
+        bool held(vulkanite::window::Key key) const;
+        bool released(vulkanite::window::Key key) const;
 
-        bool pressed(app::MouseButton button) const;
-        bool held(app::MouseButton button) const;
-        bool released(app::MouseButton button) const;
+        bool pressed(vulkanite::window::MouseButton button) const;
+        bool held(vulkanite::window::MouseButton button) const;
+        bool released(vulkanite::window::MouseButton button) const;
 
         glm::vec2 mousePosition() const;
         glm::vec2 mouseScroll() const;
@@ -93,13 +94,13 @@ namespace engine {
         static constexpr std::size_t getMouseButtonCount();
 
     private:
-        std::array<bool, magic_enum::enum_count<app::Key>()> keysPressed_ = {};
-        std::array<bool, magic_enum::enum_count<app::Key>()> keysHeld_ = {};
-        std::array<bool, magic_enum::enum_count<app::Key>()> keysReleased_ = {};
+        std::array<bool, magic_enum::enum_count<vulkanite::window::Key>()> keysPressed_ = {};
+        std::array<bool, magic_enum::enum_count<vulkanite::window::Key>()> keysHeld_ = {};
+        std::array<bool, magic_enum::enum_count<vulkanite::window::Key>()> keysReleased_ = {};
 
-        std::array<bool, magic_enum::enum_count<app::MouseButton>()> buttonsPressed_ = {};
-        std::array<bool, magic_enum::enum_count<app::MouseButton>()> buttonsHeld_ = {};
-        std::array<bool, magic_enum::enum_count<app::MouseButton>()> buttonsReleased_ = {};
+        std::array<bool, magic_enum::enum_count<vulkanite::window::MouseButton>()> buttonsPressed_ = {};
+        std::array<bool, magic_enum::enum_count<vulkanite::window::MouseButton>()> buttonsHeld_ = {};
+        std::array<bool, magic_enum::enum_count<vulkanite::window::MouseButton>()> buttonsReleased_ = {};
 
         glm::vec2 mousePosition_ = {0.0f, 0.0f};
         glm::vec2 mouseScroll_ = {0.0f, 0.0f};

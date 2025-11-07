@@ -1,6 +1,6 @@
 #pragma once
 
-#include <app/window.hpp>
+#include <vulkanite/window/window.hpp>
 
 #include <entt/entt.hpp>
 
@@ -10,9 +10,9 @@ namespace components {
     };
 
     struct PositionController {
-        app::Key forwardBinding;
-        app::Key backwardBinding;
-        app::Key leftBinding;
-        app::Key rightBinding;
+        vulkanite::window::Key forwardBinding;
+        vulkanite::window::Key backwardBinding;
+        vulkanite::window::Key leftBinding;
+        vulkanite::window::Key rightBinding;
     };
 }

@@ -17,7 +17,7 @@ void systems::cameras::calculateCameraData(engine::Engine& engine) {
     auto& registry = engine.getRegistry();
     auto& window = engine.getWindow();
 
-    auto windowExtent = window.extent();
+    auto windowExtent = window.getExtent();
     auto view = registry.view<Camera, Scale, Position, CameraData>();
 
     for (auto [entity, camera, scale, position, data] : view.each()) {
@@ -138,19 +138,19 @@ void systems::cameras::uploadCameraData(engine::Engine& engine) {
     auto& stagingBuffer = stagingManager.getCurrentBuffer();
     auto& stagingOffset = stagingManager.getOffset();
 
-    auto mapping = renderer::Buffer::map(stagingBuffer, sizeof(cameraData), stagingOffset);
+    auto mapping = stagingBuffer.map(sizeof(cameraData), stagingOffset);
 
     std::memcpy(mapping.data.data(), &cameraData, sizeof(cameraData));
 
-    renderer::Buffer::unmap(stagingBuffer, mapping);
+    stagingBuffer.unmap(mapping);
 
-    renderer::BufferCopyRegion copyRegion = {
+    vulkanite::renderer::BufferCopyRegion copyRegion = {
         .sourceOffsetBytes = stagingOffset,
         .destinationOffsetBytes = 0,
         .sizeBytes = sizeof(cameraData),
     };
 
-    renderer::CommandBuffer::copyBuffer(transferBuffer, stagingBuffer, cameraBuffer, {copyRegion});
+    transferBuffer.copyBuffer(stagingBuffer, cameraBuffer, {copyRegion});
 
     stagingOffset += sizeof(cameraData);
 }

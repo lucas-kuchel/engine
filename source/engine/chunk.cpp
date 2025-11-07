@@ -60,16 +60,16 @@ void engine::generateChunk(engine::Chunk& chunk, engine::Engine& engine) {
 
                 glm::ivec3 worldPosition = chunk.position + glm::ivec3{x, y, z};
 
-                float noise = glm::simplex(glm::vec2(worldPosition.x, worldPosition.z) * 0.01f);
+                float noise = glm::simplex(glm::vec2(worldPosition.x, worldPosition.z) * 0.005f);
 
                 noise = (noise + 1.0f) * 0.5f;
 
                 float value;
 
-                if (noise < 0.25f) {
+                if (noise < 0.18f) {
                     value = 0.0f;
                 }
-                else if (noise < 0.45f) {
+                else if (noise < 0.2f) {
                     value = 0.4f;
                 }
                 else {
@@ -101,6 +101,7 @@ void engine::unloadChunk(engine::Chunk& chunk, engine::Engine& engine) {
         auto& proxy = registry.get<components::TileProxy>(tile);
 
         tilePool.remove(proxy);
+        registry.destroy(tile);
     }
 
     chunk.tiles.clear();

@@ -1,6 +1,6 @@
 #pragma once
 
-#include <app/window.hpp>
+#include <vulkanite/window/window.hpp>
 
 #include <glm/glm.hpp>
 
@@ -11,7 +11,7 @@ namespace engine {
         struct Display {
             glm::uvec2 size;
 
-            app::WindowVisibility mode;
+            vulkanite::window::Visibility mode;
         } display;
 
         struct Graphics {

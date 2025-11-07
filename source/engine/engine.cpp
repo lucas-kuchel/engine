@@ -16,43 +16,43 @@
 #include <stb_image.h>
 
 engine::Engine::Engine()
-    : worldGenerator_(*this), window_(createWindow()), renderer_(window_), stagingManager_(*this), worldTileMesh_(*this), entityTileMesh_(*this) {
+    : worldGenerator_(*this), stagingManager_(*this) {
 }
 
-app::WindowCreateInfo engine::Engine::createWindow() {
+vulkanite::window::WindowCreateInfo engine::Engine::createWindow() {
     return {
-        .context = context_,
+        .subsystem = subsystem_,
+        .visibility = vulkanite::window::Visibility::MINIMISED,
         .extent = {1280, 720},
         .title = "Game",
-        .visibility = app::WindowVisibility::MINIMISED,
         .resizable = true,
     };
 }
 
 void engine::Engine::manageEvents() {
-    context_.pollEvents();
+    subsystem_.pollEvents();
 
     while (window_.hasEvents()) {
-        app::WindowEvent event = window_.getNextEvent();
+        vulkanite::window::Event event = window_.getNextEvent();
 
         switch (event.type) {
-            case app::WindowEventType::CLOSED:
+            case vulkanite::window::EventType::CLOSED:
                 running_ = false;
                 break;
 
-            case app::WindowEventType::KEY_PRESSED:
+            case vulkanite::window::EventType::KEY_PRESSED:
                 inputManager_.updateKeymaps(event.info.keyPress);
                 break;
 
-            case app::WindowEventType::KEY_RELEASED:
+            case vulkanite::window::EventType::KEY_RELEASED:
                 inputManager_.updateKeymaps(event.info.keyRelease);
                 break;
 
-            case app::WindowEventType::MOUSE_MOVED:
+            case vulkanite::window::EventType::MOUSE_MOVED:
                 inputManager_.updateMousePosition(event.info.mouseMove);
                 break;
 
-            case app::WindowEventType::MOUSE_SCROLLED:
+            case vulkanite::window::EventType::MOUSE_SCROLLED:
                 inputManager_.updateMouseScroll(event.info.mouseScroll);
                 break;
 
@@ -77,7 +77,7 @@ void engine::Engine::run() {
         renderer_.acquireImage({stagingBufferFence});
 
         if (renderer_.mustAwaitRestore()) {
-            if (window_.getVisibility() == app::WindowVisibility::MINIMISED) {
+            if (window_.getVisibility() == vulkanite::window::Visibility::MINIMISED) {
                 continue;
             }
 
@@ -107,18 +107,144 @@ void engine::Engine::start() {
         std::swap(albedoImageData[i * tilemapChannels + 0], albedoImageData[i * tilemapChannels + 2]);
     }
 
-    auto& device = renderer_.getDevice();
-    auto transferQueue = renderer_.getTransferQueue();
+    vulkanite::window::WindowCreateInfo windowCreateInfo = {
+        .subsystem = subsystem_,
+        .visibility = vulkanite::window::Visibility::WINDOWED,
+        .extent = {1280, 720},
+        .title = "Game",
+        .resizable = true,
+    };
 
-    renderer::SamplerCreateInfo samplerCreateInfo = {
-        .device = device,
-        .minFilter = renderer::Filter::NEAREST,
-        .magFilter = renderer::Filter::NEAREST,
-        .mipmapMode = renderer::MipmapMode::NEAREST,
-        .addressModeU = renderer::AddressMode::REPEAT,
-        .addressModeV = renderer::AddressMode::REPEAT,
-        .addressModeW = renderer::AddressMode::REPEAT,
-        .borderColour = renderer::BorderColour::FLOAT_OPAQUE_BLACK,
+    subsystem_.create();
+    window_.create(windowCreateInfo);
+    renderer_.create(window_);
+    worldTileMesh_.create(*this);
+    entityTileMesh_.create(*this);
+    stagingManager_.allocate(renderer_.getFrameCounter().count, 64 * 1024 * 1024);
+
+    auto& device = renderer_.getDevice();
+    auto& transferQueue = renderer_.getTransferQueue();
+
+    vulkanite::renderer::CommandPoolCreateInfo commandPoolCreateInfo = {
+        .device = renderer_.getDevice(),
+        .queue = renderer_.getTransferQueue(),
+    };
+
+    transferCommandPool_.create(commandPoolCreateInfo);
+
+    vulkanite::renderer::DescriptorSetInputInfo bufferInputInfo = {
+        .type = vulkanite::renderer::DescriptorInputType::UNIFORM_BUFFER,
+        .stageFlags = vulkanite::renderer::DescriptorShaderStageFlags::VERTEX,
+        .count = 1,
+        .binding = 0,
+    };
+
+    vulkanite::renderer::DescriptorSetInputInfo sampler1InputInfo = {
+        .type = vulkanite::renderer::DescriptorInputType::IMAGE_SAMPLER,
+        .stageFlags = vulkanite::renderer::DescriptorShaderStageFlags::FRAGMENT,
+        .count = 1,
+        .binding = 1,
+    };
+
+    vulkanite::renderer::DescriptorSetInputInfo sampler2InputInfo = {
+        .type = vulkanite::renderer::DescriptorInputType::IMAGE_SAMPLER,
+        .stageFlags = vulkanite::renderer::DescriptorShaderStageFlags::FRAGMENT,
+        .count = 1,
+        .binding = 2,
+    };
+
+    vulkanite::renderer::DescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo = {
+        .device = renderer_.getDevice(),
+        .inputs = {bufferInputInfo, sampler1InputInfo, sampler2InputInfo},
+    };
+
+    descriptorSetLayout_.create(descriptorSetLayoutCreateInfo);
+
+    vulkanite::renderer::DescriptorPoolSize bufferSize = {
+        .type = vulkanite::renderer::DescriptorInputType::UNIFORM_BUFFER,
+        .count = 1,
+    };
+
+    vulkanite::renderer::DescriptorPoolSize imageSize = {
+        .type = vulkanite::renderer::DescriptorInputType::IMAGE_SAMPLER,
+        .count = 2,
+    };
+
+    vulkanite::renderer::DescriptorPoolCreateInfo descriptorPoolCreateInfo = {
+        .device = renderer_.getDevice(),
+        .poolSizes = {bufferSize, imageSize},
+        .maximumSetCount = 1,
+    };
+
+    descriptorPool_.create(descriptorPoolCreateInfo);
+
+    vulkanite::renderer::PipelineLayoutCreateInfo pipelineLayoutCreateInfo = {
+        .device = renderer_.getDevice(),
+        .inputLayouts = {descriptorSetLayout_},
+        .pushConstants = {},
+    };
+
+    pipelineLayout_.create(pipelineLayoutCreateInfo);
+
+    vulkanite::renderer::ImageCreateInfo albedoImageCreateInfo = {
+        .device = renderer_.getDevice(),
+        .type = vulkanite::renderer::ImageType::IMAGE_2D,
+        .format = vulkanite::renderer::ImageFormat::B8G8R8A8_SRGB,
+        .memoryType = vulkanite::renderer::MemoryType::DEVICE_LOCAL,
+        .usageFlags = vulkanite::renderer::ImageUsageFlags::SAMPLED | vulkanite::renderer::ImageUsageFlags::TRANSFER_DESTINATION,
+        .extent = {320, 320, 1},
+        .sampleCount = 1,
+        .mipLevels = 1,
+        .arrayLayers = 1,
+    };
+
+    vulkanite::renderer::ImageCreateInfo normalImageCreateInfo = {
+        .device = renderer_.getDevice(),
+        .type = vulkanite::renderer::ImageType::IMAGE_2D,
+        .format = vulkanite::renderer::ImageFormat::R8G8B8A8_UNORM,
+        .memoryType = vulkanite::renderer::MemoryType::DEVICE_LOCAL,
+        .usageFlags = vulkanite::renderer::ImageUsageFlags::SAMPLED | vulkanite::renderer::ImageUsageFlags::TRANSFER_DESTINATION,
+        .extent = {320, 320, 1},
+        .sampleCount = 1,
+        .mipLevels = 1,
+        .arrayLayers = 1,
+    };
+
+    tilemapAlbedoImage_.create(albedoImageCreateInfo);
+    tilemapNormalImage_.create(normalImageCreateInfo);
+
+    vulkanite::renderer::ImageViewCreateInfo albedoImageViewCreateInfo = {
+        .image = tilemapAlbedoImage_,
+        .type = vulkanite::renderer::ImageViewType::IMAGE_2D,
+        .aspectFlags = vulkanite::renderer::ImageAspectFlags::COLOUR,
+        .baseMipLevel = 0,
+        .levelCount = 1,
+        .baseArrayLayer = 0,
+        .layerCount = 1,
+    };
+
+    vulkanite::renderer::ImageViewCreateInfo normalImageViewCreateInfo = {
+        .image = tilemapNormalImage_,
+        .type = vulkanite::renderer::ImageViewType::IMAGE_2D,
+        .aspectFlags = vulkanite::renderer::ImageAspectFlags::COLOUR,
+        .baseMipLevel = 0,
+        .levelCount = 1,
+        .baseArrayLayer = 0,
+        .layerCount = 1,
+    };
+
+    tilemapAlbedoImageView_.create(albedoImageViewCreateInfo);
+    tilemapNormalImageView_.create(normalImageViewCreateInfo);
+
+    vulkanite::renderer::SamplerCreateInfo samplerCreateInfo = {
+        .device = renderer_.getDevice(),
+        .minFilter = vulkanite::renderer::Filter::NEAREST,
+        .magFilter = vulkanite::renderer::Filter::NEAREST,
+        .mipmapMode = vulkanite::renderer::MipmapMode::NEAREST,
+        .addressModeU = vulkanite::renderer::AddressMode::REPEAT,
+        .addressModeV = vulkanite::renderer::AddressMode::REPEAT,
+        .addressModeW = vulkanite::renderer::AddressMode::REPEAT,
+        .borderColour = vulkanite::renderer::BorderColour::FLOAT_OPAQUE_BLACK,
         .maxAnisotropy = {},
         .comparison = {},
         .unnormalisedCoordinates = false,
@@ -127,213 +253,137 @@ void engine::Engine::start() {
         .maxLod = 0.0f,
     };
 
-    sampler_ = renderer::Sampler::create(samplerCreateInfo);
+    sampler_.create(samplerCreateInfo);
 
-    renderer::ImageCreateInfo albedoImageCreateInfo = {
-        .device = device,
-        .type = renderer::ImageType::IMAGE_2D,
-        .format = renderer::ImageFormat::B8G8R8A8_SRGB,
-        .memoryType = renderer::MemoryType::DEVICE_LOCAL,
-        .usageFlags = renderer::ImageUsageFlags::SAMPLED | renderer::ImageUsageFlags::TRANSFER_DESTINATION,
-        .extent = {static_cast<std::uint32_t>(tilemapWidth), static_cast<std::uint32_t>(tilemapHeight), 1},
-        .sampleCount = 1,
-        .mipLevels = 1,
-        .arrayLayers = 1,
-    };
-
-    renderer::ImageCreateInfo normalImageCreateInfo = {
-        .device = device,
-        .type = renderer::ImageType::IMAGE_2D,
-        .format = renderer::ImageFormat::R8G8B8A8_UNORM,
-        .memoryType = renderer::MemoryType::DEVICE_LOCAL,
-        .usageFlags = renderer::ImageUsageFlags::SAMPLED | renderer::ImageUsageFlags::TRANSFER_DESTINATION,
-        .extent = {static_cast<std::uint32_t>(tilemapWidth), static_cast<std::uint32_t>(tilemapHeight), 1},
-        .sampleCount = 1,
-        .mipLevels = 1,
-        .arrayLayers = 1,
-    };
-
-    tilemapAlbedoImage_ = renderer::Image::create(albedoImageCreateInfo);
-    tilemapNormalImage_ = renderer::Image::create(normalImageCreateInfo);
-
-    renderer::CommandPoolCreateInfo commandPoolCreateInfo = {
-        .device = device,
-        .queue = transferQueue,
-    };
-
-    transferCommandPool_ = renderer::CommandPool::create(commandPoolCreateInfo);
-    transferCommandBuffers_ = renderer::CommandPool::allocateCommandBuffers(transferCommandPool_, renderer_.getFrameCounter().count);
-
-    renderer::DescriptorSetInputInfo bufferInputInfo = {
-        .type = renderer::DescriptorInputType::UNIFORM_BUFFER,
-        .stageFlags = renderer::DescriptorShaderStageFlags::VERTEX,
-        .count = 1,
-        .binding = 0,
-    };
-
-    renderer::DescriptorSetInputInfo sampler1InputInfo = {
-        .type = renderer::DescriptorInputType::IMAGE_SAMPLER,
-        .stageFlags = renderer::DescriptorShaderStageFlags::FRAGMENT,
-        .count = 1,
-        .binding = 1,
-    };
-
-    renderer::DescriptorSetInputInfo sampler2InputInfo = {
-        .type = renderer::DescriptorInputType::IMAGE_SAMPLER,
-        .stageFlags = renderer::DescriptorShaderStageFlags::FRAGMENT,
-        .count = 1,
-        .binding = 2,
-    };
-
-    renderer::DescriptorSetLayoutCreateInfo layoutCreateInfo = {
-        .device = device,
-        .inputs = {bufferInputInfo, sampler1InputInfo, sampler2InputInfo},
-    };
-
-    descriptorSetLayout_ = renderer::DescriptorSetLayout::create(layoutCreateInfo);
-
-    renderer::DescriptorPoolSize bufferSize = {
-        .type = renderer::DescriptorInputType::UNIFORM_BUFFER,
-        .count = 1,
-    };
-
-    renderer::DescriptorPoolSize imageSize = {
-        .type = renderer::DescriptorInputType::IMAGE_SAMPLER,
-        .count = 2,
-    };
-
-    renderer::DescriptorPoolCreateInfo poolCreateInfo = {
-        .device = device,
-        .poolSizes = {bufferSize, imageSize},
-        .maximumSetCount = 1,
-    };
-
-    descriptorPool_ = renderer::DescriptorPool::create(poolCreateInfo);
-
-    renderer::BufferCreateInfo cameraBufferCreateInfo = {
-        .device = device,
-        .memoryType = renderer::MemoryType::DEVICE_LOCAL,
-        .usageFlags = renderer::BufferUsageFlags::UNIFORM | renderer::BufferUsageFlags::TRANSFER_DESTINATION,
+    vulkanite::renderer::BufferCreateInfo cameraBufferCreateInfo = {
+        .device = renderer_.getDevice(),
+        .memoryType = vulkanite::renderer::MemoryType::DEVICE_LOCAL,
+        .usageFlags = vulkanite::renderer::BufferUsageFlags::UNIFORM | vulkanite::renderer::BufferUsageFlags::TRANSFER_DESTINATION,
         .sizeBytes = sizeof(::components::CameraData),
     };
 
-    cameraBuffer_ = renderer::Buffer::create(cameraBufferCreateInfo);
+    cameraBuffer_.create(cameraBufferCreateInfo);
 
-    renderer::DescriptorSetCreateInfo setCreateInfo = {
+    transferCommandBuffers_ = transferCommandPool_.allocateCommandBuffers(renderer_.getFrameCounter().count);
+
+    vulkanite::renderer::DescriptorSetCreateInfo setCreateInfo = {
         .layouts = {descriptorSetLayout_},
     };
 
-    descriptorSets_ = renderer::DescriptorPool::allocateDescriptorSets(descriptorPool_, setCreateInfo);
+    descriptorSets_ = descriptorPool_.allocateDescriptorSets(setCreateInfo);
 
     tilemapDescriptorSet_ = descriptorSets_[0];
 
     auto& transferCommandBuffer = getTransferBuffer();
     auto& stagingBuffer = stagingManager_.getCurrentBuffer();
 
-    renderer::Fence temporaryFence = renderer::Fence::create({device, 0});
-    renderer::CommandBuffer::beginCapture(transferCommandBuffer);
+    vulkanite::renderer::Fence temporaryFence;
 
-    renderer::ImageMemoryBarrier albedoMemoryBarrier0 = {
+    temporaryFence.create({device, 0});
+
+    transferCommandBuffer.beginCapture();
+
+    vulkanite::renderer::ImageMemoryBarrier albedoMemoryBarrier0 = {
         .image = tilemapAlbedoImage_,
         .sourceQueue = {},
         .destinationQueue = {},
-        .oldLayout = renderer::ImageLayout::UNDEFINED,
-        .newLayout = renderer::ImageLayout::TRANSFER_DESTINATION_OPTIMAL,
         .baseMipLevel = 0,
         .mipLevelCount = 1,
         .baseArrayLayer = 0,
         .arrayLayerCount = 1,
-        .aspectMask = renderer::ImageAspectFlags::COLOUR,
-        .sourceAccessFlags = renderer::AccessFlags::NONE,
-        .destinationAccessFlags = renderer::AccessFlags::TRANSFER_WRITE,
+        .oldLayout = vulkanite::renderer::ImageLayout::UNDEFINED,
+        .newLayout = vulkanite::renderer::ImageLayout::TRANSFER_DESTINATION_OPTIMAL,
+        .aspectMask = vulkanite::renderer::ImageAspectFlags::COLOUR,
+        .sourceAccessFlags = vulkanite::renderer::AccessFlags::NONE,
+        .destinationAccessFlags = vulkanite::renderer::AccessFlags::TRANSFER_WRITE,
     };
 
-    renderer::ImageMemoryBarrier normalMemoryBarrier0 = {
+    vulkanite::renderer::ImageMemoryBarrier normalMemoryBarrier0 = {
         .image = tilemapNormalImage_,
         .sourceQueue = {},
         .destinationQueue = {},
-        .oldLayout = renderer::ImageLayout::UNDEFINED,
-        .newLayout = renderer::ImageLayout::TRANSFER_DESTINATION_OPTIMAL,
         .baseMipLevel = 0,
         .mipLevelCount = 1,
         .baseArrayLayer = 0,
         .arrayLayerCount = 1,
-        .aspectMask = renderer::ImageAspectFlags::COLOUR,
-        .sourceAccessFlags = renderer::AccessFlags::NONE,
-        .destinationAccessFlags = renderer::AccessFlags::TRANSFER_WRITE,
+        .oldLayout = vulkanite::renderer::ImageLayout::UNDEFINED,
+        .newLayout = vulkanite::renderer::ImageLayout::TRANSFER_DESTINATION_OPTIMAL,
+        .aspectMask = vulkanite::renderer::ImageAspectFlags::COLOUR,
+        .sourceAccessFlags = vulkanite::renderer::AccessFlags::NONE,
+        .destinationAccessFlags = vulkanite::renderer::AccessFlags::TRANSFER_WRITE,
     };
 
-    renderer::CommandBuffer::pipelineBarrier(transferCommandBuffer, renderer::PipelineStageFlags::TOP_OF_PIPE, renderer::PipelineStageFlags::TRANSFER, {albedoMemoryBarrier0, normalMemoryBarrier0});
+    transferCommandBuffer.pipelineBarrier(vulkanite::renderer::PipelineStageFlags::TOP_OF_PIPE, vulkanite::renderer::PipelineStageFlags::TRANSFER, {albedoMemoryBarrier0, normalMemoryBarrier0});
 
     std::size_t totalSize = static_cast<std::size_t>(tilemapWidth * tilemapHeight * tilemapChannels) * 2;
 
-    auto mapping = renderer::Buffer::map(stagingBuffer, totalSize, stagingManager_.getOffset());
+    auto mapping = stagingBuffer.map(totalSize, stagingManager_.getOffset());
 
     std::memcpy(mapping.data.data(), albedoImageData, static_cast<std::size_t>(tilemapWidth * tilemapHeight * tilemapChannels));
     std::memcpy(mapping.data.data() + static_cast<std::size_t>(tilemapWidth * tilemapHeight * tilemapChannels), normalImageData, static_cast<std::size_t>(tilemapWidth * tilemapHeight * tilemapChannels));
 
-    renderer::Buffer::unmap(stagingBuffer, mapping);
+    stagingBuffer.unmap(mapping);
 
-    renderer::BufferImageCopyRegion albedoCopyRegion = {
+    vulkanite::renderer::BufferImageCopyRegion albedoCopyRegion = {
         .bufferOffset = stagingManager_.getOffset(),
         .bufferRowLength = 0,
         .bufferImageHeight = 0,
         .mipLevel = 0,
         .baseArrayLayer = 0,
         .arrayLayerCount = 1,
-        .imageAspectMask = renderer::ImageAspectFlags::COLOUR,
         .imageOffset = {0, 0, 0},
         .imageExtent = {static_cast<std::uint32_t>(tilemapWidth), static_cast<std::uint32_t>(tilemapHeight), 1},
+        .imageAspectMask = vulkanite::renderer::ImageAspectFlags::COLOUR,
     };
 
-    renderer::BufferImageCopyRegion normalCopyRegion = {
+    vulkanite::renderer::BufferImageCopyRegion normalCopyRegion = {
         .bufferOffset = stagingManager_.getOffset() + static_cast<std::size_t>(tilemapWidth * tilemapHeight * tilemapChannels),
         .bufferRowLength = 0,
         .bufferImageHeight = 0,
         .mipLevel = 0,
         .baseArrayLayer = 0,
         .arrayLayerCount = 1,
-        .imageAspectMask = renderer::ImageAspectFlags::COLOUR,
         .imageOffset = {0, 0, 0},
         .imageExtent = {static_cast<std::uint32_t>(tilemapWidth), static_cast<std::uint32_t>(tilemapHeight), 1},
+        .imageAspectMask = vulkanite::renderer::ImageAspectFlags::COLOUR,
     };
 
     stagingManager_.getOffset() += totalSize;
 
-    renderer::CommandBuffer::copyBufferToImage(transferCommandBuffer, stagingBuffer, tilemapAlbedoImage_, renderer::ImageLayout::TRANSFER_DESTINATION_OPTIMAL, {albedoCopyRegion});
-    renderer::CommandBuffer::copyBufferToImage(transferCommandBuffer, stagingBuffer, tilemapNormalImage_, renderer::ImageLayout::TRANSFER_DESTINATION_OPTIMAL, {normalCopyRegion});
+    transferCommandBuffer.copyBufferToImage(stagingBuffer, tilemapAlbedoImage_, vulkanite::renderer::ImageLayout::TRANSFER_DESTINATION_OPTIMAL, {albedoCopyRegion});
+    transferCommandBuffer.copyBufferToImage(stagingBuffer, tilemapNormalImage_, vulkanite::renderer::ImageLayout::TRANSFER_DESTINATION_OPTIMAL, {normalCopyRegion});
 
-    renderer::ImageMemoryBarrier albedoMemoryBarrier1 = {
+    vulkanite::renderer::ImageMemoryBarrier albedoMemoryBarrier1 = {
         .image = tilemapAlbedoImage_,
         .sourceQueue = {},
         .destinationQueue = {},
-        .oldLayout = renderer::ImageLayout::TRANSFER_DESTINATION_OPTIMAL,
-        .newLayout = renderer::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
         .baseMipLevel = 0,
         .mipLevelCount = 1,
         .baseArrayLayer = 0,
         .arrayLayerCount = 1,
-        .aspectMask = renderer::ImageAspectFlags::COLOUR,
-        .sourceAccessFlags = renderer::AccessFlags::TRANSFER_WRITE,
-        .destinationAccessFlags = renderer::AccessFlags::SHADER_READ,
+        .oldLayout = vulkanite::renderer::ImageLayout::TRANSFER_DESTINATION_OPTIMAL,
+        .newLayout = vulkanite::renderer::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
+        .aspectMask = vulkanite::renderer::ImageAspectFlags::COLOUR,
+        .sourceAccessFlags = vulkanite::renderer::AccessFlags::TRANSFER_WRITE,
+        .destinationAccessFlags = vulkanite::renderer::AccessFlags::SHADER_READ,
     };
 
-    renderer::ImageMemoryBarrier normalMemoryBarrier1 = {
+    vulkanite::renderer::ImageMemoryBarrier normalMemoryBarrier1 = {
         .image = tilemapNormalImage_,
         .sourceQueue = {},
         .destinationQueue = {},
-        .oldLayout = renderer::ImageLayout::TRANSFER_DESTINATION_OPTIMAL,
-        .newLayout = renderer::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
         .baseMipLevel = 0,
         .mipLevelCount = 1,
         .baseArrayLayer = 0,
         .arrayLayerCount = 1,
-        .aspectMask = renderer::ImageAspectFlags::COLOUR,
-        .sourceAccessFlags = renderer::AccessFlags::TRANSFER_WRITE,
-        .destinationAccessFlags = renderer::AccessFlags::SHADER_READ,
+        .oldLayout = vulkanite::renderer::ImageLayout::TRANSFER_DESTINATION_OPTIMAL,
+        .newLayout = vulkanite::renderer::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
+        .aspectMask = vulkanite::renderer::ImageAspectFlags::COLOUR,
+        .sourceAccessFlags = vulkanite::renderer::AccessFlags::TRANSFER_WRITE,
+        .destinationAccessFlags = vulkanite::renderer::AccessFlags::SHADER_READ,
     };
 
-    renderer::CommandBuffer::pipelineBarrier(transferCommandBuffer, renderer::PipelineStageFlags::TRANSFER, renderer::PipelineStageFlags::FRAGMENT_SHADER, {albedoMemoryBarrier1, normalMemoryBarrier1});
+    transferCommandBuffer.pipelineBarrier(vulkanite::renderer::PipelineStageFlags::TRANSFER, vulkanite::renderer::PipelineStageFlags::FRAGMENT_SHADER, {albedoMemoryBarrier1, normalMemoryBarrier1});
 
     using namespace ::components;
 
@@ -341,10 +391,10 @@ void engine::Engine::start() {
 
     auto& controller = registry_.emplace<PositionController>(currentEntity_);
 
-    controller.forwardBinding = app::Key::W;
-    controller.backwardBinding = app::Key::S;
-    controller.leftBinding = app::Key::A;
-    controller.rightBinding = app::Key::D;
+    controller.forwardBinding = vulkanite::window::Key::W;
+    controller.backwardBinding = vulkanite::window::Key::S;
+    controller.leftBinding = vulkanite::window::Key::A;
+    controller.rightBinding = vulkanite::window::Key::D;
 
     auto proxy = entityTilePool_.insert(
         {
@@ -401,21 +451,22 @@ void engine::Engine::start() {
     cameraComponent.near = -1.0f;
     cameraComponent.far = 1.0f;
     cameraComponent.size = 3.0f;
-    cameraScale.scale = window_.extent();
+    cameraScale.scale = window_.getExtent();
 
     ::systems::cameras::calculateCameraData(*this);
 
     worldGenerator_.setWorldSize({64, 1, 64});
     worldGenerator_.setChunkSize({8, 1, 8});
+    worldGenerator_.generate();
 
     entityTilePool_.sortByDepth();
     entityTileMesh_.createInstanceBuffer(32 * 1024 * 1024);
 
     cameraPosition.position = {0.0f, 0.0f, 0.0f};
 
-    renderer::CommandBuffer::endCapture(transferCommandBuffer);
+    transferCommandBuffer.endCapture();
 
-    renderer::QueueSubmitInfo submitInfo = {
+    vulkanite::renderer::QueueSubmitInfo submitInfo = {
         .fence = temporaryFence,
         .commandBuffers = {transferCommandBuffer},
         .waits = {},
@@ -423,87 +474,65 @@ void engine::Engine::start() {
         .waitFlags = {},
     };
 
-    renderer::Queue::submit(transferQueue, submitInfo);
-    renderer::Device::waitForFences(device, {temporaryFence});
-    renderer::Fence::destroy(temporaryFence);
+    transferQueue.submit(submitInfo);
+    device.waitForFences({temporaryFence});
 
     createBasicPipelineResources();
 
-    renderer::DescriptorSetBufferBinding cameraBufferBinding = {
+    vulkanite::renderer::DescriptorSetBufferBinding cameraBufferBinding = {
         .buffer = cameraBuffer_,
         .offsetBytes = 0,
-        .rangeBytes = renderer::Buffer::size(cameraBuffer_),
+        .rangeBytes = cameraBuffer_.getSize(),
     };
 
-    renderer::DescriptorSetUpdateInfo tilemapUniformBufferUpdateInfo = {
+    vulkanite::renderer::DescriptorSetUpdateInfo tilemapUniformBufferUpdateInfo = {
         .set = tilemapDescriptorSet_,
-        .inputType = renderer::DescriptorInputType::UNIFORM_BUFFER,
+        .inputType = vulkanite::renderer::DescriptorInputType::UNIFORM_BUFFER,
         .binding = 0,
         .arrayElement = 0,
         .buffers = {cameraBufferBinding},
         .images = {},
     };
 
-    renderer::DescriptorPool::updateDescriptorSets(descriptorPool_, {tilemapUniformBufferUpdateInfo});
-
-    renderer::ImageViewCreateInfo albedoImageViewCreateInfo = {
-        .image = tilemapAlbedoImage_,
-        .type = renderer::ImageViewType::IMAGE_2D,
-        .aspectFlags = renderer::ImageAspectFlags::COLOUR,
-        .baseMipLevel = 0,
-        .levelCount = 1,
-        .baseArrayLayer = 0,
-        .layerCount = 1,
-    };
-
-    renderer::ImageViewCreateInfo normalImageViewCreateInfo = {
-        .image = tilemapNormalImage_,
-        .type = renderer::ImageViewType::IMAGE_2D,
-        .aspectFlags = renderer::ImageAspectFlags::COLOUR,
-        .baseMipLevel = 0,
-        .levelCount = 1,
-        .baseArrayLayer = 0,
-        .layerCount = 1,
-    };
-
-    tilemapAlbedoImageView_ = renderer::ImageView::create(albedoImageViewCreateInfo);
-    tilemapNormalImageView_ = renderer::ImageView::create(normalImageViewCreateInfo);
+    descriptorPool_.updateDescriptorSets({tilemapUniformBufferUpdateInfo});
 
     lastFrameTime_ = std::chrono::high_resolution_clock::now();
 
     stbi_image_free(albedoImageData);
+    stbi_image_free(normalImageData);
 
-    renderer::DescriptorSetImageBinding albedoSamplerBinding = {
+    vulkanite::renderer::DescriptorSetImageBinding albedoSamplerBinding = {
         .image = tilemapAlbedoImageView_,
         .sampler = sampler_,
-        .layout = renderer::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
+        .layout = vulkanite::renderer::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
     };
 
-    renderer::DescriptorSetUpdateInfo albedoSamplerUpdateInfo = {
+    vulkanite::renderer::DescriptorSetUpdateInfo albedoSamplerUpdateInfo = {
         .set = tilemapDescriptorSet_,
-        .inputType = renderer::DescriptorInputType::IMAGE_SAMPLER,
+        .inputType = vulkanite::renderer::DescriptorInputType::IMAGE_SAMPLER,
         .binding = 1,
         .arrayElement = 0,
         .buffers = {},
         .images = {albedoSamplerBinding},
     };
 
-    renderer::DescriptorSetImageBinding normalSamplerBinding = {
+    vulkanite::renderer::DescriptorSetImageBinding normalSamplerBinding = {
         .image = tilemapNormalImageView_,
         .sampler = sampler_,
-        .layout = renderer::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
+        .layout = vulkanite::renderer::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
     };
 
-    renderer::DescriptorSetUpdateInfo normalSamplerUpdateInfo = {
+    vulkanite::renderer::DescriptorSetUpdateInfo normalSamplerUpdateInfo = {
         .set = tilemapDescriptorSet_,
-        .inputType = renderer::DescriptorInputType::IMAGE_SAMPLER,
+        .inputType = vulkanite::renderer::DescriptorInputType::IMAGE_SAMPLER,
         .binding = 2,
         .arrayElement = 0,
         .buffers = {},
         .images = {normalSamplerBinding},
     };
 
-    renderer::DescriptorPool::updateDescriptorSets(descriptorPool_, {albedoSamplerUpdateInfo, normalSamplerUpdateInfo});
+    descriptorPool_.updateDescriptorSets({albedoSamplerUpdateInfo, normalSamplerUpdateInfo});
+    temporaryFence.destroy();
 }
 
 void engine::Engine::calculateDeltaTime() {
@@ -516,7 +545,9 @@ void engine::Engine::runPreTransferSystems() {
     using namespace ::components;
 
     auto& cameraComponent = registry_.get<Camera>(currentCamera_);
-    cameraComponent.size += inputManager_.mouseScrollDelta().y;
+    cameraComponent.size -= inputManager_.mouseScrollDelta().y;
+
+    cameraComponent.size = glm::clamp(cameraComponent.size, 4.0f, 30.0f);
 
     ::systems::entities::updateControllers(*this);
 
@@ -555,20 +586,20 @@ void engine::Engine::update() {
     auto& stagingBufferFence = stagingManager_.getCurrentFence();
     auto& stagingBufferSemaphore = stagingManager_.getCurrentSemaphore();
 
-    renderer::CommandBuffer::reset(transferCommandBuffer);
+    transferCommandBuffer.reset();
 
     calculateDeltaTime();
     runPreTransferSystems();
 
-    renderer::CommandBuffer::beginCapture(transferCommandBuffer);
+    transferCommandBuffer.beginCapture();
 
     runMidTransferSystems();
 
-    renderer::CommandBuffer::endCapture(transferCommandBuffer);
+    transferCommandBuffer.endCapture();
 
     runPostTransferSystems();
 
-    renderer::QueueSubmitInfo submitInfo = {
+    vulkanite::renderer::QueueSubmitInfo submitInfo = {
         .fence = stagingBufferFence,
         .commandBuffers = {transferCommandBuffer},
         .waits = {},
@@ -576,7 +607,7 @@ void engine::Engine::update() {
         .waitFlags = {},
     };
 
-    renderer::Queue::submit(transferQueue, submitInfo);
+    transferQueue.submit(submitInfo);
 }
 
 void engine::Engine::render() {
@@ -591,26 +622,26 @@ void engine::Engine::render() {
 
     auto& stagingBufferSemaphore = stagingManager_.getCurrentSemaphore();
 
-    renderer::CommandBuffer::reset(commandBuffer);
+    commandBuffer.reset();
 
-    renderer::Viewport viewport = {
+    vulkanite::renderer::Viewport viewport = {
         .position = {0.0, 0.0},
-        .extent = renderer::Swapchain::getExtent(swapchain),
+        .extent = swapchain.getExtent(),
         .minDepth = 0.0f,
         .maxDepth = 1.0f,
     };
 
-    renderer::Scissor scissor = {
+    vulkanite::renderer::Scissor scissor = {
         .offset = {0, 0},
-        .extent = renderer::Swapchain::getExtent(swapchain),
+        .extent = swapchain.getExtent(),
     };
 
-    renderer::RenderPassBeginInfo renderPassBeginInfo = {
+    vulkanite::renderer::RenderPassBeginInfo renderPassBeginInfo = {
         .renderPass = renderPass,
         .framebuffer = framebuffer,
         .region = {
             .position = {0, 0},
-            .extent = renderer::Swapchain::getExtent(swapchain),
+            .extent = swapchain.getExtent(),
         },
         .colourClearValues = {
             glm::fvec4{0.0, 0.0, 0.0, 1.0},
@@ -621,55 +652,53 @@ void engine::Engine::render() {
 
     using namespace ::components;
 
-    renderer::CommandBuffer::beginCapture(commandBuffer);
-    renderer::CommandBuffer::beginRenderPass(commandBuffer, renderPassBeginInfo);
+    commandBuffer.beginCapture();
+    commandBuffer.beginRenderPass(renderPassBeginInfo);
 
-    renderer::CommandBuffer::bindPipeline(commandBuffer, worldPipeline_);
-    renderer::CommandBuffer::setPipelineViewports(commandBuffer, {viewport}, 0);
-    renderer::CommandBuffer::setPipelineScissors(commandBuffer, {scissor}, 0);
+    commandBuffer.bindPipeline(worldPipeline_);
+    commandBuffer.setPipelineViewports({viewport}, 0);
+    commandBuffer.setPipelineScissors({scissor}, 0);
 
     // renderer::CommandBuffer::bindVertexBuffers(commandBuffer, {worldTileMesh_.getMeshBuffer(), worldTileMesh_.getInstanceBuffer()}, {0, 0}, 0);
     // renderer::CommandBuffer::draw(commandBuffer, 4, static_cast<std::uint32_t>(worldTilePool_.data().size()), 0, 0);
 
-    renderer::CommandBuffer::bindDescriptorSets(commandBuffer, renderer::DeviceOperation::GRAPHICS, pipelineLayout_, 0, {tilemapDescriptorSet_});
-    renderer::CommandBuffer::bindVertexBuffers(commandBuffer, {entityTileMesh_.getMeshBuffer(), entityTileMesh_.getInstanceBuffer()}, {0, 0}, 0);
-    renderer::CommandBuffer::draw(commandBuffer, 4, static_cast<std::uint32_t>(entityTilePool_.data().size()), 0, 0);
+    commandBuffer.bindDescriptorSets(vulkanite::renderer::DeviceOperation::GRAPHICS, pipelineLayout_, 0, {tilemapDescriptorSet_});
+    commandBuffer.bindVertexBuffers({entityTileMesh_.getMeshBuffer(), entityTileMesh_.getInstanceBuffer()}, {0, 0}, 0);
+    commandBuffer.draw(4, static_cast<std::uint32_t>(entityTilePool_.data().size()), 0, 0);
 
-    renderer::CommandBuffer::endRenderPass(commandBuffer);
-    renderer::CommandBuffer::endCapture(commandBuffer);
+    commandBuffer.endRenderPass();
+    commandBuffer.endCapture();
 
-    renderer::QueueSubmitInfo submitInfo = {
+    vulkanite::renderer::QueueSubmitInfo submitInfo = {
         .fence = inFlightFence,
         .commandBuffers = {commandBuffer},
         .waits = {stagingBufferSemaphore, acquireSemaphore},
         .signals = {presentSemaphore},
         .waitFlags = {
-            renderer::PipelineStageFlags::VERTEX_INPUT,
-            renderer::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
+            vulkanite::renderer::PipelineStageFlags::VERTEX_INPUT,
+            vulkanite::renderer::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
         },
     };
 
-    renderer::Queue::submit(graphicsQueue, submitInfo);
+    graphicsQueue.submit(submitInfo);
 }
 
 void engine::Engine::close() {
     auto& device = renderer_.getDevice();
 
-    renderer::Device::waitIdle(device);
+    device.waitIdle();
 
-    renderer::CommandPool::destroy(transferCommandPool_);
-    renderer::DescriptorPool::destroy(descriptorPool_);
-    renderer::DescriptorSetLayout::destroy(descriptorSetLayout_);
-    renderer::Pipeline::destroy(worldPipeline_);
-    renderer::PipelineLayout::destroy(pipelineLayout_);
-
-    renderer::ImageView::destroy(tilemapAlbedoImageView_);
-    renderer::ImageView::destroy(tilemapNormalImageView_);
-    renderer::Image::destroy(tilemapAlbedoImage_);
-    renderer::Image::destroy(tilemapNormalImage_);
-    renderer::Sampler::destroy(sampler_);
-
-    renderer::Buffer::destroy(cameraBuffer_);
+    sampler_.destroy();
+    tilemapAlbedoImage_.destroy();
+    tilemapNormalImage_.destroy();
+    tilemapAlbedoImageView_.destroy();
+    tilemapNormalImageView_.destroy();
+    descriptorPool_.destroy();
+    transferCommandPool_.destroy();
+    descriptorSetLayout_.destroy();
+    pipelineLayout_.destroy();
+    worldPipeline_.destroy();
+    cameraBuffer_.destroy();
 }
 
 void engine::Engine::createBasicPipelineResources() {
@@ -691,131 +720,124 @@ void engine::Engine::createBasicPipelineResources() {
     tileVertShader.read(reinterpret_cast<char*>(tileVertShaderBinary.data()), static_cast<std::uint32_t>(tileVertShaderSize));
     tileFragShader.read(reinterpret_cast<char*>(tileFragShaderBinary.data()), static_cast<std::uint32_t>(tileFragShaderSize));
 
-    renderer::ShaderModuleCreateInfo tileVertShaderModuleCreateInfo = {
+    vulkanite::renderer::ShaderModuleCreateInfo tileVertShaderModuleCreateInfo = {
         .device = device,
         .data = tileVertShaderBinary,
     };
 
-    renderer::ShaderModuleCreateInfo tileFragShaderModuleCreateInfo = {
+    vulkanite::renderer::ShaderModuleCreateInfo tileFragShaderModuleCreateInfo = {
         .device = device,
         .data = tileFragShaderBinary,
     };
 
-    renderer::ShaderModule tileVertShaderModule = renderer::ShaderModule::create(tileVertShaderModuleCreateInfo);
-    renderer::ShaderModule tileFragShaderModule = renderer::ShaderModule::create(tileFragShaderModuleCreateInfo);
+    vulkanite::renderer::ShaderModule tileVertShaderModule;
+    vulkanite::renderer::ShaderModule tileFragShaderModule;
 
-    renderer::PipelineLayoutCreateInfo pipelineLayoutCreateInfo = {
-        .device = device,
-        .inputLayouts = {descriptorSetLayout_},
-        .pushConstants = {},
-    };
+    tileVertShaderModule.create(tileVertShaderModuleCreateInfo);
+    tileFragShaderModule.create(tileFragShaderModuleCreateInfo);
 
-    pipelineLayout_ = renderer::PipelineLayout::create(pipelineLayoutCreateInfo);
-
-    renderer::PipelineCreateInfo worldPipelineCreateInfo = {
+    vulkanite::renderer::PipelineCreateInfo worldPipelineCreateInfo = {
         .renderPass = renderPass,
         .layout = pipelineLayout_,
-        .subpassIndex = 0,
         .shaderStages = {
-            {
+            vulkanite::renderer::ShaderStageInfo{
                 tileVertShaderModule,
-                renderer::ShaderStage::VERTEX,
-                "main",
+                vulkanite::renderer::ShaderStage::VERTEX,
             },
-            {
+            vulkanite::renderer::ShaderStageInfo{
                 tileFragShaderModule,
-                renderer::ShaderStage::FRAGMENT,
-                "main",
+                vulkanite::renderer::ShaderStage::FRAGMENT,
             },
         },
+        .subpassIndex = 0,
+        .viewportCount = 1,
+        .scissorCount = 1,
         .vertexInput = {
             .bindings = {
-                renderer::VertexInputBindingDescription{
-                    .inputRate = renderer::VertexInputRate::PER_VERTEX,
+                vulkanite::renderer::VertexInputBindingDescription{
+                    .inputRate = vulkanite::renderer::VertexInputRate::PER_VERTEX,
                     .binding = 0,
                     .strideBytes = sizeof(glm::vec2),
                 },
-                renderer::VertexInputBindingDescription{
-                    .inputRate = renderer::VertexInputRate::PER_INSTANCE,
+                vulkanite::renderer::VertexInputBindingDescription{
+                    .inputRate = vulkanite::renderer::VertexInputRate::PER_INSTANCE,
                     .binding = 1,
                     .strideBytes = sizeof(TileInstance),
                 },
             },
             .attributes = {
                 // === VERTEX ===
-                renderer::VertexAttributeDescription{
-                    .format = renderer::VertexAttributeFormat::R32G32_FLOAT,
+                vulkanite::renderer::VertexAttributeDescription{
+                    .format = vulkanite::renderer::VertexAttributeFormat::R32G32_FLOAT,
                     .binding = 0,
                     .location = 0,
                 },
                 // === POSITION ===
-                renderer::VertexAttributeDescription{
-                    .format = renderer::VertexAttributeFormat::R32G32_FLOAT,
+                vulkanite::renderer::VertexAttributeDescription{
+                    .format = vulkanite::renderer::VertexAttributeFormat::R32G32_FLOAT,
                     .binding = 1,
                     .location = 1,
                 },
                 // === SCALE ===
-                renderer::VertexAttributeDescription{
-                    .format = renderer::VertexAttributeFormat::R32G32_FLOAT,
+                vulkanite::renderer::VertexAttributeDescription{
+                    .format = vulkanite::renderer::VertexAttributeFormat::R32G32_FLOAT,
                     .binding = 1,
                     .location = 2,
                 },
                 // === TEXTURE POSITION ===
-                renderer::VertexAttributeDescription{
-                    .format = renderer::VertexAttributeFormat::R32G32_FLOAT,
+                vulkanite::renderer::VertexAttributeDescription{
+                    .format = vulkanite::renderer::VertexAttributeFormat::R32G32_FLOAT,
                     .binding = 1,
                     .location = 3,
                 },
                 // === TEXTURE EXTENT ===
-                renderer::VertexAttributeDescription{
-                    .format = renderer::VertexAttributeFormat::R32G32_FLOAT,
+                vulkanite::renderer::VertexAttributeDescription{
+                    .format = vulkanite::renderer::VertexAttributeFormat::R32G32_FLOAT,
                     .binding = 1,
                     .location = 4,
                 },
                 // === TEXTURE OFFSET ===
-                renderer::VertexAttributeDescription{
-                    .format = renderer::VertexAttributeFormat::R32G32_FLOAT,
+                vulkanite::renderer::VertexAttributeDescription{
+                    .format = vulkanite::renderer::VertexAttributeFormat::R32G32_FLOAT,
                     .binding = 1,
                     .location = 5,
                 },
                 // === TEXTURE REPEAT ===
-                renderer::VertexAttributeDescription{
-                    .format = renderer::VertexAttributeFormat::R32G32_FLOAT,
+                vulkanite::renderer::VertexAttributeDescription{
+                    .format = vulkanite::renderer::VertexAttributeFormat::R32G32_FLOAT,
                     .binding = 1,
                     .location = 6,
                 },
                 // === COLOUR FACTOR ===
-                renderer::VertexAttributeDescription{
-                    .format = renderer::VertexAttributeFormat::R32G32B32A32_FLOAT,
+                vulkanite::renderer::VertexAttributeDescription{
+                    .format = vulkanite::renderer::VertexAttributeFormat::R32G32B32A32_FLOAT,
                     .binding = 1,
                     .location = 7,
                 },
             },
         },
         .inputAssembly = {
-            .topology = renderer::PolygonTopology::TRIANGLE_STRIP,
+            .topology = vulkanite::renderer::PolygonTopology::TRIANGLE_STRIP,
             .primitiveRestart = false,
         },
-        .viewportCount = 1,
-        .scissorCount = 1,
         .rasterisation = {
-            .frontFaceWinding = renderer::PolygonFaceWinding::ANTICLOCKWISE,
-            .cullMode = renderer::PolygonCullMode::NEVER,
+            .frontFaceWinding = vulkanite::renderer::PolygonFaceWinding::ANTICLOCKWISE,
+            .cullMode = vulkanite::renderer::PolygonCullMode::NEVER,
             .frontface = {
-                .depthComparison = renderer::CompareOperation::LESS_EQUAL,
-                .stencilComparison = renderer::CompareOperation::ALWAYS,
-                .stencilFailOperation = renderer::ValueOperation::KEEP,
-                .depthFailOperation = renderer::ValueOperation::KEEP,
-                .passOperation = renderer::ValueOperation::KEEP,
+                .depthComparison = vulkanite::renderer::CompareOperation::LESS_EQUAL,
+                .stencilComparison = vulkanite::renderer::CompareOperation::ALWAYS,
+                .stencilFailOperation = vulkanite::renderer::ValueOperation::KEEP,
+                .depthFailOperation = vulkanite::renderer::ValueOperation::KEEP,
+                .passOperation = vulkanite::renderer::ValueOperation::KEEP,
                 .stencilCompareMask = 0xFF,
                 .stencilWriteMask = 0xFF,
             },
             .backface = {
-                .depthComparison = renderer::CompareOperation::LESS_EQUAL,
-                .stencilComparison = renderer::CompareOperation::ALWAYS,
-                .stencilFailOperation = renderer::ValueOperation::KEEP,
-                .depthFailOperation = renderer::ValueOperation::KEEP,
-                .passOperation = renderer::ValueOperation::KEEP,
+                .depthComparison = vulkanite::renderer::CompareOperation::LESS_EQUAL,
+                .stencilComparison = vulkanite::renderer::CompareOperation::ALWAYS,
+                .stencilFailOperation = vulkanite::renderer::ValueOperation::KEEP,
+                .depthFailOperation = vulkanite::renderer::ValueOperation::KEEP,
+                .passOperation = vulkanite::renderer::ValueOperation::KEEP,
                 .stencilCompareMask = 0xFF,
                 .stencilWriteMask = 0xFF,
             },
@@ -827,14 +849,14 @@ void engine::Engine::createBasicPipelineResources() {
         },
         .multisample = {},
         .colourBlend = {
-            .attachments = {renderer::ColourBlendAttachment{}},
+            .attachments = {vulkanite::renderer::ColourBlendAttachment{}},
         },
     };
 
-    pipelines_ = renderer::Device::createPipelines(device, {worldPipelineCreateInfo});
+    pipelines_ = device.createPipelines({worldPipelineCreateInfo});
 
     worldPipeline_ = pipelines_[0];
 
-    renderer::ShaderModule::destroy(tileVertShaderModule);
-    renderer::ShaderModule::destroy(tileFragShaderModule);
+    tileVertShaderModule.destroy();
+    tileFragShaderModule.destroy();
 }

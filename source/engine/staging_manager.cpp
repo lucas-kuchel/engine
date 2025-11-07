@@ -20,49 +20,41 @@ void engine::StagingManager::rotate() {
 void engine::StagingManager::allocate(std::size_t count, std::size_t individualSize) {
     deallocate();
 
-    buffers_.resize(count);
-    fences_.resize(count);
-    semaphores_.resize(count);
+    buffers_.reserve(count);
+    fences_.reserve(count);
+    semaphores_.reserve(count);
 
     auto& renderer = engine_.getRenderer();
     auto& device = renderer.getDevice();
 
-    renderer::BufferCreateInfo createInfo = {
+    vulkanite::renderer::BufferCreateInfo createInfo = {
         .device = device,
-        .memoryType = renderer::MemoryType::HOST_VISIBLE,
-        .usageFlags = renderer::BufferUsageFlags::TRANSFER_SOURCE,
+        .memoryType = vulkanite::renderer::MemoryType::HOST_VISIBLE,
+        .usageFlags = vulkanite::renderer::BufferUsageFlags::TRANSFER_SOURCE,
         .sizeBytes = individualSize,
     };
 
-    renderer::FenceCreateInfo fenceCreateInfo = {
+    vulkanite::renderer::FenceCreateInfo fenceCreateInfo = {
         .device = device,
-        .createFlags = renderer::FenceCreateFlags::START_SIGNALLED,
+        .createFlags = vulkanite::renderer::FenceCreateFlags::START_SIGNALLED,
     };
 
-    for (auto& buffer : buffers_) {
-        buffer = renderer::Buffer::create(createInfo);
-    }
+    for (std::size_t i = 0; i < count; i++) {
+        auto& buffer = buffers_.emplace_back();
+        auto& fence = fences_.emplace_back();
+        auto& semaphore = semaphores_.emplace_back();
 
-    for (auto& fence : fences_) {
-        fence = renderer::Fence::create(fenceCreateInfo);
-    }
-
-    for (auto& semaphore : semaphores_) {
-        semaphore = renderer::Semaphore::create(device);
+        buffer.create(createInfo);
+        fence.create(fenceCreateInfo);
+        semaphore.create(device);
     }
 }
 
 void engine::StagingManager::deallocate() {
-    for (auto& buffer : buffers_) {
-        renderer::Buffer::destroy(buffer);
-    }
-
-    for (auto& fence : fences_) {
-        renderer::Fence::destroy(fence);
-    }
-
-    for (auto& semaphore : semaphores_) {
-        renderer::Semaphore::destroy(semaphore);
+    for (std::size_t i = 0; i < buffers_.size(); i++) {
+        buffers_[i].destroy();
+        fences_[i].destroy();
+        semaphores_[i].destroy();
     }
 
     buffers_.clear();
@@ -74,14 +66,14 @@ std::size_t& engine::StagingManager::getOffset() {
     return currentOffset_;
 }
 
-renderer::Buffer& engine::StagingManager::getCurrentBuffer() {
+vulkanite::renderer::Buffer& engine::StagingManager::getCurrentBuffer() {
     return buffers_[currentIndex_];
 }
 
-renderer::Fence& engine::StagingManager::getCurrentFence() {
+vulkanite::renderer::Fence& engine::StagingManager::getCurrentFence() {
     return fences_[currentIndex_];
 }
 
-renderer::Semaphore& engine::StagingManager::getCurrentSemaphore() {
+vulkanite::renderer::Semaphore& engine::StagingManager::getCurrentSemaphore() {
     return semaphores_[currentIndex_];
 }

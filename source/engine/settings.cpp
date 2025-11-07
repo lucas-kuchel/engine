@@ -1,6 +1,6 @@
 #include <engine/settings.hpp>
 
-#include <app/configuration.hpp>
+#include <vulkanite/window/configuration.hpp>
 
 #include <fstream>
 
@@ -28,10 +28,10 @@ engine::Settings engine::Settings::load() {
     std::string displayMode = json["display"]["mode"].get<std::string>();
 
     if (displayMode == "windowed") {
-        settings.display.mode = app::WindowVisibility::WINDOWED;
+        settings.display.mode = vulkanite::window::Visibility::WINDOWED;
     }
     else if (displayMode == "fullscreen") {
-        settings.display.mode = app::WindowVisibility::FULLSCREEN;
+        settings.display.mode = vulkanite::window::Visibility::FULLSCREEN;
     }
     else {
         throw std::runtime_error("Call failed: engine::Settings::load(): Bad value for setting \"display.mode\"");
@@ -45,7 +45,7 @@ void engine::Settings::save(const Settings& settings) {
 
     json["display"]["width"] = settings.display.size.x;
     json["display"]["height"] = settings.display.size.y;
-    json["display"]["mode"] = (settings.display.mode == app::WindowVisibility::FULLSCREEN) ? "fullscreen" : "windowed";
+    json["display"]["mode"] = (settings.display.mode == vulkanite::window::Visibility::FULLSCREEN) ? "fullscreen" : "windowed";
 
     json["graphics"]["imageCount"] = settings.graphics.imageCount;
     json["graphics"]["renderAheadLimit"] = settings.graphics.renderAheadLimit;

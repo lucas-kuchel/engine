@@ -1,6 +1,6 @@
 #pragma once
 
-#include <renderer/buffer.hpp>
+#include <vulkanite/renderer/renderer.hpp>
 
 #include <engine/tile_pool.hpp>
 
@@ -13,9 +13,9 @@ namespace engine {
 
     class TileMesh {
     public:
-        TileMesh(Engine& engine);
         ~TileMesh();
 
+        void create(Engine& engine);
         void setBaseMesh(const std::array<glm::vec2, 4>& vertices);
         void createInstanceBuffer(std::size_t instanceCount);
         void setInstances(std::span<TileInstance> instances);
@@ -29,9 +29,9 @@ namespace engine {
         }
 
     private:
-        renderer::Buffer meshBuffer_;
-        renderer::Buffer instanceBuffer_;
+        vulkanite::renderer::Buffer meshBuffer_;
+        vulkanite::renderer::Buffer instanceBuffer_;
 
-        Engine& engine_;
+        Engine* engine_;
     };
 }

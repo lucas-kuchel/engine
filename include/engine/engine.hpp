@@ -2,17 +2,15 @@
 
 #include <vector>
 
-#include <app/configuration.hpp>
-#include <app/context.hpp>
-#include <app/window.hpp>
+#include <vulkanite/window/subsystem.hpp>
+#include <vulkanite/window/window.hpp>
 
 #include <engine/input_manager.hpp>
+#include <engine/renderer.hpp>
 #include <engine/staging_manager.hpp>
 #include <engine/tile_mesh.hpp>
 #include <engine/tile_pool.hpp>
 #include <engine/world_generator.hpp>
-
-#include <renderer/renderer.hpp>
 
 #include <entt/entt.hpp>
 
@@ -80,7 +78,7 @@ namespace engine {
         }
 
     private:
-        app::WindowCreateInfo createWindow();
+        vulkanite::window::WindowCreateInfo createWindow();
 
         void manageEvents();
 
@@ -91,7 +89,7 @@ namespace engine {
 
         void createBasicPipelineResources();
 
-        static std::uint64_t keyIndex(app::Key key);
+        static std::uint64_t keyIndex(vulkanite::window::Key key);
 
         void calculateDeltaTime();
 
@@ -99,52 +97,44 @@ namespace engine {
         void runMidTransferSystems();
         void runPostTransferSystems();
 
-        InputManager inputManager_;
-        WorldGenerator worldGenerator_;
-
-        TilePool worldTilePool_;
-        TilePool entityTilePool_;
-
         entt::entity currentCamera_;
         entt::entity currentEntity_;
-
         entt::registry registry_;
         entt::dispatcher dispatcher_;
 
-        app::Context context_;
-        app::Window window_;
+        vulkanite::window::Subsystem subsystem_;
+        vulkanite::window::Window window_;
 
-        renderer::Renderer renderer_;
-        renderer::CommandPool transferCommandPool_;
-        renderer::DescriptorSet tilemapDescriptorSet_;
-        renderer::DescriptorSetLayout descriptorSetLayout_;
-        renderer::DescriptorPool descriptorPool_;
-        renderer::Pipeline worldPipeline_;
-        renderer::PipelineLayout pipelineLayout_;
+        engine::Renderer renderer_;
 
-        renderer::Image tilemapAlbedoImage_;
-        renderer::Image tilemapNormalImage_;
+        vulkanite::renderer::Sampler sampler_;
+        vulkanite::renderer::Image tilemapAlbedoImage_;
+        vulkanite::renderer::Image tilemapNormalImage_;
+        vulkanite::renderer::ImageView tilemapAlbedoImageView_;
+        vulkanite::renderer::ImageView tilemapNormalImageView_;
+        vulkanite::renderer::DescriptorPool descriptorPool_;
+        vulkanite::renderer::CommandPool transferCommandPool_;
+        vulkanite::renderer::DescriptorSetLayout descriptorSetLayout_;
+        vulkanite::renderer::PipelineLayout pipelineLayout_;
+        vulkanite::renderer::DescriptorSet tilemapDescriptorSet_;
+        vulkanite::renderer::Pipeline worldPipeline_;
+        vulkanite::renderer::Buffer cameraBuffer_;
 
-        renderer::ImageView tilemapAlbedoImageView_;
-        renderer::ImageView tilemapNormalImageView_;
-
-        renderer::Sampler sampler_;
-
-        renderer::Buffer cameraBuffer_;
-
-        std::vector<renderer::Pipeline> pipelines_;
-        std::vector<renderer::DescriptorSet> descriptorSets_;
-        std::vector<renderer::CommandBuffer> transferCommandBuffers_;
+        std::vector<vulkanite::renderer::Pipeline> pipelines_;
+        std::vector<vulkanite::renderer::DescriptorSet> descriptorSets_;
+        std::vector<vulkanite::renderer::CommandBuffer> transferCommandBuffers_;
 
         StagingManager stagingManager_;
-
         TileMesh worldTileMesh_;
         TileMesh entityTileMesh_;
-
         TimePoint lastFrameTime_;
         TimePoint thisFrameTime_;
+        InputManager inputManager_;
+        WorldGenerator worldGenerator_;
+        TilePool worldTilePool_;
+        TilePool entityTilePool_;
 
         bool running_ = true;
-        float deltaTime_ = 0.0f;
+        float deltaTime_ = 0.1f;
     };
 }

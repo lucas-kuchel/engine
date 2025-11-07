@@ -1,31 +1,16 @@
 #pragma once
 
-#include <app/window.hpp>
+#include <vulkanite/window/window.hpp>
 
-#include <renderer/buffer.hpp>
-#include <renderer/command_buffer.hpp>
-#include <renderer/command_pool.hpp>
-#include <renderer/device.hpp>
-#include <renderer/fence.hpp>
-#include <renderer/framebuffer.hpp>
-#include <renderer/image.hpp>
-#include <renderer/image_view.hpp>
-#include <renderer/instance.hpp>
-#include <renderer/pipeline.hpp>
-#include <renderer/render_pass.hpp>
-#include <renderer/sampler.hpp>
-#include <renderer/semaphore.hpp>
-#include <renderer/shader_module.hpp>
-#include <renderer/surface.hpp>
-#include <renderer/swapchain.hpp>
+#include <vulkanite/renderer/renderer.hpp>
 
-namespace renderer {
+namespace engine {
     class Renderer {
     public:
-        Renderer(app::Window& window);
         ~Renderer();
 
-        void acquireImage(const std::vector<Fence>& fences);
+        void create(vulkanite::window::Window& window);
+        void acquireImage(const std::vector<vulkanite::renderer::Fence>& fences);
         void presentImage();
 
         auto& getDevice() {
@@ -85,11 +70,11 @@ namespace renderer {
         }
 
         auto& getCurrentSwapchainImage() {
-            return Swapchain::getImages(swapchain_)[imageCounter_.index];
+            return swapchain_.getImages()[imageCounter_.index];
         }
 
         auto& getCurrentSwapchainImageView() {
-            return Swapchain::getImageViews(swapchain_)[imageCounter_.index];
+            return swapchain_.getImageViews()[imageCounter_.index];
         }
 
         auto wasResized() const {
@@ -118,22 +103,21 @@ namespace renderer {
             std::uint32_t index = 0;
         };
 
-        renderer::Instance instance_;
-        renderer::Surface surface_;
-        renderer::Device device_;
-        renderer::Swapchain swapchain_;
-        renderer::CommandPool commandPool_;
-        renderer::RenderPass renderPass_;
+        vulkanite::renderer::Instance instance_;
+        vulkanite::renderer::Surface surface_;
+        vulkanite::renderer::Device device_;
+        vulkanite::renderer::Swapchain swapchain_;
+        vulkanite::renderer::CommandPool commandPool_;
+        vulkanite::renderer::RenderPass renderPass_;
+        vulkanite::renderer::Queue graphicsQueue_;
+        vulkanite::renderer::Queue transferQueue_;
+        vulkanite::renderer::Queue presentQueue_;
 
-        renderer::Queue graphicsQueue_;
-        renderer::Queue transferQueue_;
-        renderer::Queue presentQueue_;
-
-        std::vector<renderer::Fence> inFlightFences_;
-        std::vector<renderer::Semaphore> acquireSemaphores_;
-        std::vector<renderer::Semaphore> presentSemaphores_;
-        std::vector<renderer::Framebuffer> framebuffers_;
-        std::vector<renderer::CommandBuffer> commandBuffers_;
+        std::vector<vulkanite::renderer::Fence> inFlightFences_;
+        std::vector<vulkanite::renderer::Semaphore> acquireSemaphores_;
+        std::vector<vulkanite::renderer::Semaphore> presentSemaphores_;
+        std::vector<vulkanite::renderer::Framebuffer> framebuffers_;
+        std::vector<vulkanite::renderer::CommandBuffer> commandBuffers_;
 
         Counter imageCounter_;
         Counter frameCounter_;
