@@ -24,8 +24,6 @@ target_include_directories(engine PRIVATE
     "include"
     ${vulkanite_SOURCE_DIR}
     ${Stb_INCLUDE_DIR}
-    ${LUA_INCLUDE_DIR}
-    ${SOL2_INCLUDE_DIRS}
 )
 
 target_link_libraries(engine PRIVATE

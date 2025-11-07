@@ -7,7 +7,7 @@
 
 glm::vec2 engine::worldToScreenSpace(glm::vec3 position) {
     constexpr float radX = 0.463647609001f;
-    constexpr float radZ = M_PIf - radX;
+    constexpr float radZ = M_PI - radX;
 
     glm::vec2 dirX = {std::cos(radX), std::sin(radX)};
     glm::vec2 dirY = {0.0f, 1.0f};
@@ -20,7 +20,7 @@ glm::vec2 engine::worldToScreenSpace(glm::vec3 position) {
 
 glm::vec3 engine::screenToWorldSpace(glm::vec2 screen, float y) {
     constexpr float radX = 0.463647609001f;
-    constexpr float radZ = M_PIf - radX;
+    constexpr float radZ = M_PI - radX;
 
     constexpr glm::vec3 unitScale = {0.558f, 0.5f, 0.558f};
 
