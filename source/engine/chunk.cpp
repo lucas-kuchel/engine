@@ -3,6 +3,8 @@
 
 #include <engine/chunk.hpp>
 
+#include <random>
+
 #include <glm/gtc/noise.hpp>
 
 glm::vec2 engine::worldToScreenSpace(glm::vec3 position) {
@@ -49,6 +51,29 @@ void engine::generateChunk(engine::Chunk& chunk, engine::Engine& engine) {
 
     chunk.tiles.reserve(static_cast<std::size_t>(chunkExtent.x * chunkExtent.y * chunkExtent.z));
 
+    auto fbm2D = [](glm::vec2 p, int octaves = 4, float lacunarity = 2.0f, float gain = 0.5f) {
+        float value = 0.0f;
+        float amplitude = 1.0f;
+        float frequency = 1.0f;
+
+        for (int i = 0; i < octaves; ++i) {
+            value += glm::simplex(p * frequency) * amplitude;
+            frequency *= lacunarity;
+            amplitude *= gain;
+        }
+
+        return value;
+    };
+
+    static std::random_device randomDevice;
+    static std::mt19937 generator(randomDevice());
+
+    auto randomRange = [](float min, float max) {
+        std::uniform_real_distribution<float> distribution(min, max);
+
+        return distribution(generator);
+    };
+
     for (std::int64_t y = 0; y < chunkExtent.y; y++) {
         for (std::int64_t x = 0; x < chunkExtent.x; x++) {
             for (std::int64_t z = 0; z < chunkExtent.z; z++) {
@@ -60,20 +85,24 @@ void engine::generateChunk(engine::Chunk& chunk, engine::Engine& engine) {
 
                 glm::ivec3 worldPosition = chunk.position + glm::ivec3{x, y, z};
 
-                float noise = glm::simplex(glm::vec2(worldPosition.x, worldPosition.z) * 0.005f);
+                float noise = fbm2D(glm::vec2(worldPosition.x, worldPosition.z) * 0.005f, 12, 1.7, 0.6);
 
                 noise = (noise + 1.0f) * 0.5f;
 
                 float value;
 
-                if (noise < 0.18f) {
+                float rand = randomRange(0.9, 1.0);
+
+                if (noise > 0.4f) {
                     value = 0.0f;
+                    rand -= noise * 0.3f;
                 }
-                else if (noise < 0.2f) {
+                else if (noise > 0.3f) {
                     value = 0.4f;
                 }
                 else {
                     value = 0.5f;
+                    rand += noise * 0.7f;
                 }
 
                 data.order = (chunkExtent.y - worldPosition.y) * (chunkExtent.x + chunkExtent.z - 1) + worldPosition.x + worldPosition.z;
@@ -85,7 +114,7 @@ void engine::generateChunk(engine::Chunk& chunk, engine::Engine& engine) {
                 instance.appearance.texture.repeat = {1.0, 1.0};
                 instance.appearance.texture.sample.extent = {0.1, 0.1};
                 instance.appearance.texture.sample.position = {value, 0.0};
-                instance.appearance.colourFactor = {1.0, 1.0, 1.0, 1.0};
+                instance.appearance.colourFactor = {rand, rand, rand, 1.0};
 
                 chunk.tiles.push_back(entity);
             }

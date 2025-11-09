@@ -7,7 +7,8 @@
 
 namespace components {
     struct TileProxy {
-        std::size_t index = 0;
+        std::uint64_t index = 0;
+        std::uint32_t generation = 0;
         std::uint32_t uniqueIdentifier = 0;
     };
 }
