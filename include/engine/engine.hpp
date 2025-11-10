@@ -15,6 +15,8 @@
 #include <entt/entt.hpp>
 
 #include <chrono>
+#include <semaphore>
+#include <thread>
 
 namespace engine {
     using TimePoint = std::chrono::time_point<std::chrono::high_resolution_clock>;
@@ -79,6 +81,12 @@ namespace engine {
 
     private:
         vulkanite::window::WindowCreateInfo createWindow();
+
+        std::thread worldThread_;
+        std::binary_semaphore worldSignalSemaphore_;
+        std::binary_semaphore worldWaitSemaphore_;
+
+        void worldUpdate();
 
         void manageEvents();
 

@@ -16,7 +16,7 @@
 #include <stb_image.h>
 
 engine::Engine::Engine()
-    : worldGenerator_(*this), stagingManager_(*this) {
+    : worldGenerator_(*this), stagingManager_(*this), worldSignalSemaphore_(0), worldWaitSemaphore_(1) {
 }
 
 vulkanite::window::WindowCreateInfo engine::Engine::createWindow() {
@@ -458,12 +458,15 @@ void engine::Engine::start() {
     worldGenerator_.setWorldSize({32, 2, 32});
     worldGenerator_.setChunkSize({8, 8, 8});
 
-    entityTilePool_.sortByDepth();
     entityTileMesh_.createInstanceBuffer(32 * 1024 * 1024);
 
     cameraPosition.position = {0.0f, 0.0f, 0.0f};
 
     transferCommandBuffer.endCapture();
+
+    worldThread_ = std::thread([this]() {
+        worldUpdate();
+    });
 
     vulkanite::renderer::QueueSubmitInfo submitInfo = {
         .fence = temporaryFence,
@@ -552,18 +555,15 @@ void engine::Engine::runPreTransferSystems() {
 
     ::systems::integrateMovements(*this);
 
-    worldGenerator_.generate();
-
-    sortTiles(*this);
-
-    entityTilePool_.sortByDepth();
-
     ::systems::cameras::animateCameraPositions(*this);
     ::systems::cameras::animateCameraSizes(*this);
     ::systems::cameras::makeCamerasFollowTarget(*this);
     ::systems::cameras::calculateCameraData(*this);
 
-    ::systems::transformInstances(*this, entityTilePool_);
+    if (worldWaitSemaphore_.try_acquire()) {
+        ::systems::transformInstances(*this, entityTilePool_);
+        worldSignalSemaphore_.release();
+    }
 }
 
 void engine::Engine::runMidTransferSystems() {
@@ -684,7 +684,23 @@ void engine::Engine::render() {
     graphicsQueue.submit(submitInfo);
 }
 
+void engine::Engine::worldUpdate() {
+    while (running_) {
+        worldSignalSemaphore_.acquire();
+        worldGenerator_.generate();
+
+        sortTiles(*this);
+
+        entityTilePool_.sortByDepth();
+        worldWaitSemaphore_.release();
+    }
+}
+
 void engine::Engine::close() {
+    if (worldThread_.joinable()) {
+        worldThread_.join();
+    }
+
     auto& device = renderer_.getDevice();
 
     device.waitIdle();
