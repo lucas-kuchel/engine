@@ -1,7 +1,9 @@
+#include <engine/chunk.hpp>
 #include <engine/engine.hpp>
 #include <engine/tile_pool.hpp>
 
-#include <engine/chunk.hpp>
+#include <components/tags.hpp>
+#include <components/transforms.hpp>
 
 #include <random>
 
@@ -85,6 +87,9 @@ void engine::generateChunk(engine::Chunk& chunk, engine::Engine& engine) {
 
                 glm::ivec3 worldPosition = chunk.position + glm::ivec3{x, y, z};
 
+                registry.emplace<components::Position>(entity, worldPosition);
+                registry.emplace<components::TileTag>(entity);
+
                 float noise = fbm2D(glm::vec2(worldPosition.x, worldPosition.z) * 0.005f, 12, 1.7, 0.6);
 
                 noise = (noise + 1.0f) * 0.5f;
@@ -105,8 +110,6 @@ void engine::generateChunk(engine::Chunk& chunk, engine::Engine& engine) {
                     rand += noise * 0.7f;
                 }
 
-                data.order = (chunkExtent.y - worldPosition.y) * (chunkExtent.x + chunkExtent.z - 1) + worldPosition.x + worldPosition.z;
-
                 instance.transform.scale = {1.0f, 1.0f};
                 instance.transform.position = worldToScreenSpace(worldPosition);
 
@@ -119,6 +122,16 @@ void engine::generateChunk(engine::Chunk& chunk, engine::Engine& engine) {
                 chunk.tiles.push_back(entity);
             }
         }
+    }
+
+    auto view = registry.view<components::TileProxy, components::Position, components::TileTag>();
+
+    auto worldSizeTiles = worldGenerator.getWorldSize() * worldGenerator.getChunkSize();
+
+    for (auto [entity, proxy, position] : view.each()) {
+        auto& data = tilePool.getData(proxy);
+
+        data.order = (worldSizeTiles.y - position.position.y) * (worldSizeTiles.x + worldSizeTiles.z - 1) + position.position.x + position.position.z;
     }
 }
 

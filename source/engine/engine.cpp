@@ -63,6 +63,18 @@ void engine::Engine::manageEvents() {
 }
 
 void engine::Engine::run() {
+    vulkanite::window::WindowCreateInfo windowCreateInfo = {
+        .subsystem = subsystem_,
+        .visibility = vulkanite::window::Visibility::WINDOWED,
+        .extent = {1280, 720},
+        .title = "Game",
+        .resizable = true,
+    };
+
+    subsystem_.create();
+    window_.create(windowCreateInfo);
+    renderer_.create(window_);
+
     stagingManager_.allocate(renderer_.getImageCounter().count, 16 * 1024 * 1024);
 
     start();
@@ -107,20 +119,8 @@ void engine::Engine::start() {
         std::swap(albedoImageData[i * tilemapChannels + 0], albedoImageData[i * tilemapChannels + 2]);
     }
 
-    vulkanite::window::WindowCreateInfo windowCreateInfo = {
-        .subsystem = subsystem_,
-        .visibility = vulkanite::window::Visibility::WINDOWED,
-        .extent = {1280, 720},
-        .title = "Game",
-        .resizable = true,
-    };
-
-    subsystem_.create();
-    window_.create(windowCreateInfo);
-    renderer_.create(window_);
     worldTileMesh_.create(*this);
     entityTileMesh_.create(*this);
-    stagingManager_.allocate(renderer_.getFrameCounter().count, 64 * 1024 * 1024);
 
     auto& device = renderer_.getDevice();
     auto& transferQueue = renderer_.getTransferQueue();
