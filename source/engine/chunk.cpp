@@ -5,8 +5,6 @@
 #include <components/tags.hpp>
 #include <components/transforms.hpp>
 
-#include <random>
-
 #include <glm/gtc/noise.hpp>
 
 glm::vec2 engine::worldToScreenSpace(glm::vec3 position) {
@@ -44,7 +42,39 @@ glm::vec3 engine::screenToWorldSpace(glm::vec2 screen, float y) {
     return {x, y, z};
 }
 
-void engine::generateChunk(engine::Chunk& chunk, engine::Engine& engine) {
+void engine::determineChunkTiles(engine::ChunkOccupationMap& occupationMap, engine::Engine& engine) {
+    auto& worldGenerator = engine.getWorldGenerator();
+
+    auto chunkExtent = worldGenerator.getChunkSize();
+
+    for (std::int64_t x = 0; x < chunkExtent.x; x++) {
+        for (std::int64_t z = 0; z < chunkExtent.z; z++) {
+            glm::vec2 worldPosition = glm::vec2(occupationMap.position.x, occupationMap.position.z) + glm::vec2{x, z};
+
+            float noise = glm::simplex(worldPosition * 0.02f);
+
+            noise = (noise * 0.5f) + 0.5f;
+
+            float height = (worldGenerator.getWorldSize().y + chunkExtent.y) * noise;
+
+            for (std::int64_t y = 0; y < chunkExtent.y; y++) {
+                std::int64_t worldY = y + occupationMap.position.y;
+
+                if (worldY < static_cast<std::int32_t>(height - 1)) {
+                    occupationMap.entries[x][y][z] = 2;
+                }
+                else if (worldY < static_cast<std::int32_t>(height)) {
+                    occupationMap.entries[x][y][z] = 1;
+                }
+                else {
+                    occupationMap.entries[x][y][z] = 0;
+                }
+            }
+        }
+    }
+}
+
+void engine::generateChunk(engine::Chunk& chunk, engine::ChunkOccupationMap& occupationMap, engine::Engine& engine) {
     auto& registry = engine.getRegistry();
     auto& tilePool = engine.getEntityTilePool();
     auto& worldGenerator = engine.getWorldGenerator();
@@ -53,76 +83,46 @@ void engine::generateChunk(engine::Chunk& chunk, engine::Engine& engine) {
 
     chunk.tiles.reserve(static_cast<std::size_t>(chunkExtent.x * chunkExtent.y * chunkExtent.z));
 
-    auto fbm2D = [](glm::vec2 p, int octaves = 4, float lacunarity = 2.0f, float gain = 0.5f) {
-        float value = 0.0f;
-        float amplitude = 1.0f;
-        float frequency = 1.0f;
-
-        for (int i = 0; i < octaves; ++i) {
-            value += glm::simplex(p * frequency) * amplitude;
-            frequency *= lacunarity;
-            amplitude *= gain;
-        }
-
-        return value;
-    };
-
-    static std::random_device randomDevice;
-    static std::mt19937 generator(randomDevice());
-
-    auto randomRange = [](float min, float max) {
-        std::uniform_real_distribution<float> distribution(min, max);
-
-        return distribution(generator);
-    };
+    auto tilesAvailable = worldGenerator.getAvailableTiles();
 
     for (std::int64_t y = 0; y < chunkExtent.y; y++) {
         for (std::int64_t x = 0; x < chunkExtent.x; x++) {
             for (std::int64_t z = 0; z < chunkExtent.z; z++) {
-                auto entity = registry.create();
 
-                auto& proxy = registry.emplace<components::TileProxy>(entity, tilePool.insert({}, 0));
-                auto& instance = tilePool.getInstance(proxy);
-                auto& data = tilePool.getData(proxy);
+                auto& tileIndex = occupationMap.entries[x][y][z];
+                auto& tileInfo = tilesAvailable[tileIndex];
+                if (tileInfo.visible) {
+                    glm::ivec3 worldPosition = chunk.position + glm::ivec3{x, y, z};
 
-                glm::ivec3 worldPosition = chunk.position + glm::ivec3{x, y, z};
+                    auto entity = registry.create();
 
-                registry.emplace<components::Position>(entity, worldPosition);
-                registry.emplace<components::TileTag>(entity);
+                    auto& proxy = registry.emplace<components::TileProxy>(entity, tilePool.insert({}, 0));
+                    auto& instance = tilePool.getInstance(proxy);
+                    auto& data = tilePool.getData(proxy);
 
-                float noise = fbm2D(glm::vec2(worldPosition.x, worldPosition.z) * 0.005f, 12, 1.7, 0.6);
+                    registry.emplace<components::Position>(entity, worldPosition);
+                    registry.emplace<components::TileTag>(entity);
 
-                noise = (noise + 1.0f) * 0.5f;
+                    instance.transform.scale = {1.0f, 1.0f};
+                    instance.transform.position = worldToScreenSpace(worldPosition);
 
-                float value;
+                    instance.appearance.texture.offset = {0.0, 0.0};
+                    instance.appearance.texture.repeat = {1.0, 1.0};
+                    instance.appearance.texture.sample.extent = tileInfo.textureScale;
+                    instance.appearance.texture.sample.position = tileInfo.textureOffset;
+                    instance.appearance.colourFactor = {1.0, 1.0, 1.0, 1.0};
 
-                float rand = randomRange(0.9, 1.0);
-
-                if (noise > 0.4f) {
-                    value = 0.0f;
-                    rand -= noise * 0.3f;
+                    chunk.tiles.push_back(entity);
                 }
-                else if (noise > 0.3f) {
-                    value = 0.4f;
-                }
-                else {
-                    value = 0.5f;
-                    rand += noise * 0.7f;
-                }
-
-                instance.transform.scale = {1.0f, 1.0f};
-                instance.transform.position = worldToScreenSpace(worldPosition);
-
-                instance.appearance.texture.offset = {0.0, 0.0};
-                instance.appearance.texture.repeat = {1.0, 1.0};
-                instance.appearance.texture.sample.extent = {0.1, 0.1};
-                instance.appearance.texture.sample.position = {value, 0.0};
-                instance.appearance.colourFactor = {rand, rand, rand, 1.0};
-
-                chunk.tiles.push_back(entity);
             }
         }
     }
+}
+
+void engine::sortTiles(engine::Engine& engine) {
+    auto& registry = engine.getRegistry();
+    auto& tilePool = engine.getEntityTilePool();
+    auto& worldGenerator = engine.getWorldGenerator();
 
     auto view = registry.view<components::TileProxy, components::Position, components::TileTag>();
 

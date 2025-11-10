@@ -6,7 +6,7 @@
 
 namespace std {
     template <>
-    struct hash<glm::vec3> {
+    struct hash<glm::ivec3> {
         std::size_t operator()(const glm::ivec3& v) const noexcept {
             std::size_t h1 = std::hash<int>()(v.x);
             std::size_t h2 = std::hash<int>()(v.y);
@@ -23,6 +23,20 @@ namespace std {
 namespace engine {
     class Engine;
 
+    class WorldNoiseSystem {
+    public:
+        float sample(const glm::vec3& position);
+
+    private:
+    };
+
+    struct Tile {
+        glm::vec2 textureOffset = {0.0, 0.0};
+        glm::vec2 textureScale = {0.1, 0.1};
+
+        bool visible = false;
+    };
+
     class WorldGenerator {
     public:
         WorldGenerator(Engine& engine);
@@ -38,14 +52,21 @@ namespace engine {
             return chunkSize_;
         }
 
+        std::span<Tile> getAvailableTiles() {
+            return availableTiles_;
+        }
+
         void generate();
 
     private:
-        std::unordered_map<glm::vec3, Chunk> loadedChunks_;
+        std::unordered_map<glm::ivec3, Chunk> loadedChunks_;
+        std::unordered_map<glm::ivec3, ChunkOccupationMap> loadedChunkOccupations_;
+
+        std::array<Tile, 256> availableTiles_;
 
         Engine& engine_;
 
         glm::ivec3 worldSize_;
-        glm::ivec3 chunkSize_;
+        glm::uvec3 chunkSize_;
     };
 }

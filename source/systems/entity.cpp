@@ -31,12 +31,6 @@ void systems::entities::sortEntities(engine::Engine& engine) {
     auto& worldGenerator = engine.getWorldGenerator();
     auto worldSize = worldGenerator.getWorldSize();
     auto view = registry.view<TileProxy, Position, EntityTag>();
-
-    for (auto [entity, proxy, position] : view.each()) {
-        auto& data = tilePool.getData(proxy);
-
-        data.order = static_cast<std::int64_t>((static_cast<float>(worldSize.y) - position.position.y) * static_cast<float>(worldSize.x + worldSize.z - 1) + position.position.x + position.position.z) - 100;
-    }
 }
 
 void systems::entities::updateControllers(engine::Engine& engine) {

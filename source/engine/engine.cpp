@@ -455,9 +455,8 @@ void engine::Engine::start() {
 
     ::systems::cameras::calculateCameraData(*this);
 
-    worldGenerator_.setWorldSize({64, 1, 64});
-    worldGenerator_.setChunkSize({8, 1, 8});
-    worldGenerator_.generate();
+    worldGenerator_.setWorldSize({32, 2, 32});
+    worldGenerator_.setChunkSize({8, 8, 8});
 
     entityTilePool_.sortByDepth();
     entityTileMesh_.createInstanceBuffer(32 * 1024 * 1024);
@@ -552,9 +551,11 @@ void engine::Engine::runPreTransferSystems() {
     ::systems::entities::updateControllers(*this);
 
     ::systems::integrateMovements(*this);
-    ::systems::entities::sortEntities(*this);
 
     worldGenerator_.generate();
+
+    sortTiles(*this);
+
     entityTilePool_.sortByDepth();
 
     ::systems::cameras::animateCameraPositions(*this);
